@@ -41,7 +41,7 @@ function AtlasLeafletMap({ countries, selectedCountryId, onSelectCountry }) {
   const [geojsonData, setGeojsonData] = useState(null);
 
   useEffect(() => {
-    fetch("/data/europe.geojson")
+    fetch(`${import.meta.env.BASE_URL}data/europe.geojson`)
       .then((res) => res.json())
       .then((data) => setGeojsonData(data))
       .catch((err) => console.error("GeoJSON fetch error:", err));
