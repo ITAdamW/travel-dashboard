@@ -310,6 +310,11 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
       : activePlace
       ? [activePlace.image || fallbackImage]
       : [];
+  const placeVideos = activePlace?.videos?.length
+    ? activePlace.videos
+    : activePlace?.video
+    ? [activePlace.video]
+    : [];
 
   const [galleryStart, setGalleryStart] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -443,6 +448,24 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
                             </button>
                           );
                         })}
+                      </div>
+                    </div>
+                  )}
+
+                  {placeVideos.length > 0 && (
+                    <div className="mt-5 rounded-[1.25rem] border border-[#E8DFD2] bg-white p-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
+                        Video
+                      </p>
+                      <div className="mt-3 space-y-3">
+                        {placeVideos.map((videoUrl, index) => (
+                          <video
+                            key={`${videoUrl}-${index}`}
+                            src={videoUrl}
+                            controls
+                            className="aspect-video w-full rounded-xl bg-black"
+                          />
+                        ))}
                       </div>
                     </div>
                   )}

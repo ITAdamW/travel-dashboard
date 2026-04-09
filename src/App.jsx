@@ -3,8 +3,10 @@ import AtlasPanel from "./components/AtlasPanel";
 import StoryPanel from "./components/StoryPanel";
 import PlannerPanel from "./components/PlannerPanel";
 import LoginPanel from "./components/LoginPanel";
+import MediaPanel from "./components/MediaPanel";
 import { countries } from "./data/travelData";
 import { supabase } from "./lib/supabase";
+import { hydrateCountriesWithStorage } from "./lib/storageMedia";
 
 function navButtonClass(active) {
   return [
@@ -36,6 +38,8 @@ export default function App() {
   const [selectedDestinationId, setSelectedDestinationId] = useState("prague");
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [travelCountries, setTravelCountries] = useState(countries);
+  const [mediaLoading, setMediaLoading] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -65,9 +69,24 @@ export default function App() {
     };
   }, []);
 
+  const refreshStorageMedia = async () => {
+    setMediaLoading(true);
+    try {
+      const nextCountries = await hydrateCountriesWithStorage(countries);
+      setTravelCountries(nextCountries);
+    } finally {
+      setMediaLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!session) return;
+    refreshStorageMedia();
+  }, [session]);
+
   const selectedCountry = useMemo(
-    () => countries.find((c) => c.id === selectedCountryId) || countries[0],
-    [selectedCountryId]
+    () => travelCountries.find((c) => c.id === selectedCountryId) || travelCountries[0],
+    [selectedCountryId, travelCountries]
   );
 
   const selectedDestination =
@@ -110,7 +129,7 @@ export default function App() {
         </div>
 
         <div className="mb-5 rounded-[1.4rem] border border-[#E7DED2] bg-[linear-gradient(180deg,#FCFAF6_0%,#F6F0E5_100%)] p-1.5 shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-2 gap-1.5 md:grid-cols-4">
             <button
               onClick={() => setActivePanel("atlas")}
               className={navButtonClass(activePanel === "atlas")}
@@ -149,18 +168,37 @@ export default function App() {
                 <p className="text-sm font-medium">Planner</p>
               </div>
             </button>
+
+            <button
+              onClick={() => setActivePanel("media")}
+              className={navButtonClass(activePanel === "media")}
+            >
+              <NavBadge active={activePanel === "media"}>4</NavBadge>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
+                  Panel 4
+                </p>
+                <p className="text-sm font-medium">Media</p>
+              </div>
+            </button>
           </div>
         </div>
 
+        {mediaLoading && (
+          <div className="mb-5 rounded-[1.2rem] border border-[#E7DED2] bg-white/80 px-4 py-3 text-sm text-[#6B6255] shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
+            Synchronizuję zdjęcia i filmy z Supabase Storage...
+          </div>
+        )}
+
         {activePanel === "atlas" && (
           <AtlasPanel
-            countries={countries}
+            countries={travelCountries}
             selectedCountry={selectedCountry}
             selectedDestinationId={selectedDestinationId}
             onSelectCountry={(countryId) => {
               setSelectedCountryId(countryId);
               const nextCountry =
-                countries.find((item) => item.id === countryId) || countries[0];
+                travelCountries.find((item) => item.id === countryId) || travelCountries[0];
               setSelectedDestinationId(nextCountry.destinations[0]?.id || "");
             }}
             onSelectDestination={setSelectedDestinationId}
@@ -177,6 +215,10 @@ export default function App() {
 
         {activePanel === "planner" && (
           <PlannerPanel country={selectedCountry} />
+        )}
+
+        {activePanel === "media" && (
+          <MediaPanel countries={travelCountries} onMediaChanged={refreshStorageMedia} />
         )}
       </div>
     </div>

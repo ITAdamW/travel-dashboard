@@ -25,6 +25,8 @@ function createPlace(id, name, category, coordinates, note, extra = {}) {
     image: primaryImage,
     gallery:
       extra.gallery || [primaryImage, primaryImage, primaryImage, primaryImage, primaryImage],
+    video: extra.video || null,
+    videos: extra.videos || [],
     rating: extra.rating ?? 4.6,
     info: extra.info || "Najlepiej odwiedzić rano lub pod wieczór.",
     ticket: extra.ticket || "Brak informacji",
