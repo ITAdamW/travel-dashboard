@@ -153,15 +153,6 @@ function PopupCard({ place, onClose }) {
 }
 
 function DestinationMiniMap({ destination, activePlaceId, onSelectPlace }) {
-  const [popupOpen, setPopupOpen] = useState(true);
-  const activePlace =
-    destination.places.find((place) => place.id === activePlaceId) ||
-    destination.places[0];
-
-  useEffect(() => {
-    setPopupOpen(true);
-  }, [activePlaceId, destination.id]);
-
   return (
     <div className="rounded-[2rem] border border-[#E6DED1] bg-white p-5 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -221,7 +212,6 @@ function DestinationMiniMap({ destination, activePlaceId, onSelectPlace }) {
                   eventHandlers={{
                     click: () => {
                       onSelectPlace(place.id);
-                      setPopupOpen(true);
                     },
                   }}
                 >
@@ -252,7 +242,6 @@ function DestinationMiniMap({ destination, activePlaceId, onSelectPlace }) {
         </div>
 
         <MiniWorldLocator destination={destination} />
-        <PopupCard place={popupOpen ? activePlace : null} onClose={() => setPopupOpen(false)} />
       </div>
     </div>
   );

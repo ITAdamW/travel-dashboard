@@ -139,3 +139,8 @@ select,
 textarea {
   font: inherit;
 }
+
+.leaflet-container .leaflet-interactive:focus,
+.leaflet-container .leaflet-interactive:focus-visible {
+  outline: none;
+}

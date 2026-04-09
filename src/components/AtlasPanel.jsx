@@ -181,7 +181,7 @@ function PlacesListByDestination({
   };
 
   return (
-    <div className="flex-1 overflow-hidden rounded-[1.6rem] border border-[#E8DFD3] bg-[linear-gradient(180deg,#FBF8F2_0%,#F7F1E7_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-[#E8DFD3] bg-[linear-gradient(180deg,#FBF8F2_0%,#F7F1E7_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-[0.28em] text-[#8A7F6C]">
@@ -196,7 +196,7 @@ function PlacesListByDestination({
         </span>
       </div>
 
-      <div className="h-[410px] space-y-4 overflow-y-auto pr-1">
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1">
         {destinations.map((destination) => {
           const isSelected = destination.id === selectedDestinationId;
           const isOpen = openIds.includes(destination.id);
@@ -262,7 +262,7 @@ export default function AtlasPanel({
   onOpenPlace,
 }) {
   return (
-    <section className="grid min-h-[calc(100vh-7rem)] grid-cols-1 gap-4 overflow-hidden rounded-[2.2rem] border border-[#E6DED1] bg-[linear-gradient(180deg,#FBF8F2_0%,#F6F1E7_100%)] p-4 shadow-[0_22px_80px_rgba(34,31,25,0.06)] md:grid-cols-[1.45fr_0.82fr] md:p-6">
+    <section className="grid grid-cols-1 gap-4 overflow-hidden rounded-[2.2rem] border border-[#E6DED1] bg-[linear-gradient(180deg,#FBF8F2_0%,#F6F1E7_100%)] p-4 shadow-[0_22px_80px_rgba(34,31,25,0.06)] md:h-[calc(100vh-7rem)] md:max-h-[calc(100vh-7rem)] md:grid-cols-[1.45fr_0.82fr] md:p-6">
       <div className="relative rounded-[2rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,_rgba(107,122,82,0.12),_transparent_28%),linear-gradient(180deg,_#F7F3EC_0%,_#F2ECE2_100%)] p-4 md:p-6">
         <div className="mb-5">
           <p className="mb-2 text-xs uppercase tracking-[0.35em] text-[#8A7F6C]">
@@ -339,7 +339,7 @@ export default function AtlasPanel({
         </div>
       </div>
 
-      <aside className="flex h-full flex-col rounded-[2rem] border border-[#E8E0D3] bg-white/76 p-4 backdrop-blur shadow-[0_14px_40px_rgba(34,31,25,0.03)] md:p-6">
+      <aside className="flex min-h-0 flex-col overflow-hidden rounded-[2rem] border border-[#E8E0D3] bg-white/76 p-4 backdrop-blur shadow-[0_14px_40px_rgba(34,31,25,0.03)] md:h-full md:p-6">
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
             <p className="text-[10px] uppercase tracking-[0.32em] text-[#8A7F6C]">
