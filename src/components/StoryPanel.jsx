@@ -88,36 +88,6 @@ function FitBounds({ points }) {
   return null;
 }
 
-function MiniWorldLocator({ destination }) {
-  const lat =
-    destination.places.reduce((sum, p) => sum + p.coordinates[0], 0) /
-    destination.places.length;
-  const lng =
-    destination.places.reduce((sum, p) => sum + p.coordinates[1], 0) /
-    destination.places.length;
-
-  const left = Math.min(Math.max(((lng + 180) / 360) * 100, 8), 92);
-  const top = Math.min(Math.max(((90 - lat) / 180) * 100, 8), 92);
-
-  return (
-    <div className="absolute bottom-4 right-4 z-[600] w-36 overflow-hidden rounded-2xl border border-[#D9CFBF] bg-white/90 p-3 shadow-[0_8px_20px_rgba(34,31,25,0.08)] backdrop-blur">
-      <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">
-        World position
-      </p>
-      <div className="relative mt-2 h-20 rounded-xl bg-[linear-gradient(180deg,#EDE7DB_0%,#E5DED1_100%)]">
-        <div className="absolute left-[8%] top-[20%] h-5 w-8 rounded-full bg-[#D3CAB9] opacity-80" />
-        <div className="absolute left-[42%] top-[18%] h-6 w-10 rounded-full bg-[#D3CAB9] opacity-80" />
-        <div className="absolute left-[67%] top-[38%] h-5 w-8 rounded-full bg-[#D3CAB9] opacity-80" />
-        <div className="absolute left-[30%] top-[56%] h-6 w-14 rounded-full bg-[#D3CAB9] opacity-80" />
-        <span
-          className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#6B7A52] shadow"
-          style={{ left: `${left}%`, top: `${top}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
 function PopupCard({ place, onClose }) {
   if (!place) return null;
 
@@ -154,7 +124,7 @@ function PopupCard({ place, onClose }) {
 
 function DestinationMiniMap({ destination, activePlaceId, onSelectPlace }) {
   return (
-    <div className="rounded-[2rem] border border-[#E6DED1] bg-white p-5 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
+    <div className="theme-story-card rounded-[2rem] border border-[#E6DED1] bg-white p-5 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.3em] text-[#8A7F6C]">
@@ -172,7 +142,7 @@ function DestinationMiniMap({ destination, activePlaceId, onSelectPlace }) {
             return (
               <span
                 key={key}
-                className="inline-flex items-center gap-1 rounded-full border border-[#E5DCCF] bg-[#FBF8F2] px-2.5 py-1.5"
+                className="theme-story-chip inline-flex items-center gap-1 rounded-full border border-[#E5DCCF] bg-[#FBF8F2] px-2.5 py-1.5"
               >
                 <Icon className="h-3.5 w-3.5 text-[#6B7A52]" />
                 {meta.label}
@@ -240,8 +210,6 @@ function DestinationMiniMap({ destination, activePlaceId, onSelectPlace }) {
             })}
           </MapContainer>
         </div>
-
-        <MiniWorldLocator destination={destination} />
       </div>
     </div>
   );
@@ -267,7 +235,7 @@ function DestinationInfo({ destination }) {
   const stats = countByCategory(destination.places);
 
   return (
-    <div className="rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
+    <div className="theme-story-card rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
       <p className="text-xs uppercase tracking-[0.3em] text-[#8A7F6C]">
         Destination details
       </p>
@@ -277,7 +245,7 @@ function DestinationInfo({ destination }) {
       </p>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <div className="rounded-2xl border border-[#EEE6DA] bg-[#FBF8F2] p-4">
+        <div className="theme-story-chip rounded-2xl border border-[#EEE6DA] bg-[#FBF8F2] p-4">
           <p className="text-sm text-[#8A7F6C]">Łącznie miejscówek</p>
           <p className="mt-1 text-2xl font-semibold">{destination.places.length}</p>
         </div>
@@ -287,7 +255,7 @@ function DestinationInfo({ destination }) {
           .map((item) => (
             <div
               key={item.key}
-              className="rounded-2xl border border-[#EEE6DA] bg-[#FBF8F2] p-4"
+              className="theme-story-chip rounded-2xl border border-[#EEE6DA] bg-[#FBF8F2] p-4"
             >
               <p className="text-sm text-[#8A7F6C]">{item.label}</p>
               <p className="mt-1 text-2xl font-semibold">{item.count}</p>
@@ -329,7 +297,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
   const visibleThumbs = galleryImages.slice(galleryStart, galleryStart + 4);
 
   return (
-    <div className="rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
+    <div className="theme-story-card rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
       <div className="mb-5">
         <p className="text-xs uppercase tracking-[0.3em] text-[#8A7F6C]">
           Narrative cards & video
@@ -351,7 +319,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-[1.75rem] border border-[#EEE6DA] bg-[#FBF8F2]">
+      <div className="theme-story-card overflow-hidden rounded-[1.75rem] border border-[#EEE6DA] bg-[#FBF8F2]">
         <div className="grid min-h-[430px] md:grid-cols-[1.05fr_0.95fr]">
           <div className="relative min-h-[280px] md:min-h-[430px]">
             {currentSlide.type === "video" ? (
@@ -399,7 +367,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
               ) : (
                 <>
                   {galleryImages.length > 0 && (
-                    <div className="mt-5 rounded-[1.25rem] border border-[#E8DFD2] bg-white p-3">
+                    <div className="theme-story-card mt-5 rounded-[1.25rem] border border-[#E8DFD2] bg-white p-3">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
                           Gallery
@@ -408,7 +376,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => setGalleryStart((prev) => Math.max(prev - 1, 0))}
-                            className="rounded-full border border-[#E4DBCD] bg-[#FBF8F2] p-1.5 text-[#3A352E]"
+                            className="theme-story-nav rounded-full border border-[#E4DBCD] bg-[#FBF8F2] p-1.5 text-[#3A352E]"
                             disabled={galleryStart === 0}
                           >
                             <ChevronLeft className="h-4 w-4" />
@@ -420,7 +388,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
                                 Math.min(prev + 1, Math.max(galleryImages.length - 4, 0))
                               )
                             }
-                            className="rounded-full border border-[#E4DBCD] bg-[#FBF8F2] p-1.5 text-[#3A352E]"
+                            className="theme-story-nav rounded-full border border-[#E4DBCD] bg-[#FBF8F2] p-1.5 text-[#3A352E]"
                             disabled={galleryStart >= Math.max(galleryImages.length - 4, 0)}
                           >
                             <ChevronRight className="h-4 w-4" />
@@ -453,7 +421,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
                   )}
 
                   {placeVideos.length > 0 && (
-                    <div className="mt-5 rounded-[1.25rem] border border-[#E8DFD2] bg-white p-3">
+                    <div className="theme-story-card mt-5 rounded-[1.25rem] border border-[#E8DFD2] bg-white p-3">
                       <p className="text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
                         Video
                       </p>
@@ -479,7 +447,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
                   </p>
 
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-[#E8DFD2] bg-white px-4 py-3">
+                    <div className="theme-story-chip rounded-2xl border border-[#E8DFD2] bg-white px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
                         Info
                       </p>
@@ -488,7 +456,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-[#E8DFD2] bg-white px-4 py-3">
+                    <div className="theme-story-chip rounded-2xl border border-[#E8DFD2] bg-white px-4 py-3">
                       <p className="text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
                         Bilet / rezerwacja
                       </p>
@@ -506,13 +474,13 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
               <div className="flex items-center gap-2">
                 <button
                   onClick={onPrev}
-                  className="rounded-full border border-[#E4DBCD] bg-[#FBF8F2] p-2 text-[#3A352E] transition hover:bg-[#F2ECE2]"
+                  className="theme-story-nav rounded-full border border-[#E4DBCD] bg-[#FBF8F2] p-2 text-[#3A352E] transition hover:bg-[#F2ECE2]"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 <button
                   onClick={onNext}
-                  className="rounded-full border border-[#E4DBCD] bg-[#FBF8F2] p-2 text-[#3A352E] transition hover:bg-[#F2ECE2]"
+                  className="theme-story-nav rounded-full border border-[#E4DBCD] bg-[#FBF8F2] p-2 text-[#3A352E] transition hover:bg-[#F2ECE2]"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -589,7 +557,7 @@ export default function StoryPanel({ destination }) {
   };
 
   return (
-    <section className="grid gap-5">
+    <section className="theme-story-shell grid gap-5">
       <DestinationMiniMap
         destination={destination}
         activePlaceId={activePlaceId}

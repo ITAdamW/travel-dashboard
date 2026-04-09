@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Moon, Sun } from "lucide-react";
 import AtlasPanel from "./components/AtlasPanel";
 import StoryPanel from "./components/StoryPanel";
 import PlannerPanel from "./components/PlannerPanel";
@@ -10,9 +11,11 @@ import { supabase } from "./lib/supabase";
 import { hydrateCountriesWithStorage } from "./lib/storageMedia";
 import { fetchTravelCountriesFromDb, seedTravelData } from "./lib/supabaseTravelData";
 
+const THEME_STORAGE_KEY = "travel-dashboard-theme";
+
 function navButtonClass(active) {
   return [
-    "group relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200",
+    "theme-nav-button group relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200",
     active
       ? "border-[#D8CCBB] bg-white shadow-[0_10px_24px_rgba(36,32,26,0.07)]"
       : "border-transparent bg-[#F8F4EC] hover:border-[#E7DDD0] hover:bg-white/80",
@@ -25,8 +28,8 @@ function NavBadge({ children, active }) {
       className={[
         "inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-medium transition",
         active
-          ? "border-[#D8CCBB] bg-[#F6F1E8] text-[#5F6D45]"
-          : "border-[#E7DDD0] bg-white text-[#8B806F]",
+          ? "theme-nav-badge-active border-[#D8CCBB] bg-[#F6F1E8] text-[#5F6D45]"
+          : "theme-nav-badge border-[#E7DDD0] bg-white text-[#8B806F]",
       ].join(" ")}
     >
       {children}
@@ -36,6 +39,10 @@ function NavBadge({ children, active }) {
 
 export default function App() {
   const [activePanel, setActivePanel] = useState("atlas");
+  const [theme, setTheme] = useState(() => {
+    if (typeof window === "undefined") return "light";
+    return window.localStorage.getItem(THEME_STORAGE_KEY) || "light";
+  });
   const [selectedCountryId, setSelectedCountryId] = useState("cz");
   const [selectedDestinationId, setSelectedDestinationId] = useState("prague");
   const [session, setSession] = useState(null);
@@ -46,6 +53,11 @@ export default function App() {
   const [dataLoading, setDataLoading] = useState(false);
   const [databaseEmpty, setDatabaseEmpty] = useState(false);
   const [dataStatus, setDataStatus] = useState("");
+
+  useEffect(() => {
+    document.body.dataset.theme = theme;
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   useEffect(() => {
     let mounted = true;
@@ -173,7 +185,7 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#F7F3EC_0%,#F2ECE3_100%)] px-4">
+      <div className="app-shell flex min-h-screen items-center justify-center px-4">
         <div className="rounded-[1.6rem] border border-[#E6DED1] bg-white/90 px-6 py-5 text-sm text-[#5E564B] shadow-[0_22px_80px_rgba(34,31,25,0.06)]">
           Sprawdzam sesję użytkownika...
         </div>
@@ -182,13 +194,18 @@ export default function App() {
   }
 
   if (!session) {
-    return <LoginPanel />;
+    return (
+      <LoginPanel
+        theme={theme}
+        onToggleTheme={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))}
+      />
+    );
   }
 
   const userEmail = session.user?.email || "Zalogowany użytkownik";
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#F7F3EC_0%,#F2ECE3_100%)] text-[#1F1D1A]">
+    <div className="app-shell min-h-screen text-[#1F1D1A]">
       <div className="mx-auto max-w-7xl px-4 py-5 md:px-6 md:py-6">
         <div className="mb-5 flex flex-col gap-3 rounded-[1.4rem] border border-[#E7DED2] bg-[linear-gradient(180deg,#FCFAF6_0%,#F6F0E5_100%)] p-4 shadow-[0_10px_24px_rgba(36,32,26,0.04)] md:flex-row md:items-center md:justify-between">
           <div>
@@ -198,12 +215,23 @@ export default function App() {
             <p className="mt-2 text-sm font-medium text-[#1F1D1A]">{userEmail}</p>
           </div>
 
-          <button
-            onClick={() => supabase?.auth.signOut()}
-            className="inline-flex items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
-          >
-            Wyloguj
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))}
+              aria-label={theme === "light" ? "Wlacz tryb ciemny" : "Wlacz tryb jasny"}
+              title={theme === "light" ? "Wlacz tryb ciemny" : "Wlacz tryb jasny"}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+            >
+              {theme === "light" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+
+            <button
+              onClick={() => supabase?.auth.signOut()}
+              className="inline-flex items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+            >
+              Wyloguj
+            </button>
+          </div>
         </div>
 
         <div className="mb-5 rounded-[1.4rem] border border-[#E7DED2] bg-[linear-gradient(180deg,#FCFAF6_0%,#F6F0E5_100%)] p-1.5 shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
@@ -317,7 +345,12 @@ export default function App() {
         )}
 
         {activePanel === "planner" && (
-          <PlannerPanel country={selectedCountry} />
+          <PlannerPanel
+            countries={travelCountries}
+            initialCountryId={selectedCountryId}
+            initialDestinationId={selectedDestinationId}
+            onPlannerSaved={loadTravelData}
+          />
         )}
 
         {activePanel === "media" && (

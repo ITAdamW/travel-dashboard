@@ -48,9 +48,22 @@ create table if not exists public.places (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.planner_plans (
+  id text primary key,
+  destination_id text not null references public.destinations(id) on delete cascade,
+  name text not null,
+  days_count integer not null default 1,
+  itinerary jsonb not null default '[]'::jsonb,
+  notes text not null default '',
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 alter table public.countries enable row level security;
 alter table public.destinations enable row level security;
 alter table public.places enable row level security;
+alter table public.planner_plans enable row level security;
 
 drop policy if exists "authenticated can select countries" on public.countries;
 drop policy if exists "authenticated can insert countries" on public.countries;
@@ -138,6 +151,36 @@ with check (true);
 
 create policy "authenticated can delete places"
 on public.places
+for delete
+to authenticated
+using (true);
+
+drop policy if exists "authenticated can select planner_plans" on public.planner_plans;
+drop policy if exists "authenticated can insert planner_plans" on public.planner_plans;
+drop policy if exists "authenticated can update planner_plans" on public.planner_plans;
+drop policy if exists "authenticated can delete planner_plans" on public.planner_plans;
+
+create policy "authenticated can select planner_plans"
+on public.planner_plans
+for select
+to authenticated
+using (true);
+
+create policy "authenticated can insert planner_plans"
+on public.planner_plans
+for insert
+to authenticated
+with check (true);
+
+create policy "authenticated can update planner_plans"
+on public.planner_plans
+for update
+to authenticated
+using (true)
+with check (true);
+
+create policy "authenticated can delete planner_plans"
+on public.planner_plans
 for delete
 to authenticated
 using (true);

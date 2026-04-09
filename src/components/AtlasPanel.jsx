@@ -117,6 +117,7 @@ function AtlasLeafletMap({ countries, selectedCountryId, onSelectCountry }) {
 
   return (
     <div
+      className="theme-atlas-map"
       style={{
         position: "relative",
         width: "100%",
@@ -158,7 +159,7 @@ function PlaceRow({ place, onOpen }) {
   return (
     <button
       onClick={onOpen}
-      className="w-full rounded-[1.2rem] border border-[#EAE1D5] bg-white px-4 py-4 text-left transition duration-200 hover:border-[#DCCFBD] hover:bg-[#FCFAF6] hover:shadow-[0_8px_18px_rgba(34,31,25,0.04)]"
+      className="theme-panel-card w-full rounded-[1.2rem] border border-[#EAE1D5] bg-white px-4 py-4 text-left transition duration-200 hover:border-[#DCCFBD] hover:bg-[#FCFAF6] hover:shadow-[0_8px_18px_rgba(34,31,25,0.04)]"
     >
       <p className="font-medium text-[#1F1D1A]">{place.name}</p>
       <p className="mt-2 text-sm leading-6 text-[#5B544A]">{place.note}</p>
@@ -181,7 +182,7 @@ function PlacesListByDestination({
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-[#E8DFD3] bg-[linear-gradient(180deg,#FBF8F2_0%,#F7F1E7_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
+    <div className="theme-panel-soft flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-[#E8DFD3] bg-[linear-gradient(180deg,#FBF8F2_0%,#F7F1E7_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-[0.28em] text-[#8A7F6C]">
@@ -191,12 +192,12 @@ function PlacesListByDestination({
             Places worth visiting
           </h3>
         </div>
-        <span className="rounded-full border border-[#E2D7C8] bg-white px-3 py-1 text-xs text-[#7E7464]">
+        <span className="theme-chip rounded-full border border-[#E2D7C8] bg-white px-3 py-1 text-xs text-[#7E7464]">
           Open in Panel 2
         </span>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1">
+      <div className="atlas-scroll min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1">
         {destinations.map((destination) => {
           const isSelected = destination.id === selectedDestinationId;
           const isOpen = openIds.includes(destination.id);
@@ -204,7 +205,7 @@ function PlacesListByDestination({
           return (
             <div
               key={destination.id}
-              className="rounded-[1.45rem] border border-[#E7DED2] bg-white p-4 shadow-[0_4px_14px_rgba(34,31,25,0.025)]"
+              className="theme-panel-card rounded-[1.45rem] border border-[#E7DED2] bg-white p-4 shadow-[0_4px_14px_rgba(34,31,25,0.025)]"
             >
               <button
                 onClick={() => {
@@ -214,8 +215,8 @@ function PlacesListByDestination({
                 className={cn(
                   "mb-3 flex w-full items-center justify-between rounded-[1.1rem] border px-4 py-3 text-left transition",
                   isSelected
-                    ? "border-[#D8CCBB] bg-[#F8F2E9]"
-                    : "border-[#EFE7DB] bg-white hover:bg-[#F8F2E9]"
+                    ? "border-[#D8CCBB] bg-[#F8F2E9] theme-panel-button-active"
+                    : "border-[#EFE7DB] bg-white hover:bg-[#F8F2E9] theme-panel-button"
                 )}
               >
                 <div>
@@ -229,7 +230,7 @@ function PlacesListByDestination({
                     {destination.area}
                   </p>
                 </div>
-                <span className="rounded-full border border-[#E5DCCF] bg-white px-2.5 py-1 text-sm text-[#8A7F6C]">
+                <span className="theme-chip rounded-full border border-[#E5DCCF] bg-white px-2.5 py-1 text-sm text-[#8A7F6C]">
                   {isOpen ? "−" : "+"}
                 </span>
               </button>
@@ -262,8 +263,8 @@ export default function AtlasPanel({
   onOpenPlace,
 }) {
   return (
-    <section className="grid grid-cols-1 gap-4 overflow-hidden rounded-[2.2rem] border border-[#E6DED1] bg-[linear-gradient(180deg,#FBF8F2_0%,#F6F1E7_100%)] p-4 shadow-[0_22px_80px_rgba(34,31,25,0.06)] md:h-[calc(100vh-7rem)] md:max-h-[calc(100vh-7rem)] md:grid-cols-[1.45fr_0.82fr] md:p-6">
-      <div className="relative rounded-[2rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,_rgba(107,122,82,0.12),_transparent_28%),linear-gradient(180deg,_#F7F3EC_0%,_#F2ECE2_100%)] p-4 md:p-6">
+    <section className="theme-panel-shell grid grid-cols-1 gap-4 overflow-hidden rounded-[2.2rem] border border-[#E6DED1] bg-[linear-gradient(180deg,#FBF8F2_0%,#F6F1E7_100%)] p-4 shadow-[0_22px_80px_rgba(34,31,25,0.06)] md:h-[calc(100vh-7rem)] md:max-h-[calc(100vh-7rem)] md:grid-cols-[1.45fr_0.82fr] md:p-6">
+      <div className="theme-panel-main relative rounded-[2rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,_rgba(107,122,82,0.12),_transparent_28%),linear-gradient(180deg,_#F7F3EC_0%,_#F2ECE2_100%)] p-4 md:p-6">
         <div className="mb-5">
           <p className="mb-2 text-xs uppercase tracking-[0.35em] text-[#8A7F6C]">
             Travel Atlas
@@ -277,7 +278,7 @@ export default function AtlasPanel({
           </p>
 
           <div className="mt-5 flex flex-wrap items-stretch gap-3">
-            <div className="flex min-h-[96px] min-w-[235px] flex-col justify-center rounded-[1.25rem] border border-[#E5DCCF] bg-white/78 px-4 py-3 backdrop-blur shadow-[0_8px_18px_rgba(34,31,25,0.03)]">
+            <div className="theme-panel-float flex min-h-[96px] min-w-[235px] flex-col justify-center rounded-[1.25rem] border border-[#E5DCCF] bg-white/78 px-4 py-3 backdrop-blur shadow-[0_8px_18px_rgba(34,31,25,0.03)]">
               <p className="text-[10px] uppercase tracking-[0.26em] text-[#8A7F6C]">
                 Country filter
               </p>
@@ -297,7 +298,7 @@ export default function AtlasPanel({
               </p>
             </div>
 
-            <div className="flex min-h-[96px] min-w-[235px] flex-col justify-center rounded-[1.25rem] border border-[#E5DCCF] bg-white/78 px-4 py-3 backdrop-blur shadow-[0_8px_18px_rgba(34,31,25,0.03)]">
+            <div className="theme-panel-float flex min-h-[96px] min-w-[235px] flex-col justify-center rounded-[1.25rem] border border-[#E5DCCF] bg-white/78 px-4 py-3 backdrop-blur shadow-[0_8px_18px_rgba(34,31,25,0.03)]">
               <p className="text-[10px] uppercase tracking-[0.26em] text-[#8A7F6C]">
                 Selected country
               </p>
@@ -318,7 +319,7 @@ export default function AtlasPanel({
           onSelectCountry={onSelectCountry}
         />
 
-        <div className="pointer-events-none absolute bottom-6 left-6 z-[500] rounded-[1.2rem] border border-[#E5DCCF] bg-white/90 px-4 py-3 shadow-[0_10px_24px_rgba(36,32,26,0.05)] backdrop-blur">
+        <div className="theme-panel-float pointer-events-none absolute bottom-6 left-6 z-[500] rounded-[1.2rem] border border-[#E5DCCF] bg-white/90 px-4 py-3 shadow-[0_10px_24px_rgba(36,32,26,0.05)] backdrop-blur">
           <p className="text-[10px] uppercase tracking-[0.28em] text-[#8A7F6C]">
             Legend
           </p>
@@ -339,7 +340,7 @@ export default function AtlasPanel({
         </div>
       </div>
 
-      <aside className="flex min-h-0 flex-col overflow-hidden rounded-[2rem] border border-[#E8E0D3] bg-white/76 p-4 backdrop-blur shadow-[0_14px_40px_rgba(34,31,25,0.03)] md:h-full md:p-6">
+      <aside className="theme-panel-side flex min-h-0 flex-col overflow-hidden rounded-[2rem] border border-[#E8E0D3] bg-white/76 p-4 backdrop-blur shadow-[0_14px_40px_rgba(34,31,25,0.03)] md:h-full md:p-6">
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
             <p className="text-[10px] uppercase tracking-[0.32em] text-[#8A7F6C]">

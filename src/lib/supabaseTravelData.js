@@ -206,3 +206,48 @@ export async function seedTravelData(seedCountries, { reset = false } = {}) {
   const { error: placeError } = await supabase.from("places").upsert(placeRows);
   if (placeError) throw placeError;
 }
+
+export function toPlannerPlanRow(destinationId, plan, index = 0) {
+  return {
+    id: plan.id,
+    destination_id: destinationId,
+    name: plan.name,
+    days_count: Number(plan.daysCount ?? plan.itinerary?.length ?? 1),
+    itinerary: ensureArray(plan.itinerary, []),
+    notes: plan.notes || "",
+    sort_order: index,
+  };
+}
+
+export async function fetchPlannerPlans(destinationId) {
+  if (!supabase || !destinationId) return [];
+
+  const { data, error } = await supabase
+    .from("planner_plans")
+    .select("*")
+    .eq("destination_id", destinationId)
+    .order("sort_order", { ascending: true });
+
+  if (error) throw error;
+
+  return (data || []).map((plan) => ({
+    id: plan.id,
+    destinationId: plan.destination_id,
+    name: plan.name,
+    daysCount: plan.days_count,
+    notes: plan.notes || "",
+    itinerary: ensureArray(plan.itinerary, []),
+  }));
+}
+
+export async function upsertPlannerPlan(destinationId, plan, index = 0) {
+  const { error } = await supabase
+    .from("planner_plans")
+    .upsert(toPlannerPlanRow(destinationId, plan, index));
+  if (error) throw error;
+}
+
+export async function deletePlannerPlan(planId) {
+  const { error } = await supabase.from("planner_plans").delete().eq("id", planId);
+  if (error) throw error;
+}

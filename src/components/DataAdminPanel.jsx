@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, RefreshCw, RotateCcw, Save, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 import {
   deleteCountryById,
   deleteDestinationById,
@@ -30,12 +30,15 @@ function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
-function SectionCard({ title, subtitle, children }) {
+function SectionCard({ title, subtitle, action, children }) {
   return (
-    <section className="rounded-[1.75rem] border border-[#E6DED1] bg-white p-5 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
-      <div className="mb-5">
-        <p className="text-xs uppercase tracking-[0.3em] text-[#8A7F6C]">{title}</p>
-        <p className="mt-2 text-sm leading-7 text-[#5E564B]">{subtitle}</p>
+    <section className="theme-admin-card rounded-[1.75rem] border border-[#E6DED1] bg-white p-5 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-[#8A7F6C]">{title}</p>
+          <p className="mt-2 text-sm leading-7 text-[#5E564B]">{subtitle}</p>
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
       {children}
     </section>
@@ -98,9 +101,9 @@ function ActionButton({ children, onClick, variant = "default", type = "button",
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60",
+        "theme-admin-button inline-flex items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60",
         variant === "danger"
-          ? "border-[#E5CBC5] bg-[#FFF5F2] text-[#8E4E45] hover:bg-[#FDEBE6]"
+          ? "theme-admin-danger border-[#E5CBC5] bg-[#FFF5F2] text-[#8E4E45] hover:bg-[#FDEBE6]"
           : variant === "primary"
           ? "border-[#D8CCBB] bg-[#1F1D1A] text-white hover:bg-[#2C2924]"
           : "border-[#D8CCBB] bg-white text-[#1F1D1A] hover:bg-[#F8F2E9]"
@@ -153,9 +156,7 @@ function toPlaceForm(place) {
 
 export default function DataAdminPanel({
   countries,
-  databaseEmpty,
   onReloadFromDatabase,
-  onSeedDefaults,
 }) {
   const [selectedCountryId, setSelectedCountryId] = useState(countries[0]?.id || "");
   const [selectedDestinationId, setSelectedDestinationId] = useState(
@@ -454,39 +455,12 @@ export default function DataAdminPanel({
       }
     );
 
-  const seedDefaults = () =>
-    runAction(
-      () => Promise.resolve(onSeedDefaults()),
-      "Dane startowe zostały zapisane do Supabase.",
-      (refreshedCountries) => ({
-        countryId: refreshedCountries[0]?.id || "",
-        destinationId: refreshedCountries[0]?.destinations[0]?.id || "",
-        placeId: refreshedCountries[0]?.destinations[0]?.places[0]?.id || "",
-      })
-    );
-
   return (
-    <section className="grid gap-5">
+    <section className="theme-admin-shell grid gap-5">
       <div className="flex flex-wrap gap-3">
-        <ActionButton onClick={addCountry} disabled={loading}>
-          <Plus className="h-4 w-4" />
-          Dodaj kraj
-        </ActionButton>
-        <ActionButton onClick={addDestination} disabled={loading || !selectedCountry}>
-          <Plus className="h-4 w-4" />
-          Dodaj miasto
-        </ActionButton>
-        <ActionButton onClick={addPlace} disabled={loading || !selectedDestination}>
-          <Plus className="h-4 w-4" />
-          Dodaj miejscówkę
-        </ActionButton>
         <ActionButton onClick={reloadData} disabled={loading}>
           <RefreshCw className="h-4 w-4" />
           Przeładuj z bazy
-        </ActionButton>
-        <ActionButton onClick={seedDefaults} disabled={loading} variant="default">
-          <RotateCcw className="h-4 w-4" />
-          {databaseEmpty ? "Wgraj dane startowe" : "Nadpisz danymi startowymi"}
         </ActionButton>
       </div>
 
@@ -500,6 +474,12 @@ export default function DataAdminPanel({
         <SectionCard
           title="Country"
           subtitle="Wybierz i modyfikuj podstawowe dane kraju oraz jego status."
+          action={
+            <ActionButton onClick={addCountry} disabled={loading}>
+              <Plus className="h-4 w-4" />
+              Dodaj kraj
+            </ActionButton>
+          }
         >
           <div className="space-y-4">
             <SelectInput
@@ -566,6 +546,12 @@ export default function DataAdminPanel({
         <SectionCard
           title="Destination"
           subtitle="Edytuj miasto lub destynację przypisaną do wybranego kraju."
+          action={
+            <ActionButton onClick={addDestination} disabled={loading || !selectedCountry}>
+              <Plus className="h-4 w-4" />
+              Dodaj miasto
+            </ActionButton>
+          }
         >
           <div className="space-y-4">
             <SelectInput
@@ -631,6 +617,12 @@ export default function DataAdminPanel({
         <SectionCard
           title="Place"
           subtitle="Dodawaj i edytuj konkretne miejscówki wraz z koordynatami i opisami."
+          action={
+            <ActionButton onClick={addPlace} disabled={loading || !selectedDestination}>
+              <Plus className="h-4 w-4" />
+              Dodaj miejscówkę
+            </ActionButton>
+          }
         >
           <div className="space-y-4">
             <SelectInput

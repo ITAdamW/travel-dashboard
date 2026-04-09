@@ -84,5 +84,23 @@ Skrypt tworzy tabele:
 - `countries`
 - `destinations`
 - `places`
+- `planner_plans`
 
 oraz polityki RLS dla zalogowanych użytkowników (`authenticated`).
+
+## Planner
+
+Panel `Planner` ma teraz dwa widoki:
+
+- `Gotowy planer` — elegancki podgląd planu z podziałem na dni i miniaturkami zdjęć
+- `Edycja planów` — tworzenie i modyfikacja wielu planów dla jednej destynacji
+
+Planner pozwala:
+
+- tworzyć kilka planów dla tej samej destynacji
+- budować warianty o różnej liczbie dni
+- przeciągać miejscówki do dni
+- eksportować gotowy plan do PDF przez okno wydruku przeglądarki
+
+Po aktualizacji projektu uruchom ponownie aktualny skrypt SQL w Supabase, żeby
+dodać tabelę `planner_plans`.

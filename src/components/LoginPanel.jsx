@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { Moon, Sun } from "lucide-react";
 import { supabase, isSupabaseConfigured } from "../lib/supabase";
 
-export default function LoginPanel() {
+export default function LoginPanel({ theme = "light", onToggleTheme }) {
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -45,9 +46,9 @@ export default function LoginPanel() {
   };
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(180deg,#F7F3EC_0%,#F2ECE3_100%)] px-4 py-8 text-[#1F1D1A]">
+    <div className="theme-login-shell min-h-screen bg-[linear-gradient(180deg,#F7F3EC_0%,#F2ECE3_100%)] px-4 py-8 text-[#1F1D1A]">
       <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <section className="rounded-[2rem] border border-[#E6DED1] bg-[radial-gradient(circle_at_top_left,_rgba(107,122,82,0.16),_transparent_30%),linear-gradient(180deg,_#FBF8F2_0%,_#F3ECE1_100%)] p-6 shadow-[0_22px_80px_rgba(34,31,25,0.06)] md:p-8">
+        <section className="theme-login-hero rounded-[2rem] border border-[#E6DED1] bg-[radial-gradient(circle_at_top_left,_rgba(107,122,82,0.16),_transparent_30%),linear-gradient(180deg,_#FBF8F2_0%,_#F3ECE1_100%)] p-6 shadow-[0_22px_80px_rgba(34,31,25,0.06)] md:p-8">
           <p className="text-xs uppercase tracking-[0.34em] text-[#8A7F6C]">
             Travel Dashboard
           </p>
@@ -61,7 +62,7 @@ export default function LoginPanel() {
           </p>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
-            <div className="rounded-[1.35rem] border border-[#E5DCCF] bg-white/80 p-4 shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
+            <div className="theme-login-card rounded-[1.35rem] border border-[#E5DCCF] bg-white/80 p-4 shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
               <p className="text-[10px] uppercase tracking-[0.28em] text-[#8A7F6C]">
                 Panel 1
               </p>
@@ -71,7 +72,7 @@ export default function LoginPanel() {
               </p>
             </div>
 
-            <div className="rounded-[1.35rem] border border-[#E5DCCF] bg-white/80 p-4 shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
+            <div className="theme-login-card rounded-[1.35rem] border border-[#E5DCCF] bg-white/80 p-4 shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
               <p className="text-[10px] uppercase tracking-[0.28em] text-[#8A7F6C]">
                 Panel 2
               </p>
@@ -81,7 +82,7 @@ export default function LoginPanel() {
               </p>
             </div>
 
-            <div className="rounded-[1.35rem] border border-[#E5DCCF] bg-white/80 p-4 shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
+            <div className="theme-login-card rounded-[1.35rem] border border-[#E5DCCF] bg-white/80 p-4 shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
               <p className="text-[10px] uppercase tracking-[0.28em] text-[#8A7F6C]">
                 Panel 3
               </p>
@@ -93,14 +94,28 @@ export default function LoginPanel() {
           </div>
         </section>
 
-        <section className="rounded-[2rem] border border-[#E6DED1] bg-white/88 p-6 shadow-[0_22px_80px_rgba(34,31,25,0.06)] backdrop-blur md:p-8">
-          <div className="flex items-center gap-2 rounded-full border border-[#E6DED1] bg-[#F8F4EC] p-1">
+        <section className="theme-login-panel rounded-[2rem] border border-[#E6DED1] bg-white/88 p-6 shadow-[0_22px_80px_rgba(34,31,25,0.06)] backdrop-blur md:p-8">
+          <div className="mb-5 flex items-center justify-end">
+            <button
+              type="button"
+              onClick={onToggleTheme}
+              aria-label={theme === "light" ? "Wlacz tryb ciemny" : "Wlacz tryb jasny"}
+              title={theme === "light" ? "Wlacz tryb ciemny" : "Wlacz tryb jasny"}
+              className="theme-login-toggle inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+            >
+              {theme === "light" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+            </button>
+          </div>
+
+          <div className="theme-login-segment flex items-center gap-2 rounded-full border border-[#E6DED1] bg-[#F8F4EC] p-1">
             <button
               type="button"
               onClick={() => setMode("signin")}
               className={[
                 "flex-1 rounded-full px-4 py-2 text-sm font-medium transition",
-                isSignIn ? "bg-white text-[#1F1D1A] shadow-sm" : "text-[#7B7264]",
+                isSignIn
+                  ? "theme-login-segment-active bg-white text-[#1F1D1A] shadow-sm"
+                  : "text-[#7B7264]",
               ].join(" ")}
             >
               Logowanie
@@ -110,7 +125,9 @@ export default function LoginPanel() {
               onClick={() => setMode("signup")}
               className={[
                 "flex-1 rounded-full px-4 py-2 text-sm font-medium transition",
-                !isSignIn ? "bg-white text-[#1F1D1A] shadow-sm" : "text-[#7B7264]",
+                !isSignIn
+                  ? "theme-login-segment-active bg-white text-[#1F1D1A] shadow-sm"
+                  : "text-[#7B7264]",
               ].join(" ")}
             >
               Rejestracja
@@ -140,7 +157,7 @@ export default function LoginPanel() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                className="theme-login-input w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
                 placeholder="twoj@email.com"
               />
             </label>
@@ -155,7 +172,7 @@ export default function LoginPanel() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                className="theme-login-input w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
                 placeholder="Minimum 6 znaków"
               />
             </label>

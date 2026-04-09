@@ -10,7 +10,7 @@ import {
 
 function FileCard({ item, type, onDelete }) {
   return (
-    <div className="overflow-hidden rounded-[1.25rem] border border-[#E8DFD2] bg-white">
+    <div className="theme-media-card overflow-hidden rounded-[1.25rem] border border-[#E8DFD2] bg-white">
       {type === "video" ? (
         <video src={item.url} controls className="aspect-video w-full bg-black object-cover" />
       ) : (
@@ -113,8 +113,8 @@ export default function MediaPanel({ countries, onMediaChanged }) {
   };
 
   return (
-    <section className="grid gap-5 lg:grid-cols-[0.76fr_1.24fr]">
-      <aside className="rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
+    <section className="theme-media-shell grid gap-5 lg:grid-cols-[0.76fr_1.24fr]">
+      <aside className="theme-media-card rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
         <p className="text-xs uppercase tracking-[0.3em] text-[#8A7F6C]">Media admin</p>
         <h2 className="mt-2 text-3xl font-semibold">Upload i modyfikacja plików</h2>
         <p className="mt-3 text-sm leading-7 text-[#5E564B]">
@@ -169,7 +169,7 @@ export default function MediaPanel({ countries, onMediaChanged }) {
           </label>
         </div>
 
-        <div className="mt-6 rounded-[1.4rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
+        <div className="theme-media-card mt-6 rounded-[1.4rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
           <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">
             Docelowa ścieżka
           </p>
@@ -179,7 +179,7 @@ export default function MediaPanel({ countries, onMediaChanged }) {
         </div>
 
         <div className="mt-6 space-y-4">
-          <label className="block rounded-[1.3rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
+          <label className="theme-media-card block rounded-[1.3rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
             <span className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-[#1F1D1A]">
               <ImagePlus className="h-4 w-4 text-[#6B7A52]" />
               Cover
@@ -202,11 +202,11 @@ export default function MediaPanel({ countries, onMediaChanged }) {
                 );
                 e.target.value = "";
               }}
-              className="block w-full text-sm text-[#5E564B]"
+              className="theme-media-file block w-full rounded-xl bg-[#FBF8F2] px-3 py-2 text-sm text-[#5E564B]"
             />
           </label>
 
-          <label className="block rounded-[1.3rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
+          <label className="theme-media-card block rounded-[1.3rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
             <span className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-[#1F1D1A]">
               <Upload className="h-4 w-4 text-[#6B7A52]" />
               Galeria
@@ -231,11 +231,11 @@ export default function MediaPanel({ countries, onMediaChanged }) {
                 );
                 e.target.value = "";
               }}
-              className="block w-full text-sm text-[#5E564B]"
+              className="theme-media-file block w-full rounded-xl bg-[#FBF8F2] px-3 py-2 text-sm text-[#5E564B]"
             />
           </label>
 
-          <label className="block rounded-[1.3rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
+          <label className="theme-media-card block rounded-[1.3rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
             <span className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-[#1F1D1A]">
               <Video className="h-4 w-4 text-[#6B7A52]" />
               Wideo
@@ -260,7 +260,7 @@ export default function MediaPanel({ countries, onMediaChanged }) {
                 );
                 e.target.value = "";
               }}
-              className="block w-full text-sm text-[#5E564B]"
+              className="theme-media-file block w-full rounded-xl bg-[#FBF8F2] px-3 py-2 text-sm text-[#5E564B]"
             />
           </label>
         </div>
@@ -281,20 +281,20 @@ export default function MediaPanel({ countries, onMediaChanged }) {
         <button
           onClick={refreshMedia}
           disabled={loading}
-          className="mt-6 inline-flex items-center gap-2 rounded-full border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9] disabled:opacity-60"
+          className="theme-media-button mt-6 inline-flex items-center gap-2 rounded-full border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9] disabled:opacity-60"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Odśwież media
         </button>
       </aside>
 
-      <div className="rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
+      <div className="theme-media-card rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-[#8A7F6C]">Preview</p>
             <h3 className="mt-2 text-2xl font-semibold">{selectedPlace?.name}</h3>
           </div>
-          <span className="rounded-full border border-[#E3D9CA] bg-[#F8F4ED] px-4 py-2 text-xs text-[#6B6255]">
+          <span className="theme-media-status rounded-full border border-[#E3D9CA] bg-[#F8F4ED] px-4 py-2 text-xs text-[#6B6255]">
             {loading ? "Ładowanie..." : "Gotowe"}
           </span>
         </div>
@@ -314,7 +314,7 @@ export default function MediaPanel({ countries, onMediaChanged }) {
                 }
               />
             ) : (
-              <div className="rounded-[1.25rem] border border-dashed border-[#DDD2C3] bg-[#FBF8F2] px-5 py-8 text-sm text-[#7C7263]">
+              <div className="theme-media-card rounded-[1.25rem] border border-dashed border-[#DDD2C3] bg-[#FBF8F2] px-5 py-8 text-sm text-[#7C7263]">
                 Brak covera w Storage dla tego miejsca.
               </div>
             )}
@@ -339,7 +339,7 @@ export default function MediaPanel({ countries, onMediaChanged }) {
                 ))}
               </div>
             ) : (
-              <div className="rounded-[1.25rem] border border-dashed border-[#DDD2C3] bg-[#FBF8F2] px-5 py-8 text-sm text-[#7C7263]">
+              <div className="theme-media-card rounded-[1.25rem] border border-dashed border-[#DDD2C3] bg-[#FBF8F2] px-5 py-8 text-sm text-[#7C7263]">
                 Brak zdjęć galerii w Storage dla tego miejsca.
               </div>
             )}
@@ -364,7 +364,7 @@ export default function MediaPanel({ countries, onMediaChanged }) {
                 ))}
               </div>
             ) : (
-              <div className="rounded-[1.25rem] border border-dashed border-[#DDD2C3] bg-[#FBF8F2] px-5 py-8 text-sm text-[#7C7263]">
+              <div className="theme-media-card rounded-[1.25rem] border border-dashed border-[#DDD2C3] bg-[#FBF8F2] px-5 py-8 text-sm text-[#7C7263]">
                 Brak wideo w Storage dla tego miejsca.
               </div>
             )}
