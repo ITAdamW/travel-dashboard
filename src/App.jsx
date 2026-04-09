@@ -1,0 +1,120 @@
+import { useMemo, useState } from "react";
+import AtlasPanel from "./components/AtlasPanel";
+import StoryPanel from "./components/StoryPanel";
+import PlannerPanel from "./components/PlannerPanel";
+import { countries } from "./data/travelData";
+
+function navButtonClass(active) {
+  return [
+    "group relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200",
+    active
+      ? "border-[#D8CCBB] bg-white shadow-[0_10px_24px_rgba(36,32,26,0.07)]"
+      : "border-transparent bg-[#F8F4EC] hover:border-[#E7DDD0] hover:bg-white/80",
+  ].join(" ");
+}
+
+function NavBadge({ children, active }) {
+  return (
+    <span
+      className={[
+        "inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-medium transition",
+        active
+          ? "border-[#D8CCBB] bg-[#F6F1E8] text-[#5F6D45]"
+          : "border-[#E7DDD0] bg-white text-[#8B806F]",
+      ].join(" ")}
+    >
+      {children}
+    </span>
+  );
+}
+
+export default function App() {
+  const [activePanel, setActivePanel] = useState("atlas");
+  const [selectedCountryId, setSelectedCountryId] = useState("cz");
+  const [selectedDestinationId, setSelectedDestinationId] = useState("prague");
+
+  const selectedCountry = useMemo(
+    () => countries.find((c) => c.id === selectedCountryId) || countries[0],
+    [selectedCountryId]
+  );
+
+  const selectedDestination =
+    selectedCountry.destinations.find((d) => d.id === selectedDestinationId) ||
+    selectedCountry.destinations[0];
+
+  return (
+    <div className="min-h-screen bg-[linear-gradient(180deg,#F7F3EC_0%,#F2ECE3_100%)] text-[#1F1D1A]">
+      <div className="mx-auto max-w-7xl px-4 py-5 md:px-6 md:py-6">
+        <div className="mb-5 rounded-[1.4rem] border border-[#E7DED2] bg-[linear-gradient(180deg,#FCFAF6_0%,#F6F0E5_100%)] p-1.5 shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
+          <div className="grid grid-cols-3 gap-1.5">
+            <button
+              onClick={() => setActivePanel("atlas")}
+              className={navButtonClass(activePanel === "atlas")}
+            >
+              <NavBadge active={activePanel === "atlas"}>1</NavBadge>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
+                  Panel 1
+                </p>
+                <p className="text-sm font-medium">Atlas</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActivePanel("story")}
+              className={navButtonClass(activePanel === "story")}
+            >
+              <NavBadge active={activePanel === "story"}>2</NavBadge>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
+                  Panel 2
+                </p>
+                <p className="text-sm font-medium">Destination</p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActivePanel("planner")}
+              className={navButtonClass(activePanel === "planner")}
+            >
+              <NavBadge active={activePanel === "planner"}>3</NavBadge>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
+                  Panel 3
+                </p>
+                <p className="text-sm font-medium">Planner</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {activePanel === "atlas" && (
+          <AtlasPanel
+            countries={countries}
+            selectedCountry={selectedCountry}
+            selectedDestinationId={selectedDestinationId}
+            onSelectCountry={(countryId) => {
+              setSelectedCountryId(countryId);
+              const nextCountry =
+                countries.find((item) => item.id === countryId) || countries[0];
+              setSelectedDestinationId(nextCountry.destinations[0]?.id || "");
+            }}
+            onSelectDestination={setSelectedDestinationId}
+            onOpenPlace={(destinationId) => {
+              setSelectedDestinationId(destinationId);
+              setActivePanel("story");
+            }}
+          />
+        )}
+
+        {activePanel === "story" && (
+          <StoryPanel destination={selectedDestination} />
+        )}
+
+        {activePanel === "planner" && (
+          <PlannerPanel country={selectedCountry} />
+        )}
+      </div>
+    </div>
+  );
+}
