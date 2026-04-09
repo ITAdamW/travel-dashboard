@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AtlasPanel from "./components/AtlasPanel";
 import StoryPanel from "./components/StoryPanel";
 import PlannerPanel from "./components/PlannerPanel";
+import LoginPanel from "./components/LoginPanel";
 import { countries } from "./data/travelData";
+import { supabase } from "./lib/supabase";
 
 function navButtonClass(active) {
   return [
@@ -32,6 +34,36 @@ export default function App() {
   const [activePanel, setActivePanel] = useState("atlas");
   const [selectedCountryId, setSelectedCountryId] = useState("cz");
   const [selectedDestinationId, setSelectedDestinationId] = useState("prague");
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (!supabase) {
+      setAuthLoading(false);
+      return undefined;
+    }
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(data.session ?? null);
+      setAuthLoading(false);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
+      setSession(nextSession ?? null);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const selectedCountry = useMemo(
     () => countries.find((c) => c.id === selectedCountryId) || countries[0],
@@ -42,9 +74,41 @@ export default function App() {
     selectedCountry.destinations.find((d) => d.id === selectedDestinationId) ||
     selectedCountry.destinations[0];
 
+  if (authLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#F7F3EC_0%,#F2ECE3_100%)] px-4">
+        <div className="rounded-[1.6rem] border border-[#E6DED1] bg-white/90 px-6 py-5 text-sm text-[#5E564B] shadow-[0_22px_80px_rgba(34,31,25,0.06)]">
+          Sprawdzam sesję użytkownika...
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <LoginPanel />;
+  }
+
+  const userEmail = session.user?.email || "Zalogowany użytkownik";
+
   return (
     <div className="min-h-screen bg-[linear-gradient(180deg,#F7F3EC_0%,#F2ECE3_100%)] text-[#1F1D1A]">
       <div className="mx-auto max-w-7xl px-4 py-5 md:px-6 md:py-6">
+        <div className="mb-5 flex flex-col gap-3 rounded-[1.4rem] border border-[#E7DED2] bg-[linear-gradient(180deg,#FCFAF6_0%,#F6F0E5_100%)] p-4 shadow-[0_10px_24px_rgba(36,32,26,0.04)] md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.28em] text-[#8A7F6C]">
+              Active session
+            </p>
+            <p className="mt-2 text-sm font-medium text-[#1F1D1A]">{userEmail}</p>
+          </div>
+
+          <button
+            onClick={() => supabase?.auth.signOut()}
+            className="inline-flex items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+          >
+            Wyloguj
+          </button>
+        </div>
+
         <div className="mb-5 rounded-[1.4rem] border border-[#E7DED2] bg-[linear-gradient(180deg,#FCFAF6_0%,#F6F0E5_100%)] p-1.5 shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
           <div className="grid grid-cols-3 gap-1.5">
             <button
