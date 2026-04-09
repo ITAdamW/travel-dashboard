@@ -4,9 +4,11 @@ import StoryPanel from "./components/StoryPanel";
 import PlannerPanel from "./components/PlannerPanel";
 import LoginPanel from "./components/LoginPanel";
 import MediaPanel from "./components/MediaPanel";
+import DataAdminPanel from "./components/DataAdminPanel";
 import { countries } from "./data/travelData";
 import { supabase } from "./lib/supabase";
 import { hydrateCountriesWithStorage } from "./lib/storageMedia";
+import { fetchTravelCountriesFromDb, seedTravelData } from "./lib/supabaseTravelData";
 
 function navButtonClass(active) {
   return [
@@ -38,8 +40,12 @@ export default function App() {
   const [selectedDestinationId, setSelectedDestinationId] = useState("prague");
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [baseCountries, setBaseCountries] = useState(countries);
   const [travelCountries, setTravelCountries] = useState(countries);
   const [mediaLoading, setMediaLoading] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [databaseEmpty, setDatabaseEmpty] = useState(false);
+  const [dataStatus, setDataStatus] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -69,20 +75,92 @@ export default function App() {
     };
   }, []);
 
-  const refreshStorageMedia = async () => {
+  useEffect(() => {
+    if (!baseCountries.length) return;
+    if (!baseCountries.some((country) => country.id === selectedCountryId)) {
+      const nextCountry = baseCountries[0];
+      setSelectedCountryId(nextCountry.id);
+      setSelectedDestinationId(nextCountry.destinations[0]?.id || "");
+      return;
+    }
+
+    const nextCountry =
+      baseCountries.find((country) => country.id === selectedCountryId) || baseCountries[0];
+
+    if (!nextCountry.destinations.some((destination) => destination.id === selectedDestinationId)) {
+      setSelectedDestinationId(nextCountry.destinations[0]?.id || "");
+      return;
+    }
+
+    const nextDestination =
+      nextCountry.destinations.find((destination) => destination.id === selectedDestinationId) ||
+      nextCountry.destinations[0];
+
+    if (!nextDestination?.places?.length) return;
+  }, [baseCountries, selectedCountryId, selectedDestinationId]);
+
+  const refreshStorageMedia = async (sourceCountries = baseCountries) => {
     setMediaLoading(true);
     try {
-      const nextCountries = await hydrateCountriesWithStorage(countries);
+      const nextCountries = await hydrateCountriesWithStorage(sourceCountries);
       setTravelCountries(nextCountries);
     } finally {
       setMediaLoading(false);
     }
   };
 
+  const loadTravelData = async () => {
+    setDataLoading(true);
+    setDataStatus("");
+    try {
+      const dbCountries = await fetchTravelCountriesFromDb();
+      if (dbCountries.length) {
+        setBaseCountries(dbCountries);
+        setDatabaseEmpty(false);
+        return dbCountries;
+      }
+
+      setBaseCountries(countries);
+      setDatabaseEmpty(true);
+      setDataStatus("Baza jest jeszcze pusta. Możesz ją zasilić danymi startowymi z panelu admin.");
+      return countries;
+    } catch (error) {
+      setBaseCountries(countries);
+      setDatabaseEmpty(true);
+      setDataStatus(error.message || "Nie udało się pobrać danych z Supabase Database.");
+      return countries;
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
+  const seedDefaultData = async () => {
+    setDataLoading(true);
+    setDataStatus("");
+    try {
+      await seedTravelData(countries, { reset: true });
+      setDatabaseEmpty(false);
+      setDataStatus("Dane startowe zostały zapisane do Supabase Database.");
+      const next = await fetchTravelCountriesFromDb();
+      setBaseCountries(next.length ? next : countries);
+      return next.length ? next : countries;
+    } catch (error) {
+      setDataStatus(error.message || "Nie udało się zasilić bazy danymi startowymi.");
+      return baseCountries;
+    } finally {
+      setDataLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!session) return;
-    refreshStorageMedia();
+    loadTravelData();
   }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    refreshStorageMedia(baseCountries);
+  }, [session, baseCountries]);
 
   const selectedCountry = useMemo(
     () => travelCountries.find((c) => c.id === selectedCountryId) || travelCountries[0],
@@ -90,8 +168,8 @@ export default function App() {
   );
 
   const selectedDestination =
-    selectedCountry.destinations.find((d) => d.id === selectedDestinationId) ||
-    selectedCountry.destinations[0];
+    selectedCountry?.destinations.find((d) => d.id === selectedDestinationId) ||
+    selectedCountry?.destinations[0];
 
   if (authLoading) {
     return (
@@ -129,7 +207,7 @@ export default function App() {
         </div>
 
         <div className="mb-5 rounded-[1.4rem] border border-[#E7DED2] bg-[linear-gradient(180deg,#FCFAF6_0%,#F6F0E5_100%)] p-1.5 shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
-          <div className="grid grid-cols-2 gap-1.5 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-1.5 md:grid-cols-5">
             <button
               onClick={() => setActivePanel("atlas")}
               className={navButtonClass(activePanel === "atlas")}
@@ -181,12 +259,37 @@ export default function App() {
                 <p className="text-sm font-medium">Media</p>
               </div>
             </button>
+
+            <button
+              onClick={() => setActivePanel("admin")}
+              className={navButtonClass(activePanel === "admin")}
+            >
+              <NavBadge active={activePanel === "admin"}>5</NavBadge>
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
+                  Panel 5
+                </p>
+                <p className="text-sm font-medium">Data admin</p>
+              </div>
+            </button>
           </div>
         </div>
 
         {mediaLoading && (
           <div className="mb-5 rounded-[1.2rem] border border-[#E7DED2] bg-white/80 px-4 py-3 text-sm text-[#6B6255] shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
             Synchronizuję zdjęcia i filmy z Supabase Storage...
+          </div>
+        )}
+
+        {dataLoading && (
+          <div className="mb-5 rounded-[1.2rem] border border-[#E7DED2] bg-white/80 px-4 py-3 text-sm text-[#6B6255] shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
+            Synchronizuję kraje, miasta i miejscówki z Supabase Database...
+          </div>
+        )}
+
+        {dataStatus && (
+          <div className="mb-5 rounded-[1.2rem] border border-[#E7DED2] bg-[#FBF8F2] px-4 py-3 text-sm text-[#6B6255] shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
+            {dataStatus}
           </div>
         )}
 
@@ -219,6 +322,15 @@ export default function App() {
 
         {activePanel === "media" && (
           <MediaPanel countries={travelCountries} onMediaChanged={refreshStorageMedia} />
+        )}
+
+        {activePanel === "admin" && (
+          <DataAdminPanel
+            countries={baseCountries}
+            databaseEmpty={databaseEmpty}
+            onReloadFromDatabase={loadTravelData}
+            onSeedDefaults={seedDefaultData}
+          />
         )}
       </div>
     </div>

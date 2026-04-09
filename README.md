@@ -50,3 +50,39 @@ mieć odpowiednie polityki Storage dla obu bucketów. Najprostsza opcja na start
 - `DELETE`
 
 dla zalogowanych użytkowników (`authenticated`).
+
+## Data Admin
+
+Panel `Data admin` pozwala z poziomu aplikacji:
+
+- dodawać kraje
+- dodawać destynacje / miasta
+- dodawać konkretne miejscówki
+- edytować pola tych rekordów
+- usuwać rekordy
+
+Zmiany zapisują się do `Supabase Database`, więc są współdzielone między
+urządzeniami po zalogowaniu.
+
+## Supabase Database
+
+1. Otwórz `SQL Editor` w Supabase.
+2. Wklej zawartość pliku:
+
+- [supabase-travel-schema.sql](/home/adam/Travel_dashboard/travel-dashboard/supabase-travel-schema.sql)
+
+3. Uruchom skrypt.
+4. Po wejściu do panelu `Data admin` możesz:
+
+- wgrać dane startowe do bazy
+- dodawać i edytować kraje
+- dodawać i edytować miasta / destynacje
+- dodawać i edytować miejscówki
+
+Skrypt tworzy tabele:
+
+- `countries`
+- `destinations`
+- `places`
+
+oraz polityki RLS dla zalogowanych użytkowników (`authenticated`).
