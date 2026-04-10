@@ -10,6 +10,7 @@ function normalizeProfile(row, fallbackUser = null) {
   const login = row?.login || metadata.login || fallbackUser?.email?.split("@")[0] || "";
   const firstName = row?.first_name || metadata.first_name || "";
   const lastName = row?.last_name || metadata.last_name || "";
+  const navbarStyle = metadata.navbar_style || "capsule";
 
   return {
     id: row?.id || fallbackUser?.id || "",
@@ -18,6 +19,7 @@ function normalizeProfile(row, fallbackUser = null) {
     firstName,
     lastName,
     role,
+    navbarStyle,
     createdAt: row?.created_at || null,
     updatedAt: row?.updated_at || null,
   };
@@ -33,6 +35,7 @@ async function syncAuthMetadata(user, profile) {
     last_name: profile.lastName || "",
     full_name: [profile.firstName, profile.lastName].filter(Boolean).join(" "),
     role: profile.role || "user",
+    navbar_style: profile.navbarStyle || "capsule",
   };
 
   const currentMetadata = user.user_metadata || {};
@@ -41,7 +44,8 @@ async function syncAuthMetadata(user, profile) {
     currentMetadata.first_name !== nextMetadata.first_name ||
     currentMetadata.last_name !== nextMetadata.last_name ||
     currentMetadata.full_name !== nextMetadata.full_name ||
-    currentMetadata.role !== nextMetadata.role;
+    currentMetadata.role !== nextMetadata.role ||
+    currentMetadata.navbar_style !== nextMetadata.navbar_style;
 
   if (!hasChanged) return profile;
 
@@ -109,6 +113,7 @@ export async function ensureCurrentUserProfile(session) {
         first_name: metadata.first_name || "",
         last_name: metadata.last_name || "",
         role: metadata.role || "admin",
+        navbarStyle: metadata.navbar_style || "capsule",
       },
       user
     );
@@ -127,6 +132,7 @@ export async function updateCurrentUserProfile(session, values) {
     firstName: values.firstName.trim(),
     lastName: values.lastName.trim(),
     role: values.role || session.user.user_metadata?.role || "user",
+    navbarStyle: values.navbarStyle || session.user.user_metadata?.navbar_style || "capsule",
   };
 
   try {

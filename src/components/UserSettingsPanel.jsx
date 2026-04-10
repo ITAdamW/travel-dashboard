@@ -10,6 +10,7 @@ function getInitialProfile(session) {
     login: metadata.login || "",
     firstName: metadata.first_name || "",
     lastName: metadata.last_name || "",
+    navbarStyle: metadata.navbar_style || "capsule",
   };
 }
 
@@ -68,6 +69,7 @@ export default function UserSettingsPanel({
         firstName,
         lastName,
         role,
+        navbarStyle: profileForm.navbarStyle,
       });
 
       onUserUpdated?.(nextProfile);
@@ -133,11 +135,11 @@ export default function UserSettingsPanel({
 
   return (
     <div
-      className="fixed inset-0 z-[1550] flex items-center justify-center bg-black/35 p-4"
+      className="theme-user-settings-overlay fixed inset-0 z-[1550] flex items-center justify-center bg-black/35 p-4"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl rounded-[2rem] border border-[#E6DED1] bg-[linear-gradient(180deg,#FBF8F2_0%,#F3ECE1_100%)] p-5 shadow-[0_28px_80px_rgba(34,31,25,0.18)] md:p-6"
+        className="theme-user-settings-modal w-full max-w-4xl rounded-[2rem] border border-[#E6DED1] bg-[linear-gradient(180deg,#FBF8F2_0%,#F3ECE1_100%)] p-5 shadow-[0_28px_80px_rgba(34,31,25,0.18)] md:p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-5 flex items-start justify-between gap-4">
@@ -154,7 +156,7 @@ export default function UserSettingsPanel({
           </div>
           <button
             onClick={onClose}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+            className="theme-user-settings-button inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
             aria-label="Zamknij ustawienia uzytkownika"
           >
             <X className="h-5 w-5" />
@@ -162,9 +164,9 @@ export default function UserSettingsPanel({
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-          <section className="rounded-[1.6rem] border border-[#E6DED1] bg-white/82 p-5 shadow-[0_12px_34px_rgba(34,31,25,0.05)]">
+          <section className="theme-user-settings-card rounded-[1.6rem] border border-[#E6DED1] bg-white/82 p-5 shadow-[0_12px_34px_rgba(34,31,25,0.05)]">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] text-[#5F6D45]">
+              <span className="theme-user-settings-icon inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] text-[#5F6D45]">
                 <UserRound className="h-5 w-5" />
               </span>
               <div>
@@ -185,7 +187,7 @@ export default function UserSettingsPanel({
                 <input
                   value={email}
                   disabled
-                  className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#F4EFE7] px-4 py-3 text-sm text-[#7B7264]"
+                  className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#F4EFE7] px-4 py-3 text-sm text-[#7B7264]"
                 />
               </label>
 
@@ -201,7 +203,7 @@ export default function UserSettingsPanel({
                       login: event.target.value,
                     }))
                   }
-                  className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                  className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
                   placeholder="np. adam-travels"
                 />
               </label>
@@ -219,7 +221,7 @@ export default function UserSettingsPanel({
                         firstName: event.target.value,
                       }))
                     }
-                    className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                    className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
                     placeholder="np. Adam"
                   />
                 </label>
@@ -236,13 +238,13 @@ export default function UserSettingsPanel({
                         lastName: event.target.value,
                       }))
                     }
-                    className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                    className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
                     placeholder="np. Kowalski"
                   />
                 </label>
               </div>
 
-              <div className="rounded-[1.2rem] border border-[#E7DDD0] bg-[#FBF8F2] px-4 py-3">
+              <div className="theme-user-settings-note rounded-[1.2rem] border border-[#E7DDD0] bg-[#FBF8F2] px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Shield className="h-4 w-4 text-[#5F6D45]" />
                   <p className="text-sm font-medium text-[#1F1D1A]">Rola</p>
@@ -250,10 +252,30 @@ export default function UserSettingsPanel({
                 <p className="mt-2 text-sm capitalize text-[#6B6255]">{role}</p>
               </div>
 
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                  Wyglad navbara
+                </span>
+                <select
+                  value={profileForm.navbarStyle}
+                  onChange={(event) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      navbarStyle: event.target.value,
+                    }))
+                  }
+                  className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                >
+                  <option value="capsule">Capsule</option>
+                  <option value="line">Line</option>
+                  <option value="old">Old</option>
+                </select>
+              </label>
+
               <button
                 type="submit"
                 disabled={profileLoading}
-                className="inline-flex items-center gap-2 rounded-[1rem] border border-[#D8CCBB] bg-[#1F1D1A] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#2C2924] disabled:opacity-70"
+                className="theme-user-settings-button inline-flex items-center gap-2 rounded-[1rem] border border-[#D8CCBB] bg-[#1F1D1A] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#2C2924] disabled:opacity-70"
               >
                 <Save className="h-4 w-4" />
                 {profileLoading ? "Zapisywanie..." : "Zapisz profil"}
@@ -261,9 +283,9 @@ export default function UserSettingsPanel({
             </form>
           </section>
 
-          <section className="rounded-[1.6rem] border border-[#E6DED1] bg-white/82 p-5 shadow-[0_12px_34px_rgba(34,31,25,0.05)]">
+          <section className="theme-user-settings-card rounded-[1.6rem] border border-[#E6DED1] bg-white/82 p-5 shadow-[0_12px_34px_rgba(34,31,25,0.05)]">
             <div className="flex items-center gap-3">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] text-[#5F6D45]">
+              <span className="theme-user-settings-icon inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] text-[#5F6D45]">
                 <KeyRound className="h-5 w-5" />
               </span>
               <div>
@@ -291,7 +313,7 @@ export default function UserSettingsPanel({
                       password: event.target.value,
                     }))
                   }
-                  className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                  className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
                   placeholder="Minimum 6 znakow"
                 />
               </label>
@@ -310,7 +332,7 @@ export default function UserSettingsPanel({
                       confirmPassword: event.target.value,
                     }))
                   }
-                  className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                  className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
                   placeholder="Wpisz ponownie nowe haslo"
                 />
               </label>
@@ -318,7 +340,7 @@ export default function UserSettingsPanel({
               <button
                 type="submit"
                 disabled={passwordLoading}
-                className="inline-flex items-center gap-2 rounded-[1rem] border border-[#D8CCBB] bg-white px-4 py-3 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9] disabled:opacity-70"
+                className="theme-user-settings-button inline-flex items-center gap-2 rounded-[1rem] border border-[#D8CCBB] bg-white px-4 py-3 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9] disabled:opacity-70"
               >
                 <KeyRound className="h-4 w-4" />
                 {passwordLoading ? "Zmiana hasla..." : "Zmien haslo"}
@@ -330,7 +352,7 @@ export default function UserSettingsPanel({
         {status.message && (
           <div
             className={[
-              "mt-5 rounded-[1.2rem] border px-4 py-3 text-sm shadow-[0_12px_28px_rgba(36,32,26,0.08)]",
+              "theme-user-settings-toast mt-5 rounded-[1.2rem] border px-4 py-3 text-sm shadow-[0_12px_28px_rgba(36,32,26,0.08)]",
               status.type === "error"
                 ? "border-[#E3C7C1] bg-[#FFF3F0] text-[#8C4C43]"
                 : "border-[#D5E2C8] bg-[#F4FAEE] text-[#4F6A2F]",

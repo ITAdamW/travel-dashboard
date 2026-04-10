@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Moon, Settings2, Sun } from "lucide-react";
+import {
+  BookImage,
+  Database,
+  Globe2,
+  Images,
+  Map,
+  Moon,
+  Settings2,
+  Sun,
+  Users as UsersIcon,
+} from "lucide-react";
 import AtlasPanel from "./components/AtlasPanel";
 import StoryPanel from "./components/StoryPanel";
 import PlannerPanel from "./components/PlannerPanel";
@@ -14,30 +24,6 @@ import { fetchTravelCountriesFromDb } from "./lib/supabaseTravelData";
 import { ensureCurrentUserProfile } from "./lib/userProfiles";
 
 const THEME_STORAGE_KEY = "travel-dashboard-theme";
-
-function navButtonClass(active) {
-  return [
-    "theme-nav-button group relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200",
-    active
-      ? "border-[#D8CCBB] bg-white shadow-[0_10px_24px_rgba(36,32,26,0.07)]"
-      : "border-transparent bg-[#F8F4EC] hover:border-[#E7DDD0] hover:bg-white/80",
-  ].join(" ");
-}
-
-function NavBadge({ children, active }) {
-  return (
-    <span
-      className={[
-        "inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-medium transition",
-        active
-          ? "theme-nav-badge-active border-[#D8CCBB] bg-[#F6F1E8] text-[#5F6D45]"
-          : "theme-nav-badge border-[#E7DDD0] bg-white text-[#8B806F]",
-      ].join(" ")}
-    >
-      {children}
-    </span>
-  );
-}
 
 function EmptyPanelState({ message }) {
   return (
@@ -84,6 +70,33 @@ function getUserGreeting(profile, session) {
   const emailPrefix = session?.user?.email?.split("@")[0];
 
   return login || fullName || emailPrefix || "podrozniku";
+}
+
+function navbarButtonClass({ active, style }) {
+  if (style === "old") {
+    return [
+      "theme-navbar-button theme-navbar-old-button group relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200",
+      active
+        ? "border-[#D8CCBB] bg-white text-[#1F1D1A] shadow-[0_10px_24px_rgba(36,32,26,0.07)]"
+        : "border-transparent bg-[#F8F4EC] text-[#6B6255] hover:border-[#E7DDD0] hover:bg-white/80 hover:text-[#1F1D1A]",
+    ].join(" ");
+  }
+
+  if (style === "line") {
+    return [
+      "theme-navbar-button group relative inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition",
+      active
+        ? "border-[#6B7A52] text-[#1F1D1A]"
+        : "border-transparent text-[#6B6255] hover:border-[#D8CCBB] hover:text-[#1F1D1A]",
+    ].join(" ");
+  }
+
+  return [
+    "theme-navbar-button group inline-flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-sm font-medium transition",
+    active
+      ? "border-[#D8CCBB] bg-white text-[#1F1D1A] shadow-[0_10px_24px_rgba(36,32,26,0.07)]"
+      : "border-transparent bg-[#F8F4EC] text-[#6B6255] hover:border-[#E7DDD0] hover:bg-white/80 hover:text-[#1F1D1A]",
+  ].join(" ");
 }
 
 export default function App() {
@@ -260,6 +273,15 @@ export default function App() {
   const userGreeting = getUserGreeting(currentUserProfile, session);
   const userRole = getUserRole(currentUserProfile, session);
   const isAdmin = userRole === "admin";
+  const navbarStyle = currentUserProfile?.navbarStyle || "capsule";
+  const navItems = [
+    { key: "atlas", label: "Atlas", panelLabel: "Panel 1", number: "1", icon: Globe2, visible: true },
+    { key: "story", label: "Destination", panelLabel: "Panel 2", number: "2", icon: Map, visible: true },
+    { key: "planner", label: "Planner", panelLabel: "Panel 3", number: "3", icon: BookImage, visible: true },
+    { key: "media", label: "Media", panelLabel: "Panel 4", number: "4", icon: Images, visible: isAdmin },
+    { key: "admin", label: "Data admin", panelLabel: "Panel 5", number: "5", icon: Database, visible: isAdmin },
+    { key: "users", label: "Users", panelLabel: "Panel 6", number: "6", icon: UsersIcon, visible: isAdmin },
+  ].filter((item) => item.visible);
 
   if (authLoading) {
     return (
@@ -284,91 +306,146 @@ export default function App() {
 
   return (
     <div className="app-shell min-h-screen text-[#1F1D1A]">
-      <div className="w-full px-3 py-4 sm:px-4 md:px-6 md:py-6 xl:px-8">
-        <div className="sticky top-0 z-[1200] mb-5 rounded-[1.4rem] border border-[#E7DED2] bg-[linear-gradient(180deg,rgba(252,250,246,0.96)_0%,rgba(246,240,229,0.96)_100%)] p-1.5 shadow-[0_10px_24px_rgba(36,32,26,0.06)] backdrop-blur">
-          <div className="flex flex-col gap-1.5 xl:flex-row xl:items-stretch xl:justify-between">
-            <div className="grid flex-1 grid-cols-2 gap-1.5 md:grid-cols-6">
-              <button
-                onClick={() => setActivePanel("atlas")}
-                className={navButtonClass(activePanel === "atlas")}
-              >
-                <NavBadge active={activePanel === "atlas"}>1</NavBadge>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
-                    Panel 1
+      <header
+        className={[
+          "theme-navbar sticky top-0 z-[1300] w-full backdrop-blur",
+          navbarStyle === "old"
+            ? "px-3 py-4 sm:px-4 md:px-6 xl:px-8"
+            : "border-b border-[#E7DED2] bg-[linear-gradient(180deg,rgba(252,250,246,0.97)_0%,rgba(246,240,229,0.95)_100%)] shadow-[0_10px_24px_rgba(36,32,26,0.06)]",
+        ].join(" ")}
+      >
+        {navbarStyle === "old" ? (
+          <div className="theme-navbar-old-shell rounded-[1.4rem] border border-[#E7DED2] bg-[linear-gradient(180deg,rgba(252,250,246,0.96)_0%,rgba(246,240,229,0.96)_100%)] p-1.5 shadow-[0_10px_24px_rgba(36,32,26,0.06)]">
+            <div className="flex flex-col gap-1.5 xl:flex-row xl:items-stretch xl:justify-between">
+              <div className="grid flex-1 grid-cols-2 gap-1.5 md:grid-cols-3 xl:grid-cols-6">
+                {navItems.map((item) => {
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => setActivePanel(item.key)}
+                      className={navbarButtonClass({
+                        active: activePanel === item.key,
+                        style: navbarStyle,
+                      })}
+                    >
+                      <span
+                        className={[
+                          "inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-medium transition",
+                          activePanel === item.key
+                            ? "border-[#D8CCBB] bg-[#F6F1E8] text-[#5F6D45]"
+                            : "border-[#E7DDD0] bg-white text-[#8B806F]",
+                        ].join(" ")}
+                      >
+                        {item.number}
+                      </span>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
+                          {item.panelLabel}
+                        </p>
+                        <p className="text-sm font-medium">{item.label}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center justify-between gap-2 rounded-[1.2rem] border border-[#E7DDD0] bg-white/70 px-3 py-2 xl:min-w-[350px] xl:justify-end">
+                <div className="min-w-0 xl:mr-auto">
+                  <p className="truncate text-sm font-medium text-[#1F1D1A]">
+                    Witaj, {userGreeting}
                   </p>
-                  <p className="text-sm font-medium">Atlas</p>
-                </div>
-              </button>
-              <button
-                onClick={() => setActivePanel("story")}
-                className={navButtonClass(activePanel === "story")}
-              >
-                <NavBadge active={activePanel === "story"}>2</NavBadge>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
-                    Panel 2
+                  <p className="truncate text-xs capitalize text-[#6B6255]">
+                    Rola: {userRole}
                   </p>
-                  <p className="text-sm font-medium">Destination</p>
                 </div>
-              </button>
-              <button
-                onClick={() => setActivePanel("planner")}
-                className={navButtonClass(activePanel === "planner")}
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setUserSettingsOpen(true)}
+                    className="theme-navbar-utility inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                    aria-label="Ustawienia uzytkownika"
+                    title="Ustawienia uzytkownika"
+                  >
+                    <Settings2 className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={() =>
+                      setTheme((prev) => (prev === "light" ? "dark" : "light"))
+                    }
+                    aria-label={
+                      theme === "light"
+                        ? "Wlacz tryb ciemny"
+                        : "Wlacz tryb jasny"
+                    }
+                    title={
+                      theme === "light"
+                        ? "Wlacz tryb ciemny"
+                        : "Wlacz tryb jasny"
+                    }
+                    className="theme-navbar-utility inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                  >
+                    {theme === "light" ? (
+                      <Sun className="h-5 w-5" />
+                    ) : (
+                      <Moon className="h-5 w-5" />
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => supabase?.auth.signOut()}
+                    className="theme-navbar-utility inline-flex items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                  >
+                    Wyloguj
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex w-full flex-col gap-3 px-3 py-3 sm:px-4 md:px-6 xl:flex-row xl:items-center xl:justify-between xl:px-8">
+            <div className="flex items-center gap-4">
+              <div className="shrink-0">
+                <p className="text-[11px] uppercase tracking-[0.3em] text-[#8A7F6C]">
+                  Travel Dashboard
+                </p>
+                <p className="mt-1 text-lg font-semibold text-[#1F1D1A]">
+                  Travel Dashboard
+                </p>
+              </div>
+              <nav
+                className={[
+                  "flex min-w-0 flex-1 flex-wrap items-center gap-1.5",
+                  navbarStyle === "line"
+                    ? "border-b border-[#E7DDD0] xl:border-b-0"
+                    : "",
+                ].join(" ")}
               >
-                <NavBadge active={activePanel === "planner"}>3</NavBadge>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
-                    Panel 3
-                  </p>
-                  <p className="text-sm font-medium">Planner</p>
-                </div>
-              </button>
-              {isAdmin && (
-                <button
-                  onClick={() => setActivePanel("media")}
-                  className={navButtonClass(activePanel === "media")}
-                >
-                  <NavBadge active={activePanel === "media"}>4</NavBadge>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
-                      Panel 4
-                    </p>
-                    <p className="text-sm font-medium">Media</p>
-                  </div>
-                </button>
-              )}
-              {isAdmin && (
-                <button
-                  onClick={() => setActivePanel("admin")}
-                  className={navButtonClass(activePanel === "admin")}
-                >
-                  <NavBadge active={activePanel === "admin"}>5</NavBadge>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
-                      Panel 5
-                    </p>
-                    <p className="text-sm font-medium">Data admin</p>
-                  </div>
-                </button>
-              )}
-              {isAdmin && (
-                <button
-                  onClick={() => setActivePanel("users")}
-                  className={navButtonClass(activePanel === "users")}
-                >
-                  <NavBadge active={activePanel === "users"}>6</NavBadge>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
-                      Panel 6
-                    </p>
-                    <p className="text-sm font-medium">Users</p>
-                  </div>
-                </button>
-              )}
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.key}
+                      onClick={() => setActivePanel(item.key)}
+                      className={navbarButtonClass({
+                        active: activePanel === item.key,
+                        style: navbarStyle,
+                      })}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
             </div>
 
-            <div className="flex items-center justify-between gap-2 rounded-[1.2rem] border border-[#E7DDD0] bg-white/70 px-3 py-2 xl:min-w-[350px] xl:justify-end">
+            <div
+              className={[
+                "flex items-center justify-between gap-2",
+                navbarStyle === "line"
+                  ? "xl:min-w-[330px]"
+                  : "rounded-[1.2rem] border border-[#E7DDD0] bg-white/70 px-3 py-2 xl:min-w-[350px]",
+              ].join(" ")}
+            >
               <div className="min-w-0 xl:mr-auto">
                 <p className="truncate text-sm font-medium text-[#1F1D1A]">
                   Witaj, {userGreeting}
@@ -380,7 +457,7 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setUserSettingsOpen(true)}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                  className="theme-navbar-utility inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
                   aria-label="Ustawienia uzytkownika"
                   title="Ustawienia uzytkownika"
                 >
@@ -400,7 +477,7 @@ export default function App() {
                       ? "Wlacz tryb ciemny"
                       : "Wlacz tryb jasny"
                   }
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                  className="theme-navbar-utility inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
                 >
                   {theme === "light" ? (
                     <Sun className="h-5 w-5" />
@@ -411,14 +488,17 @@ export default function App() {
 
                 <button
                   onClick={() => supabase?.auth.signOut()}
-                  className="inline-flex items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                  className="theme-navbar-utility inline-flex items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
                 >
                   Wyloguj
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        )}
+      </header>
+
+      <div className="w-full px-3 pb-4 pt-2 sm:px-4 md:px-6 md:pb-6 md:pt-3 xl:px-8">
 
         {activePanel === "atlas" &&
           (travelCountries.length > 0 ? (
@@ -528,7 +608,33 @@ export default function App() {
           <UserSettingsPanel
             session={session}
             onClose={() => setUserSettingsOpen(false)}
-            onUserUpdated={(nextProfile) => setCurrentUserProfile(nextProfile)}
+            onUserUpdated={(nextProfile) => {
+              setCurrentUserProfile(nextProfile);
+              setSession((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      user: {
+                        ...prev.user,
+                        user_metadata: {
+                          ...prev.user.user_metadata,
+                          login: nextProfile?.login || "",
+                          first_name: nextProfile?.firstName || "",
+                          last_name: nextProfile?.lastName || "",
+                          full_name: [
+                            nextProfile?.firstName || "",
+                            nextProfile?.lastName || "",
+                          ]
+                            .filter(Boolean)
+                            .join(" "),
+                          role: nextProfile?.role || "user",
+                          navbar_style: nextProfile?.navbarStyle || "capsule",
+                        },
+                      },
+                    }
+                  : prev
+              );
+            }}
           />
         )}
       </div>
