@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Settings2, Sun } from "lucide-react";
 import AtlasPanel from "./components/AtlasPanel";
 import StoryPanel from "./components/StoryPanel";
 import PlannerPanel from "./components/PlannerPanel";
 import LoginPanel from "./components/LoginPanel";
 import MediaPanel from "./components/MediaPanel";
 import DataAdminPanel from "./components/DataAdminPanel";
+import UserSettingsPanel from "./components/UserSettingsPanel";
+import UsersPanel from "./components/UsersPanel";
 import { supabase } from "./lib/supabase";
 import { hydrateCountriesWithStorage } from "./lib/storageMedia";
 import { fetchTravelCountriesFromDb } from "./lib/supabaseTravelData";
+import { ensureCurrentUserProfile } from "./lib/userProfiles";
 
 const THEME_STORAGE_KEY = "travel-dashboard-theme";
 
@@ -44,6 +47,45 @@ function EmptyPanelState({ message }) {
   );
 }
 
+function FloatingToast({ children, tone = "neutral" }) {
+  const toneClass =
+    tone === "error"
+      ? "border-[#E3C7C1] bg-[#FFF3F0] text-[#8C4C43]"
+      : tone === "success"
+        ? "border-[#D5E2C8] bg-[#F4FAEE] text-[#4F6A2F]"
+        : "border-[#E7DED2] bg-white/92 text-[#6B6255]";
+
+  return (
+    <div
+      className={`rounded-[1.2rem] border px-4 py-3 text-sm shadow-[0_18px_40px_rgba(36,32,26,0.10)] backdrop-blur ${toneClass}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function getUserRole(profile, session) {
+  return (
+    profile?.role ||
+    session?.user?.app_metadata?.role ||
+    session?.user?.user_metadata?.role ||
+    "user"
+  );
+}
+
+function getUserGreeting(profile, session) {
+  const metadata = session?.user?.user_metadata || {};
+  const login = profile?.login?.trim() || metadata.login?.trim();
+  const fullName =
+    [profile?.firstName || metadata.first_name, profile?.lastName || metadata.last_name]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || metadata.full_name?.trim();
+  const emailPrefix = session?.user?.email?.split("@")[0];
+
+  return login || fullName || emailPrefix || "podrozniku";
+}
+
 export default function App() {
   const [activePanel, setActivePanel] = useState("atlas");
   const [theme, setTheme] = useState(() => {
@@ -59,6 +101,9 @@ export default function App() {
   const [mediaLoading, setMediaLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataStatus, setDataStatus] = useState("");
+  const [userSettingsOpen, setUserSettingsOpen] = useState(false);
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   useEffect(() => {
     document.body.dataset.theme = theme;
@@ -167,6 +212,39 @@ export default function App() {
     loadTravelData();
   }, [session, loadTravelData]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function bootstrapProfile() {
+      if (!session) {
+        setCurrentUserProfile(null);
+        return;
+      }
+
+      setProfileLoading(true);
+      try {
+        const nextProfile = await ensureCurrentUserProfile(session);
+        if (!cancelled) {
+          setCurrentUserProfile(nextProfile);
+        }
+      } catch {
+        if (!cancelled) {
+          setCurrentUserProfile(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setProfileLoading(false);
+        }
+      }
+    }
+
+    bootstrapProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session]);
+
   const selectedCountry = useMemo(
     () =>
       travelCountries.find((country) => country.id === selectedCountryId) ||
@@ -178,6 +256,10 @@ export default function App() {
     selectedCountry?.destinations.find(
       (destination) => destination.id === selectedDestinationId
     ) || selectedCountry?.destinations[0];
+
+  const userGreeting = getUserGreeting(currentUserProfile, session);
+  const userRole = getUserRole(currentUserProfile, session);
+  const isAdmin = userRole === "admin";
 
   if (authLoading) {
     return (
@@ -200,14 +282,12 @@ export default function App() {
     );
   }
 
-  const userEmail = session.user?.email || "Zalogowany uzytkownik";
-
   return (
     <div className="app-shell min-h-screen text-[#1F1D1A]">
       <div className="w-full px-3 py-4 sm:px-4 md:px-6 md:py-6 xl:px-8">
         <div className="sticky top-0 z-[1200] mb-5 rounded-[1.4rem] border border-[#E7DED2] bg-[linear-gradient(180deg,rgba(252,250,246,0.96)_0%,rgba(246,240,229,0.96)_100%)] p-1.5 shadow-[0_10px_24px_rgba(36,32,26,0.06)] backdrop-blur">
           <div className="flex flex-col gap-1.5 xl:flex-row xl:items-stretch xl:justify-between">
-            <div className="grid flex-1 grid-cols-2 gap-1.5 md:grid-cols-5">
+            <div className="grid flex-1 grid-cols-2 gap-1.5 md:grid-cols-6">
               <button
                 onClick={() => setActivePanel("atlas")}
                 className={navButtonClass(activePanel === "atlas")}
@@ -244,35 +324,68 @@ export default function App() {
                   <p className="text-sm font-medium">Planner</p>
                 </div>
               </button>
-              <button
-                onClick={() => setActivePanel("media")}
-                className={navButtonClass(activePanel === "media")}
-              >
-                <NavBadge active={activePanel === "media"}>4</NavBadge>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
-                    Panel 4
-                  </p>
-                  <p className="text-sm font-medium">Media</p>
-                </div>
-              </button>
-              <button
-                onClick={() => setActivePanel("admin")}
-                className={navButtonClass(activePanel === "admin")}
-              >
-                <NavBadge active={activePanel === "admin"}>5</NavBadge>
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
-                    Panel 5
-                  </p>
-                  <p className="text-sm font-medium">Data admin</p>
-                </div>
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setActivePanel("media")}
+                  className={navButtonClass(activePanel === "media")}
+                >
+                  <NavBadge active={activePanel === "media"}>4</NavBadge>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
+                      Panel 4
+                    </p>
+                    <p className="text-sm font-medium">Media</p>
+                  </div>
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  onClick={() => setActivePanel("admin")}
+                  className={navButtonClass(activePanel === "admin")}
+                >
+                  <NavBadge active={activePanel === "admin"}>5</NavBadge>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
+                      Panel 5
+                    </p>
+                    <p className="text-sm font-medium">Data admin</p>
+                  </div>
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  onClick={() => setActivePanel("users")}
+                  className={navButtonClass(activePanel === "users")}
+                >
+                  <NavBadge active={activePanel === "users"}>6</NavBadge>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
+                      Panel 6
+                    </p>
+                    <p className="text-sm font-medium">Users</p>
+                  </div>
+                </button>
+              )}
             </div>
 
-            <div className="flex items-center justify-between gap-2 rounded-[1.2rem] border border-[#E7DDD0] bg-white/70 px-3 py-2 xl:min-w-[250px] xl:justify-end">
-              <p className="truncate text-xs text-[#6B6255]">{userEmail}</p>
+            <div className="flex items-center justify-between gap-2 rounded-[1.2rem] border border-[#E7DDD0] bg-white/70 px-3 py-2 xl:min-w-[350px] xl:justify-end">
+              <div className="min-w-0 xl:mr-auto">
+                <p className="truncate text-sm font-medium text-[#1F1D1A]">
+                  Witaj, {userGreeting}
+                </p>
+                <p className="truncate text-xs capitalize text-[#6B6255]">
+                  Rola: {userRole}
+                </p>
+              </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setUserSettingsOpen(true)}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                  aria-label="Ustawienia uzytkownika"
+                  title="Ustawienia uzytkownika"
+                >
+                  <Settings2 className="h-5 w-5" />
+                </button>
                 <button
                   onClick={() =>
                     setTheme((prev) => (prev === "light" ? "dark" : "light"))
@@ -306,22 +419,6 @@ export default function App() {
             </div>
           </div>
         </div>
-
-        {mediaLoading && (
-          <div className="mb-5 rounded-[1.2rem] border border-[#E7DED2] bg-white/80 px-4 py-3 text-sm text-[#6B6255] shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
-            Synchronizuje zdjecia i filmy z Supabase Storage...
-          </div>
-        )}
-        {dataLoading && (
-          <div className="mb-5 rounded-[1.2rem] border border-[#E7DED2] bg-white/80 px-4 py-3 text-sm text-[#6B6255] shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
-            Synchronizuje kraje, miasta i miejscowki z Supabase Database...
-          </div>
-        )}
-        {dataStatus && (
-          <div className="mb-5 rounded-[1.2rem] border border-[#E7DED2] bg-[#FBF8F2] px-4 py-3 text-sm text-[#6B6255] shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
-            {dataStatus}
-          </div>
-        )}
 
         {activePanel === "atlas" &&
           (travelCountries.length > 0 ? (
@@ -380,19 +477,58 @@ export default function App() {
           ))}
 
         {activePanel === "media" &&
-          (travelCountries.length > 0 ? (
+          (isAdmin && travelCountries.length > 0 ? (
             <MediaPanel
               countries={travelCountries}
               onMediaChanged={loadTravelData}
             />
           ) : (
-            <EmptyPanelState message="Media admin wymaga danych krajow, destynacji i miejsc w bazie." />
+            <EmptyPanelState message="Panel media jest dostepny tylko dla admina i wymaga danych krajow, destynacji i miejsc w bazie." />
           ))}
 
-        {activePanel === "admin" && (
-          <DataAdminPanel
-            countries={baseCountries}
-            onReloadFromDatabase={loadTravelData}
+        {activePanel === "admin" &&
+          (isAdmin ? (
+            <DataAdminPanel
+              countries={baseCountries}
+              onReloadFromDatabase={loadTravelData}
+            />
+          ) : (
+            <EmptyPanelState message="Panel data admin jest dostepny tylko dla admina." />
+          ))}
+
+        {activePanel === "users" &&
+          (isAdmin ? (
+            <UsersPanel currentUserId={session?.user?.id} />
+          ) : (
+            <EmptyPanelState message="Panel users jest dostepny tylko dla admina." />
+          ))}
+
+        {(mediaLoading || dataLoading || dataStatus || profileLoading) && (
+          <div className="pointer-events-none fixed bottom-6 right-6 z-[1450] flex w-[min(380px,calc(100vw-2rem))] flex-col gap-3">
+            {profileLoading && (
+              <FloatingToast>
+                Synchronizuje profil i role uzytkownika...
+              </FloatingToast>
+            )}
+            {mediaLoading && (
+              <FloatingToast>
+                Synchronizuje zdjecia i filmy z Supabase Storage...
+              </FloatingToast>
+            )}
+            {dataLoading && (
+              <FloatingToast>
+                Synchronizuje kraje, miasta i miejscowki z Supabase Database...
+              </FloatingToast>
+            )}
+            {dataStatus && <FloatingToast tone="error">{dataStatus}</FloatingToast>}
+          </div>
+        )}
+
+        {userSettingsOpen && (
+          <UserSettingsPanel
+            session={session}
+            onClose={() => setUserSettingsOpen(false)}
+            onUserUpdated={(nextProfile) => setCurrentUserProfile(nextProfile)}
           />
         )}
       </div>

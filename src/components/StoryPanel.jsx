@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,
   Marker,
@@ -10,19 +10,23 @@ import { divIcon } from "leaflet";
 import { createPortal } from "react-dom";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  BadgeAlert,
+  CalendarCheck2,
   ChevronLeft,
   ChevronRight,
-  Clapperboard,
   Coffee,
+  CreditCard,
   ExternalLink,
   Landmark,
   MapPin,
   Mountain,
   Route,
   Star,
+  Ticket,
   Waves,
   X,
 } from "lucide-react";
+import { fetchPlannerPlans } from "../lib/supabaseTravelData";
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80";
@@ -46,8 +50,9 @@ function findPlaceById(destination, id) {
 }
 
 function getStorySlides(destination) {
+  const places = destination?.places || [];
   return [
-    ...destination.places.map((place) => ({
+    ...places.map((place) => ({
       id: `${place.id}-slide`,
       type: "place",
       placeId: place.id,
@@ -58,16 +63,6 @@ function getStorySlides(destination) {
         "To miejsce mozesz pozniej uzupelnic wlasnym opisem, wspomnieniem albo praktyczna notatka do planowania wyjazdu.",
       image: place.image || fallbackImage,
     })),
-    ...(destination.video
-      ? [
-          {
-            id: `${destination.id}-video`,
-            type: "video",
-            title: "Video recap",
-            subtitle: "Krotki film z calej destynacji.",
-          },
-        ]
-      : []),
   ];
 }
 
@@ -78,6 +73,45 @@ function countByCategory(places) {
     count: places.filter((place) => place.category === key).length,
     places: places.filter((place) => place.category === key),
   }));
+}
+
+function createEmptyDay(index) {
+  return {
+    day: `Day ${index + 1}`,
+    items: [],
+  };
+}
+
+function normalizePlanItem(item) {
+  if (typeof item === "string") {
+    return { placeId: item, note: "" };
+  }
+
+  return {
+    placeId: item?.placeId || item?.id || "",
+    note: item?.note || "",
+  };
+}
+
+function normalizePlanItinerary(itinerary) {
+  if (!Array.isArray(itinerary) || !itinerary.length) {
+    return [createEmptyDay(0)];
+  }
+
+  return itinerary.map((day, index) => ({
+    day: day?.day || `Day ${index + 1}`,
+    items: Array.isArray(day?.items)
+      ? day.items.map(normalizePlanItem).filter((item) => item.placeId)
+      : [],
+  }));
+}
+
+function getPlanPlaceIds(plan) {
+  return new Set(
+    normalizePlanItinerary(plan?.itinerary || []).flatMap((day) =>
+      day.items.map((item) => normalizePlanItem(item).placeId)
+    )
+  );
 }
 
 function FitBounds({ points }) {
@@ -148,6 +182,212 @@ function RatingStars({ rating }) {
   );
 }
 
+function getPlaceMetaBadges(place) {
+  const badges = [];
+  const ticketText = (place?.ticket || "").trim();
+  const reservationText = (place?.reservation || "").trim();
+  const infoText = (place?.info || "").trim();
+
+  if (ticketText) {
+    badges.push({
+      key: "ticket",
+      icon: Ticket,
+      label: "Bilet",
+      tooltip: ticketText,
+    });
+
+    const normalizedTicket = ticketText.toLowerCase();
+    if (
+      !normalizedTicket.includes("brak") &&
+      !normalizedTicket.includes("free") &&
+      !normalizedTicket.includes("darmo") &&
+      !normalizedTicket.includes("bezplat")
+    ) {
+      badges.push({
+        key: "payment",
+        icon: CreditCard,
+        label: "Platnosc",
+        tooltip: `Wymagana platnosc: ${ticketText}`,
+      });
+    }
+  }
+
+  if (reservationText) {
+    badges.push({
+      key: "reservation",
+      icon: CalendarCheck2,
+      label: "Rezerwacja",
+      tooltip: reservationText,
+    });
+  }
+
+  if (infoText) {
+    badges.push({
+      key: "info",
+      icon: BadgeAlert,
+      label: "Wazne",
+      tooltip: infoText,
+    });
+  }
+
+  return badges;
+}
+
+function PlaceMetaBadge({ icon, label, tooltip }) {
+  const IconComponent = icon;
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
+  const canUsePortal = typeof document !== "undefined";
+
+  const updateTooltipPosition = () => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setTooltipPosition({
+      top: rect.top + window.scrollY + rect.height / 2,
+      left: rect.right + window.scrollX + 12,
+    });
+  };
+
+  return (
+    <>
+      <div
+        ref={triggerRef}
+        onMouseEnter={() => {
+          updateTooltipPosition();
+          setTooltipOpen(true);
+        }}
+        onMouseLeave={() => setTooltipOpen(false)}
+        onFocus={() => {
+          updateTooltipPosition();
+          setTooltipOpen(true);
+        }}
+        onBlur={() => setTooltipOpen(false)}
+        tabIndex={0}
+        className="inline-flex cursor-help outline-none"
+      >
+        <div className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E5DCCF] bg-[#FBF8F2] text-[#3A352E]">
+          <IconComponent className="h-4 w-4" />
+        </div>
+      </div>
+
+      {tooltipOpen &&
+        canUsePortal &&
+        createPortal(
+          <div
+            className="pointer-events-none fixed z-[1650] w-[min(280px,calc(100vw-2rem))] -translate-y-1/2 rounded-xl border border-[#E5DCCF] bg-white px-3 py-2 text-xs leading-5 text-[#3A352E] shadow-[0_12px_28px_rgba(34,31,25,0.12)]"
+            style={{
+              top: `${tooltipPosition.top}px`,
+              left: `${Math.min(
+                tooltipPosition.left,
+                window.scrollX + window.innerWidth - 300
+              )}px`,
+            }}
+          >
+            <p className="font-medium">{label}</p>
+            <p className="mt-1 whitespace-normal">{tooltip}</p>
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
+function StoryDescription({ text }) {
+  const [tooltipOpen, setTooltipOpen] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
+  const canUsePortal = typeof document !== "undefined";
+
+  const updateTooltipPosition = () => {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setTooltipPosition({
+      top: rect.top + window.scrollY + rect.height / 2,
+      left: rect.right + window.scrollX + 12,
+    });
+  };
+
+  return (
+    <>
+      <div
+        ref={triggerRef}
+        onMouseEnter={() => {
+          updateTooltipPosition();
+          setTooltipOpen(true);
+        }}
+        onMouseLeave={() => setTooltipOpen(false)}
+        onFocus={() => {
+          updateTooltipPosition();
+          setTooltipOpen(true);
+        }}
+        onBlur={() => setTooltipOpen(false)}
+        tabIndex={0}
+        className="group mt-3 cursor-help outline-none"
+      >
+        <div className="theme-story-description relative max-h-[112px] overflow-hidden rounded-[1rem] border border-[#E8DFD2] bg-[#FBF8F2] px-3 py-3 text-sm leading-7 text-[#4D463D]">
+          <p className="max-h-[84px] overflow-hidden">{text}</p>
+          <div className="theme-story-description-fade pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#FBF8F2] via-[#FBF8F2]/90 to-transparent" />
+        </div>
+      </div>
+
+      {tooltipOpen &&
+        canUsePortal &&
+        createPortal(
+          <div
+            className="pointer-events-none fixed z-[1650] w-[min(360px,calc(100vw-2rem))] -translate-y-1/2 rounded-xl border border-[#E5DCCF] bg-white px-4 py-3 text-sm leading-7 text-[#3A352E] shadow-[0_16px_34px_rgba(34,31,25,0.16)]"
+            style={{
+              top: `${tooltipPosition.top}px`,
+              left: `${Math.min(
+                tooltipPosition.left,
+                window.scrollX + window.innerWidth - 380
+              )}px`,
+            }}
+          >
+            {text}
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}
+
+function FloatingPlanPicker({
+  planOptions,
+  selectedPlanId,
+  onSelectPlan,
+  loadingPlans,
+}) {
+  return (
+    <div className="rounded-[1.35rem] border border-[#EEE6DA] bg-[rgba(251,248,242,0.92)] p-4 shadow-[0_14px_30px_rgba(34,31,25,0.10)] backdrop-blur">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
+            Widok miejsc
+          </p>
+          <p className="mt-2 text-sm text-[#4D463D]">
+            Wszystkie miejscowki albo wybrany plan podrozy.
+          </p>
+        </div>
+        <span className="rounded-full border border-[#E1D7C8] bg-white px-2.5 py-1 text-xs font-medium text-[#4D463D]">
+          {loadingPlans ? "Ladowanie" : `${planOptions.length} opcji`}
+        </span>
+      </div>
+      <select
+        value={selectedPlanId}
+        onChange={(event) => onSelectPlan(event.target.value)}
+        className="mt-3 w-full rounded-xl border border-[#E5DCCF] bg-white px-3 py-2 text-sm text-[#4D463D]"
+      >
+        {planOptions.map((plan) => (
+          <option key={plan.id} value={plan.id}>
+            {plan.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function FloatingToolbar({
   countries,
   selectedCountryId,
@@ -157,9 +397,9 @@ function FloatingToolbar({
   const selectedCountry =
     countries.find((country) => country.id === selectedCountryId) || countries[0];
   const selectedDestination =
-    selectedCountry.destinations.find(
+    selectedCountry?.destinations?.find(
       (destination) => destination.id === selectedDestinationId
-    ) || selectedCountry.destinations[0];
+    ) || selectedCountry?.destinations?.[0];
 
   return (
     <div className="rounded-[1.3rem] border border-[#E6DED1] bg-[rgba(255,255,255,0.92)] p-3 shadow-[0_16px_36px_rgba(34,31,25,0.10)] backdrop-blur">
@@ -373,11 +613,27 @@ function FloatingCategoryPlaces({
 
 function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
   const slides = useMemo(() => getStorySlides(destination), [destination]);
+  const [galleryStart, setGalleryStart] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const canUsePortal = typeof document !== "undefined";
+
+  if (!slides.length) {
+    return (
+      <div className="flex h-full min-h-[calc(100%-2rem)] flex-col rounded-[1.5rem] border border-[#E6DED1] bg-[rgba(255,255,255,0.92)] p-4 shadow-[0_18px_38px_rgba(34,31,25,0.12)] backdrop-blur">
+        <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">
+          Selected place story
+        </p>
+        <div className="mt-4 rounded-[1.1rem] border border-[#E8DFD2] bg-[#FBF8F2] px-4 py-5 text-sm text-[#4D463D]">
+          Brak historii do wyswietlenia dla tej destynacji.
+        </div>
+      </div>
+    );
+  }
+
   const currentSlide = slides[activeIndex];
-  const activePlace =
-    currentSlide.type === "place"
-      ? findPlaceById(destination, currentSlide.placeId)
-      : null;
+  const activePlace = findPlaceById(destination, currentSlide.placeId);
+  const metaBadges = getPlaceMetaBadges(activePlace);
   const galleryImages = activePlace?.gallery?.length
     ? activePlace.gallery
     : activePlace
@@ -388,11 +644,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
     : activePlace?.video
       ? [activePlace.video]
       : [];
-  const [galleryStart, setGalleryStart] = useState(0);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
   const visibleThumbs = galleryImages.slice(galleryStart, galleryStart + 4);
-  const canUsePortal = typeof document !== "undefined";
 
   return (
     <>
@@ -409,7 +661,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
               {currentSlide.subtitle}
             </p>
           </div>
-          <div className="text-sm font-medium text-[#6B6255]">
+          <div className="shrink-0 whitespace-nowrap text-sm font-medium text-[#6B6255]">
             {activeIndex + 1} / {slides.length}
           </div>
         </div>
@@ -422,23 +674,13 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
           >
             {slides.map((slide, index) => (
               <option key={slide.id} value={index}>
-                {slide.type === "video" ? "Video" : slide.title}
+                {slide.title}
               </option>
             ))}
           </select>
         </div>
 
         <div className="flex-1 overflow-y-auto pr-1">
-        {currentSlide.type === "video" ? (
-          <div className="aspect-video overflow-hidden rounded-[1.1rem] bg-black">
-            <iframe
-              className="h-full w-full"
-              src={destination.video}
-              title={`${destination.name} video`}
-              allowFullScreen
-            />
-          </div>
-        ) : (
           <>
             <div className="overflow-hidden rounded-[1.1rem] border border-[#E8DFD2]">
               <button
@@ -461,9 +703,19 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
                 />
               </button>
             </div>
-            <p className="mt-3 text-sm leading-7 text-[#4D463D] line-clamp-4">
-              {currentSlide.description}
-            </p>
+            <StoryDescription text={currentSlide.description} />
+            {metaBadges.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {metaBadges.map((badge) => (
+                  <PlaceMetaBadge
+                    key={badge.key}
+                    icon={badge.icon}
+                    label={badge.label}
+                    tooltip={badge.tooltip}
+                  />
+                ))}
+              </div>
+            )}
             {galleryImages.length > 0 && (
               <div className="mt-3 rounded-[1rem] border border-[#E8DFD2] bg-white p-3">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-[#8A7F6C]">
@@ -534,7 +786,6 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
               </div>
             )}
           </>
-        )}
         </div>
 
         <div className="mt-4 flex items-center justify-end gap-2 border-t border-[#E8DFD2] pt-4 text-sm text-[#6B6255]">
@@ -606,11 +857,20 @@ function DestinationMapSurface({
   storyOverlay,
   detailsOverlay,
 }) {
+  if (!destination?.places?.length) {
+    return (
+      <div className="theme-story-card overflow-hidden rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_18px_60px_rgba(34,31,25,0.06)]">
+        <div className="rounded-[1.6rem] border border-[#E8E0D3] bg-[linear-gradient(180deg,#F7F3EC_0%,#F2ECE2_100%)] px-6 py-10 text-center text-[#4D463D]">
+          Ta destynacja nie ma jeszcze zapisanych miejsc na mapie.
+        </div>
+      </div>
+    );
+  }
   const activePlace = findPlaceById(destination, activePlaceId);
 
   return (
     <div className="theme-story-card overflow-hidden rounded-[2rem] border border-[#E6DED1] bg-white p-4 shadow-[0_18px_60px_rgba(34,31,25,0.06)]">
-      <div className="relative overflow-hidden rounded-[1.6rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,rgba(107,122,82,0.08),transparent_35%),linear-gradient(180deg,#F3EEE5_0%,#ECE5D8_100%)] min-h-[860px]">
+      <div className="relative rounded-[1.6rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,rgba(107,122,82,0.08),transparent_35%),linear-gradient(180deg,#F3EEE5_0%,#ECE5D8_100%)] min-h-[860px]">
         <div className="pointer-events-none absolute bottom-4 right-4 z-[700] w-[360px] max-w-[calc(100%-2rem)]">
           <div className="pointer-events-auto">
             <FloatingToolbar
@@ -630,7 +890,7 @@ function DestinationMapSurface({
           <div className="pointer-events-auto">{detailsOverlay}</div>
         </div>
 
-        <div className="absolute inset-0 z-0 [filter:saturate(0.35)_sepia(0.15)_contrast(0.95)]">
+        <div className="absolute inset-0 z-0 overflow-hidden rounded-[1.6rem] [filter:saturate(0.35)_sepia(0.15)_contrast(0.95)]">
           <MapContainer
             center={destination.places[0].coordinates}
             zoom={10}
@@ -707,24 +967,136 @@ export default function StoryPanel({
   onSelectDestination,
   destination,
 }) {
-  const slides = useMemo(() => getStorySlides(destination), [destination]);
-  const availableCategories = useMemo(
-    () => countByCategory(destination.places).filter((item) => item.count > 0),
+  const safeDestination = useMemo(
+    () => destination || { places: [], video: "", id: "empty" },
     [destination]
   );
+  const [plans, setPlans] = useState([]);
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState("all-places");
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
-  const [activePlaceId, setActivePlaceId] = useState(destination.places[0]?.id || "");
-  const [selectedCategory, setSelectedCategory] = useState(
-    availableCategories[0]?.key || "beach"
-  );
+  const [activePlaceId, setActivePlaceId] = useState(safeDestination.places?.[0]?.id || "");
+  const [selectedCategory, setSelectedCategory] = useState("beach");
   const [destinationDialogOpen, setDestinationDialogOpen] = useState(false);
   const [pendingCountryId, setPendingCountryId] = useState(selectedCountryId);
   const [pendingDestinationId, setPendingDestinationId] =
     useState(selectedDestinationId);
+
+  const selectedPlan =
+    plans.find((plan) => plan.id === selectedPlanId) || null;
+  const visiblePlaceIds =
+    selectedPlanId === "all-places" ? null : getPlanPlaceIds(selectedPlan);
+  const filteredPlaces = useMemo(() => {
+    if (!visiblePlaceIds) return safeDestination.places || [];
+    return (safeDestination.places || []).filter((place) =>
+      visiblePlaceIds.has(place.id)
+    );
+  }, [safeDestination.places, visiblePlaceIds]);
+  const filteredDestination = useMemo(
+    () => ({
+      ...safeDestination,
+      places: filteredPlaces,
+    }),
+    [safeDestination, filteredPlaces]
+  );
+  const slides = useMemo(() => getStorySlides(filteredDestination), [filteredDestination]);
+  const availableCategories = useMemo(
+    () => countByCategory(filteredDestination.places || []).filter((item) => item.count > 0),
+    [filteredDestination]
+  );
+  const planOptions = useMemo(
+    () => [
+      { id: "all-places", label: "Wszystkie miejscowki" },
+      ...plans.map((plan) => ({
+        id: plan.id,
+        label: `${plan.name} · ${normalizePlanItinerary(plan.itinerary).length} dni`,
+      })),
+    ],
+    [plans]
+  );
   const effectiveSelectedCategory =
     availableCategories.find((item) => item.key === selectedCategory)?.key ||
     availableCategories[0]?.key ||
     "beach";
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPlans() {
+      if (!safeDestination.id || safeDestination.id === "empty") {
+        setPlans([]);
+        setSelectedPlanId("all-places");
+        return;
+      }
+
+      setLoadingPlans(true);
+      try {
+        const nextPlans = await fetchPlannerPlans(safeDestination.id);
+        if (cancelled) return;
+        setPlans(nextPlans);
+        setSelectedPlanId((current) =>
+          current !== "all-places" && nextPlans.some((plan) => plan.id === current)
+            ? current
+            : "all-places"
+        );
+      } catch {
+        if (cancelled) return;
+        setPlans([]);
+        setSelectedPlanId("all-places");
+      } finally {
+        if (!cancelled) {
+          setLoadingPlans(false);
+        }
+      }
+    }
+
+    loadPlans();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [safeDestination.id]);
+
+  useEffect(() => {
+    if (!filteredDestination.places.length) {
+      setActivePlaceId("");
+      setActiveStoryIndex(0);
+      return;
+    }
+
+    const hasActivePlace = filteredDestination.places.some(
+      (place) => place.id === activePlaceId
+    );
+    const nextPlaceId = hasActivePlace
+      ? activePlaceId
+      : filteredDestination.places[0]?.id || "";
+
+    if (nextPlaceId !== activePlaceId) {
+      setActivePlaceId(nextPlaceId);
+    }
+
+    const nextPlace = filteredDestination.places.find(
+      (place) => place.id === nextPlaceId
+    );
+    if (
+      nextPlace?.category &&
+      !availableCategories.some((item) => item.key === selectedCategory)
+    ) {
+      setSelectedCategory(nextPlace.category);
+    }
+
+    const nextSlideIndex = slides.findIndex((slide) => slide.placeId === nextPlaceId);
+    if (nextSlideIndex >= 0 && nextSlideIndex !== activeStoryIndex) {
+      setActiveStoryIndex(nextSlideIndex);
+    }
+  }, [
+    activePlaceId,
+    activeStoryIndex,
+    availableCategories,
+    filteredDestination.places,
+    selectedCategory,
+    slides,
+  ]);
 
   const syncToSlide = (index) => {
     setActiveStoryIndex(index);
@@ -734,7 +1106,7 @@ export default function StoryPanel({
 
   const handleSelectPlace = (placeId) => {
     setActivePlaceId(placeId);
-    const place = findPlaceById(destination, placeId);
+    const place = findPlaceById(filteredDestination, placeId);
     if (place?.category) setSelectedCategory(place.category);
     const idx = slides.findIndex((slide) => slide.placeId === placeId);
     if (idx >= 0) setActiveStoryIndex(idx);
@@ -759,6 +1131,16 @@ export default function StoryPanel({
     setDestinationDialogOpen(false);
   };
 
+  if (!destination) {
+    return (
+      <section className="theme-story-shell">
+        <div className="rounded-[2rem] border border-[#E6DED1] bg-white px-6 py-10 text-center text-[#4D463D] shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
+          Brak danych destynacji do wyswietlenia.
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="theme-story-shell">
       <DestinationMapSurface
@@ -766,14 +1148,14 @@ export default function StoryPanel({
         selectedCountryId={selectedCountryId}
         selectedDestinationId={selectedDestinationId}
         onOpenChangeDestination={openDestinationDialog}
-        destination={destination}
+        destination={filteredDestination}
         activePlaceId={activePlaceId}
         selectedCategory={effectiveSelectedCategory}
         onSelectPlace={handleSelectPlace}
         storyOverlay={
           <DestinationTabs
-            key={`${destination.id}-${activeStoryIndex}`}
-            destination={destination}
+            key={`${safeDestination.id}-${activeStoryIndex}`}
+            destination={filteredDestination}
             activeIndex={activeStoryIndex}
             onPrev={() =>
               syncToSlide((activeStoryIndex - 1 + slides.length) % slides.length)
@@ -784,8 +1166,14 @@ export default function StoryPanel({
         }
         detailsOverlay={
           <div className="space-y-3">
+            <FloatingPlanPicker
+              planOptions={planOptions}
+              selectedPlanId={selectedPlanId}
+              onSelectPlan={setSelectedPlanId}
+              loadingPlans={loadingPlans}
+            />
             <FloatingActivePlace
-              destination={destination}
+              destination={filteredDestination}
               activePlaceId={activePlaceId}
             />
             <FloatingCategoryPicker
@@ -794,7 +1182,7 @@ export default function StoryPanel({
               onSelectCategory={setSelectedCategory}
             />
             <FloatingCategoryPlaces
-              destination={destination}
+              destination={filteredDestination}
               activePlaceId={activePlaceId}
               selectedCategory={effectiveSelectedCategory}
               onSelectPlace={handleSelectPlace}

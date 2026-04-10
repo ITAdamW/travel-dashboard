@@ -5,6 +5,9 @@ import { supabase, isSupabaseConfigured } from "../lib/supabase";
 export default function LoginPanel({ theme = "light", onToggleTheme }) {
   const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
+  const [login, setLogin] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState({ type: "", message: "" });
   const [loading, setLoading] = useState(false);
@@ -26,9 +29,25 @@ export default function LoginPanel({ theme = "light", onToggleTheme }) {
     setLoading(true);
     setStatus({ type: "", message: "" });
 
+    const derivedLogin = login.trim() || email.split("@")[0] || "";
+
     const { error } = isSignIn
       ? await supabase.auth.signInWithPassword({ email, password })
-      : await supabase.auth.signUp({ email, password });
+      : await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              login: derivedLogin,
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+              full_name: [firstName.trim(), lastName.trim()]
+                .filter(Boolean)
+                .join(" "),
+              role: "user",
+            },
+          },
+        });
 
     if (error) {
       setStatus({ type: "error", message: error.message });
@@ -148,6 +167,48 @@ export default function LoginPanel({ theme = "light", onToggleTheme }) {
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+            {!isSignIn && (
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                  Login
+                </span>
+                <input
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
+                  className="theme-login-input w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                  placeholder="np. adam-travels"
+                />
+              </label>
+            )}
+
+            {!isSignIn && (
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                    Imie
+                  </span>
+                  <input
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    className="theme-login-input w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                    placeholder="np. Adam"
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                    Nazwisko
+                  </span>
+                  <input
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    className="theme-login-input w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                    placeholder="np. Kowalski"
+                  />
+                </label>
+              </div>
+            )}
+
             <label className="block">
               <span className="mb-2 block text-sm font-medium text-[#4D463D]">
                 Email
@@ -177,19 +238,6 @@ export default function LoginPanel({ theme = "light", onToggleTheme }) {
               />
             </label>
 
-            {status.message && (
-              <div
-                className={[
-                  "rounded-[1rem] border px-4 py-3 text-sm",
-                  status.type === "error"
-                    ? "border-[#E3C7C1] bg-[#FFF3F0] text-[#8C4C43]"
-                    : "border-[#D5E2C8] bg-[#F4FAEE] text-[#4F6A2F]",
-                ].join(" ")}
-              >
-                {status.message}
-              </div>
-            )}
-
             <button
               type="submit"
               disabled={loading}
@@ -209,6 +257,19 @@ export default function LoginPanel({ theme = "light", onToggleTheme }) {
           </p>
         </section>
       </div>
+
+      {status.message && (
+        <div
+          className={[
+            "pointer-events-none fixed bottom-6 right-6 z-[1450] w-[min(360px,calc(100vw-2rem))] rounded-[1.2rem] border px-4 py-3 text-sm shadow-[0_18px_40px_rgba(36,32,26,0.10)] backdrop-blur",
+            status.type === "error"
+              ? "border-[#E3C7C1] bg-[#FFF3F0] text-[#8C4C43]"
+              : "border-[#D5E2C8] bg-[#F4FAEE] text-[#4F6A2F]",
+          ].join(" ")}
+        >
+          {status.message}
+        </div>
+      )}
     </div>
   );
 }

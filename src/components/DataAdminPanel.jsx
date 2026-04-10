@@ -464,12 +464,6 @@ export default function DataAdminPanel({
         </ActionButton>
       </div>
 
-      {status && (
-        <div className="rounded-[1.2rem] border border-[#D5E2C8] bg-[#F4FAEE] px-4 py-3 text-sm text-[#4F6A2F]">
-          {status}
-        </div>
-      )}
-
       <div className="grid gap-5 xl:grid-cols-3">
         <SectionCard
           title="Country"
@@ -586,12 +580,6 @@ export default function DataAdminPanel({
               value={destinationForm.summary}
               onChange={(value) => setDestinationForm((prev) => ({ ...prev, summary: value }))}
               placeholder="Opis destynacji"
-            />
-            <TextInput
-              label="Video URL destynacji"
-              value={destinationForm.video}
-              onChange={(value) => setDestinationForm((prev) => ({ ...prev, video: value }))}
-              placeholder="opcjonalny link do filmu"
             />
             <div className="flex flex-wrap gap-3">
               <ActionButton
@@ -745,6 +733,12 @@ export default function DataAdminPanel({
           </div>
         </SectionCard>
       </div>
+
+      {status && (
+        <div className="pointer-events-none fixed bottom-6 right-6 z-[1450] w-[min(360px,calc(100vw-2rem))] rounded-[1.2rem] border border-[#D5E2C8] bg-[#F4FAEE] px-4 py-3 text-sm text-[#4F6A2F] shadow-[0_18px_40px_rgba(36,32,26,0.10)] backdrop-blur">
+          {status}
+        </div>
+      )}
     </section>
   );
 }

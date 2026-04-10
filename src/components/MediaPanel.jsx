@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { ImagePlus, RefreshCw, Trash2, Upload, Video } from "lucide-react";
 import {
+  IMAGE_BUCKET,
   listPlaceMedia,
+  migrateRemoteImagesToStorage,
   removeStorageObject,
   replaceCover,
   uploadGalleryFiles,
   uploadVideoFiles,
 } from "../lib/storageMedia";
+import { upsertPlace } from "../lib/supabaseTravelData";
 
 function FileCard({ item, type, onDelete }) {
   return (
@@ -35,6 +38,10 @@ function FileCard({ item, type, onDelete }) {
   );
 }
 
+function isStorageImageUrl(url) {
+  return typeof url === "string" && url.includes(`/storage/v1/object/public/${IMAGE_BUCKET}/`);
+}
+
 export default function MediaPanel({ countries, onMediaChanged }) {
   const [selectedCountryId, setSelectedCountryId] = useState(countries[0]?.id || "");
   const [selectedDestinationId, setSelectedDestinationId] = useState(
@@ -59,6 +66,17 @@ export default function MediaPanel({ countries, onMediaChanged }) {
   const selectedPlace =
     selectedDestination?.places.find((place) => place.id === selectedPlaceId) ||
     selectedDestination?.places[0];
+  const dbImageUrls = useMemo(
+    () =>
+      [
+        ...new Set(
+          [selectedPlace?.image, ...(selectedPlace?.gallery || [])].filter(
+            (url) => url && !isStorageImageUrl(url)
+          )
+        ),
+      ],
+    [selectedPlace]
+  );
 
   useEffect(() => {
     setSelectedDestinationId(selectedCountry?.destinations[0]?.id || "");
@@ -108,6 +126,53 @@ export default function MediaPanel({ countries, onMediaChanged }) {
         type: "error",
         message: error.message || "Operacja na mediach nie powiodła się.",
       });
+      setLoading(false);
+    }
+  };
+
+  const migrateDbImagesForSelectedPlace = async () => {
+    if (!selectedCountry || !selectedDestination || !selectedPlace) return;
+
+    setLoading(true);
+    setStatus({ type: "", message: "" });
+
+    try {
+      const result = await migrateRemoteImagesToStorage(
+        selectedCountry.id,
+        selectedDestination.id,
+        selectedPlace.id,
+        dbImageUrls
+      );
+
+      await upsertPlace(
+        selectedDestination.id,
+        {
+          ...selectedPlace,
+          coordinates: selectedPlace.coordinates,
+          image: "",
+          gallery: [],
+        },
+        selectedDestination.places.findIndex((place) => place.id === selectedPlace.id)
+      );
+
+      await refreshMedia();
+      await onMediaChanged?.();
+
+      setStatus({
+        type: result.uploadedCount > 0 ? "success" : "error",
+        message:
+          result.uploadedCount > 0
+            ? result.failedUrls.length
+              ? `Przeniesiono ${result.uploadedCount} zdjec do Storage, a niedostepne linki usunieto z bazy.`
+              : `Przeniesiono ${result.uploadedCount} zdjec do Storage i wyczyszczono stare linki z bazy.`
+            : "Nie udalo sie pobrac zdjec z linkow, wiec stare odwolania zostaly usuniete z bazy.",
+      });
+    } catch (error) {
+      setStatus({
+        type: "error",
+        message: error.message || "Nie udalo sie zmigrowac zdjec tego miejsca.",
+      });
+    } finally {
       setLoading(false);
     }
   };
@@ -177,6 +242,26 @@ export default function MediaPanel({ countries, onMediaChanged }) {
             {selectedCountry?.id}/{selectedDestination?.id}/{selectedPlace?.id}
           </p>
         </div>
+
+        {dbImageUrls.length > 0 && (
+          <div className="theme-media-card mt-6 rounded-[1.4rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">
+              Zdjecia poza Storage
+            </p>
+            <p className="mt-2 text-sm leading-6 text-[#4D463D]">
+              To miejsce ma jeszcze zdjecia zapisane jako linki w bazie. Mozesz je
+              przeniesc do Storage, a stare odwolania z bazy zostana wyczyszczone.
+            </p>
+            <button
+              onClick={migrateDbImagesForSelectedPlace}
+              disabled={loading}
+              className="theme-media-button mt-4 inline-flex items-center gap-2 rounded-full border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9] disabled:opacity-60"
+            >
+              <Upload className="h-4 w-4" />
+              Przenies do Storage
+            </button>
+          </div>
+        )}
 
         <div className="mt-6 space-y-4">
           <label className="theme-media-card block rounded-[1.3rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
@@ -264,19 +349,6 @@ export default function MediaPanel({ countries, onMediaChanged }) {
             />
           </label>
         </div>
-
-        {status.message && (
-          <div
-            className={[
-              "mt-6 rounded-[1rem] border px-4 py-3 text-sm",
-              status.type === "error"
-                ? "border-[#E3C7C1] bg-[#FFF3F0] text-[#8C4C43]"
-                : "border-[#D5E2C8] bg-[#F4FAEE] text-[#4F6A2F]",
-            ].join(" ")}
-          >
-            {status.message}
-          </div>
-        )}
 
         <button
           onClick={refreshMedia}
@@ -371,6 +443,21 @@ export default function MediaPanel({ countries, onMediaChanged }) {
           </div>
         </div>
       </div>
+
+      {(status.message || loading) && (
+        <div
+          className={[
+            "pointer-events-none fixed bottom-6 right-6 z-[1450] w-[min(360px,calc(100vw-2rem))] rounded-[1.2rem] border px-4 py-3 text-sm shadow-[0_18px_40px_rgba(36,32,26,0.10)] backdrop-blur",
+            status.message
+              ? status.type === "error"
+                ? "border-[#E3C7C1] bg-[#FFF3F0] text-[#8C4C43]"
+                : "border-[#D5E2C8] bg-[#F4FAEE] text-[#4F6A2F]"
+              : "border-[#E7DED2] bg-white/92 text-[#6B6255]",
+          ].join(" ")}
+        >
+          {status.message || "Ladowanie mediow..."}
+        </div>
+      )}
     </section>
   );
 }

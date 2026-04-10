@@ -24,6 +24,16 @@ function publicUrl(bucket, path) {
   return data.publicUrl;
 }
 
+function remoteExtension(url = "", fallback = "jpg") {
+  try {
+    const pathname = new URL(url).pathname || "";
+    const match = pathname.match(/\.([a-zA-Z0-9]+)$/);
+    return match?.[1]?.toLowerCase() || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export function placeFolder(countryId, destinationId, placeId) {
   return `${countryId}/${destinationId}/${placeId}`;
 }
@@ -197,4 +207,68 @@ export async function uploadVideoFiles(countryId, destinationId, placeId, files)
 export async function removeStorageObject(bucket, path) {
   const { error } = await supabase.storage.from(bucket).remove([path]);
   if (error) throw error;
+}
+
+export async function migrateRemoteImagesToStorage(
+  countryId,
+  destinationId,
+  placeId,
+  imageUrls = []
+) {
+  if (!supabase) {
+    return { uploadedCount: 0, failedUrls: imageUrls };
+  }
+
+  const sourceUrls = [...new Set(imageUrls.filter(Boolean))];
+  if (!sourceUrls.length) {
+    return { uploadedCount: 0, failedUrls: [] };
+  }
+
+  const folder = placeFolder(countryId, destinationId, placeId);
+  const existingMedia = await listPlaceMedia(countryId, destinationId, placeId);
+  const existingPaths = [
+    existingMedia.cover?.path,
+    ...existingMedia.gallery.map((item) => item.path),
+  ].filter(Boolean);
+
+  if (existingPaths.length) {
+    const { error } = await supabase.storage.from(IMAGE_BUCKET).remove(existingPaths);
+    if (error) throw error;
+  }
+
+  let uploadedCount = 0;
+  const failedUrls = [];
+
+  for (const [index, imageUrl] of sourceUrls.entries()) {
+    try {
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        failedUrls.push(imageUrl);
+        continue;
+      }
+
+      const blob = await response.blob();
+      const extension = remoteExtension(imageUrl);
+      const path =
+        index === 0
+          ? `${folder}/cover.${extension}`
+          : `${folder}/gallery-${index}.${extension}`;
+
+      const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, blob, {
+        upsert: true,
+        contentType: blob.type || `image/${extension}`,
+      });
+
+      if (error) {
+        failedUrls.push(imageUrl);
+        continue;
+      }
+
+      uploadedCount += 1;
+    } catch {
+      failedUrls.push(imageUrl);
+    }
+  }
+
+  return { uploadedCount, failedUrls };
 }

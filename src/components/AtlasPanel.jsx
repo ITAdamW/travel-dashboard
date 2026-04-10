@@ -6,8 +6,9 @@ function cn(...classes) {
 }
 
 const statusStyles = {
-  visited: "bg-[#6B7A52] text-white border-[#6B7A52]",
-  planned: "bg-[#E7E2D8] text-[#2B2A27] border-[#CFC7B7]",
+  visited: "theme-atlas-status theme-atlas-status-visited bg-[#6B7A52] text-white border-[#6B7A52]",
+  planned:
+    "theme-atlas-status theme-atlas-status-planned bg-[#E7E2D8] text-[#2B2A27] border-[#CFC7B7]",
 };
 
 const countryCodeMap = {
@@ -149,7 +150,7 @@ function DestinationRow({ destination, isSelected, onOpen }) {
       onClick={onOpen}
       className={cn(
         "theme-panel-card w-full rounded-[1.2rem] border px-4 py-4 text-left transition duration-200 hover:border-[#DCCFBD] hover:bg-[#FCFAF6] hover:shadow-[0_8px_18px_rgba(34,31,25,0.04)]",
-        isSelected ? "border-[#D8CCBB] bg-[#F8F2E9]" : "border-[#EAE1D5] bg-white"
+        isSelected ? "border-[#EAE1D5] bg-white" : "border-[#EAE1D5] bg-white"
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -193,7 +194,7 @@ function PlacesListByDestination({
           Open in Panel 2
         </span>
       </div>
-      <div className="atlas-scroll min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1">
+      <div className="atlas-scroll min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain">
         {destinations.map((destination) => (
           <DestinationRow
             key={destination.id}
