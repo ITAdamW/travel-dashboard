@@ -165,48 +165,6 @@ export async function deletePlaceById(placeId) {
   if (error) throw error;
 }
 
-export async function seedTravelData(seedCountries, { reset = false } = {}) {
-  if (!supabase) return;
-
-  if (reset) {
-    const { error: placesError } = await supabase.from("places").delete().not("id", "is", null);
-    if (placesError) throw placesError;
-    const { error: destinationsError } = await supabase
-      .from("destinations")
-      .delete()
-      .not("id", "is", null);
-    if (destinationsError) throw destinationsError;
-    const { error: countriesError } = await supabase
-      .from("countries")
-      .delete()
-      .not("id", "is", null);
-    if (countriesError) throw countriesError;
-  }
-
-  const countryRows = seedCountries.map((country, index) => toCountryRow(country, index));
-  const destinationRows = seedCountries.flatMap((country) =>
-    country.destinations.map((destination, index) =>
-      toDestinationRow(country.id, destination, index)
-    )
-  );
-  const placeRows = seedCountries.flatMap((country) =>
-    country.destinations.flatMap((destination) =>
-      destination.places.map((place, index) => toPlaceRow(destination.id, place, index))
-    )
-  );
-
-  const { error: countryError } = await supabase.from("countries").upsert(countryRows);
-  if (countryError) throw countryError;
-
-  const { error: destinationError } = await supabase
-    .from("destinations")
-    .upsert(destinationRows);
-  if (destinationError) throw destinationError;
-
-  const { error: placeError } = await supabase.from("places").upsert(placeRows);
-  if (placeError) throw placeError;
-}
-
 export function toPlannerPlanRow(destinationId, plan, index = 0) {
   return {
     id: plan.id,

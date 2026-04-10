@@ -29,9 +29,7 @@ function EuropeViewport() {
 
   useEffect(() => {
     map.setView([49.2, 14.5], 4);
-    setTimeout(() => {
-      map.invalidateSize();
-    }, 300);
+    setTimeout(() => map.invalidateSize(), 300);
   }, [map]);
 
   return null;
@@ -48,7 +46,7 @@ function AtlasLeafletMap({ countries, selectedCountryId, onSelectCountry }) {
   }, []);
 
   const countryById = useMemo(
-    () => Object.fromEntries(countries.map((c) => [c.id, c])),
+    () => Object.fromEntries(countries.map((country) => [country.id, country])),
     [countries]
   );
 
@@ -57,13 +55,12 @@ function AtlasLeafletMap({ countries, selectedCountryId, onSelectCountry }) {
     const mappedId = countryCodeMap[name];
     const country = mappedId ? countryById[mappedId] : null;
     const isSelected = country?.id === selectedCountryId;
-
     const fill = country
       ? isSelected
         ? "#22201C"
         : country.status === "visited"
-        ? "#6B7A52"
-        : "#CBD4BE"
+          ? "#6B7A52"
+          : "#CBD4BE"
       : "#EAE3D7";
 
     return {
@@ -79,25 +76,19 @@ function AtlasLeafletMap({ countries, selectedCountryId, onSelectCountry }) {
     const name = feature?.properties?.NAME || feature?.properties?.name;
     const mappedId = countryCodeMap[name];
     const country = mappedId ? countryById[mappedId] : null;
-
     if (!country) return;
 
     layer.on({
       click: () => onSelectCountry(country.id),
-      mouseover: () => {
-        layer.setStyle({
-          weight: 2.1,
-          color: "#FFFDF8",
-          fillOpacity: 0.92,
-        });
-      },
+      mouseover: () =>
+        layer.setStyle({ weight: 2.1, color: "#FFFDF8", fillOpacity: 0.92 }),
       mouseout: () => {
         const isSelected = country.id === selectedCountryId;
         const fill = isSelected
           ? "#22201C"
           : country.status === "visited"
-          ? "#6B7A52"
-          : "#CBD4BE";
+            ? "#6B7A52"
+            : "#CBD4BE";
 
         layer.setStyle({
           fillColor: fill,
@@ -109,10 +100,7 @@ function AtlasLeafletMap({ countries, selectedCountryId, onSelectCountry }) {
       },
     });
 
-    layer.bindTooltip(country.countryName, {
-      sticky: true,
-      direction: "top",
-    });
+    layer.bindTooltip(country.countryName, { sticky: true, direction: "top" });
   };
 
   return (
@@ -155,14 +143,32 @@ function AtlasLeafletMap({ countries, selectedCountryId, onSelectCountry }) {
   );
 }
 
-function PlaceRow({ place, onOpen }) {
+function DestinationRow({ destination, isSelected, onOpen }) {
   return (
     <button
       onClick={onOpen}
-      className="theme-panel-card w-full rounded-[1.2rem] border border-[#EAE1D5] bg-white px-4 py-4 text-left transition duration-200 hover:border-[#DCCFBD] hover:bg-[#FCFAF6] hover:shadow-[0_8px_18px_rgba(34,31,25,0.04)]"
+      className={cn(
+        "theme-panel-card w-full rounded-[1.2rem] border px-4 py-4 text-left transition duration-200 hover:border-[#DCCFBD] hover:bg-[#FCFAF6] hover:shadow-[0_8px_18px_rgba(34,31,25,0.04)]",
+        isSelected ? "border-[#D8CCBB] bg-[#F8F2E9]" : "border-[#EAE1D5] bg-white"
+      )}
     >
-      <p className="font-medium text-[#1F1D1A]">{place.name}</p>
-      <p className="mt-2 text-sm leading-6 text-[#5B544A]">{place.note}</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.28em] text-[#8A7F6C]">
+            Destination
+          </p>
+          <p className="mt-2 text-lg font-medium text-[#1F1D1A]">
+            {destination.name}
+          </p>
+          <p className="mt-1 text-sm text-[#6B6255]">{destination.area}</p>
+        </div>
+        <span className="theme-chip rounded-full border border-[#E5DCCF] bg-white px-2.5 py-1 text-xs text-[#8A7F6C]">
+          Panel 2
+        </span>
+      </div>
+      <p className="mt-3 text-sm leading-6 text-[#5B544A]">
+        {destination.places.length} miejsc do przejrzenia
+      </p>
     </button>
   );
 }
@@ -170,17 +176,8 @@ function PlaceRow({ place, onOpen }) {
 function PlacesListByDestination({
   destinations,
   selectedDestinationId,
-  onSelectDestination,
   onOpenPlace,
 }) {
-  const [openIds, setOpenIds] = useState([]);
-
-  const toggle = (id) => {
-    setOpenIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
-
   return (
     <div className="theme-panel-soft flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-[#E8DFD3] bg-[linear-gradient(180deg,#FBF8F2_0%,#F7F1E7_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -196,59 +193,15 @@ function PlacesListByDestination({
           Open in Panel 2
         </span>
       </div>
-
       <div className="atlas-scroll min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain pr-1">
-        {destinations.map((destination) => {
-          const isSelected = destination.id === selectedDestinationId;
-          const isOpen = openIds.includes(destination.id);
-
-          return (
-            <div
-              key={destination.id}
-              className="theme-panel-card rounded-[1.45rem] border border-[#E7DED2] bg-white p-4 shadow-[0_4px_14px_rgba(34,31,25,0.025)]"
-            >
-              <button
-                onClick={() => {
-                  onSelectDestination(destination.id);
-                  toggle(destination.id);
-                }}
-                className={cn(
-                  "mb-3 flex w-full items-center justify-between rounded-[1.1rem] border px-4 py-3 text-left transition",
-                  isSelected
-                    ? "border-[#D8CCBB] bg-[#F8F2E9] theme-panel-button-active"
-                    : "border-[#EFE7DB] bg-white hover:bg-[#F8F2E9] theme-panel-button"
-                )}
-              >
-                <div>
-                  <p className="text-[10px] uppercase tracking-[0.28em] text-[#8A7F6C]">
-                    Destination
-                  </p>
-                  <p className="mt-2 text-lg font-medium text-[#1F1D1A]">
-                    {destination.name}
-                  </p>
-                  <p className="mt-1 text-sm text-[#6B6255]">
-                    {destination.area}
-                  </p>
-                </div>
-                <span className="theme-chip rounded-full border border-[#E5DCCF] bg-white px-2.5 py-1 text-sm text-[#8A7F6C]">
-                  {isOpen ? "−" : "+"}
-                </span>
-              </button>
-
-              {isOpen && (
-                <div className="space-y-3">
-                  {destination.places.map((place) => (
-                    <PlaceRow
-                      key={place.id}
-                      place={place}
-                      onOpen={() => onOpenPlace(destination.id, place.id)}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+        {destinations.map((destination) => (
+          <DestinationRow
+            key={destination.id}
+            destination={destination}
+            isSelected={destination.id === selectedDestinationId}
+            onOpen={() => onOpenPlace(destination.id)}
+          />
+        ))}
       </div>
     </div>
   );
@@ -259,7 +212,6 @@ export default function AtlasPanel({
   selectedCountry,
   selectedDestinationId,
   onSelectCountry,
-  onSelectDestination,
   onOpenPlace,
 }) {
   return (
@@ -273,10 +225,9 @@ export default function AtlasPanel({
             World map, zoomed into Europe
           </h1>
           <p className="mt-3 max-w-2xl text-[15px] leading-7 text-[#5E564B]">
-            Kliknij państwo na mapie albo wybierz je z filtra, aby przejrzeć
+            Kliknij panstwo na mapie albo wybierz je z filtra, aby przejrzec
             destynacje i zapisane miejsca warte odwiedzenia.
           </p>
-
           <div className="mt-5 flex flex-wrap items-stretch gap-3">
             <div className="theme-panel-float flex min-h-[96px] min-w-[235px] flex-col justify-center rounded-[1.25rem] border border-[#E5DCCF] bg-white/78 px-4 py-3 backdrop-blur shadow-[0_8px_18px_rgba(34,31,25,0.03)]">
               <p className="text-[10px] uppercase tracking-[0.26em] text-[#8A7F6C]">
@@ -297,7 +248,6 @@ export default function AtlasPanel({
                 {countries.length} countries available
               </p>
             </div>
-
             <div className="theme-panel-float flex min-h-[96px] min-w-[235px] flex-col justify-center rounded-[1.25rem] border border-[#E5DCCF] bg-white/78 px-4 py-3 backdrop-blur shadow-[0_8px_18px_rgba(34,31,25,0.03)]">
               <p className="text-[10px] uppercase tracking-[0.26em] text-[#8A7F6C]">
                 Selected country
@@ -353,7 +303,6 @@ export default function AtlasPanel({
               {selectedCountry.region} · {selectedCountry.year}
             </p>
           </div>
-
           <span
             className={cn(
               "rounded-full border px-3 py-1 text-xs font-medium capitalize shadow-sm",
@@ -373,7 +322,6 @@ export default function AtlasPanel({
         <PlacesListByDestination
           destinations={selectedCountry.destinations}
           selectedDestinationId={selectedDestinationId}
-          onSelectDestination={onSelectDestination}
           onOpenPlace={onOpenPlace}
         />
       </aside>
