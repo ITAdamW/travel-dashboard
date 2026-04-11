@@ -1,10 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  MapContainer,
+  Marker,
+  Polyline,
+  Popup,
+  TileLayer,
+  useMap,
+} from "react-leaflet";
+import { divIcon } from "leaflet";
+import {
   ArrowDown,
   ArrowUp,
   Coffee,
   Eye,
+  ExternalLink,
   FileDown,
   Landmark,
   MapPin,
@@ -31,6 +41,16 @@ const categoryMeta = {
   museum: { label: "Muzea / architektura", icon: Landmark },
   city: { label: "Miasto / spacer", icon: Route },
 };
+
+const plannerDayPalette = [
+  "#6B7A52",
+  "#A25F4B",
+  "#4A7A8C",
+  "#8D6A9F",
+  "#C58A3D",
+  "#5D6274",
+  "#9A6945",
+];
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -92,6 +112,229 @@ function getPlanCover(plan, destination) {
     destination?.places?.find((place) => place.image)?.image ||
     destination?.places?.find((place) => place.gallery?.length)?.gallery?.[0] ||
     ""
+  );
+}
+
+function mapsUrl(place) {
+  return `https://www.google.com/maps/dir/?api=1&destination=${place.coordinates[0]},${place.coordinates[1]}`;
+}
+
+function FitPlannerRouteBounds({ points }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!points.length) return;
+    map.fitBounds(points, { padding: [40, 40], maxZoom: 12 });
+  }, [map, points]);
+
+  return null;
+}
+
+function createPlannerStopIcon(color, label, isActive) {
+  return divIcon({
+    className: "planner-route-stop-marker",
+    html: `<div style="width:${isActive ? 32 : 28}px;height:${isActive ? 32 : 28}px;border-radius:9999px;display:flex;align-items:center;justify-content:center;background:${color};border:3px solid #ffffff;box-shadow:0 10px 22px rgba(34,31,25,0.18);color:#ffffff;font-size:${isActive ? 13 : 12}px;font-weight:700;">${label}</div>`,
+    iconSize: [isActive ? 32 : 28, isActive ? 32 : 28],
+    iconAnchor: [isActive ? 16 : 14, isActive ? 16 : 14],
+    popupAnchor: [0, -(isActive ? 15 : 13)],
+  });
+}
+
+function PlannerEditRouteMap({ destination, plan }) {
+  const [activeStopKey, setActiveStopKey] = useState("");
+  const [routeGeometries, setRouteGeometries] = useState({});
+
+  const planDays = useMemo(() => {
+    if (!destination || !plan) return [];
+
+    return normalizeItinerary(plan.itinerary).map((day, dayIndex) => ({
+      ...day,
+      color: plannerDayPalette[dayIndex % plannerDayPalette.length],
+      places: day.items
+        .map((item, itemIndex) => {
+          const place = findPlaceById(destination, item.placeId);
+          if (!place) return null;
+          return {
+            key: `${dayIndex}-${itemIndex}-${place.id}`,
+            itemIndex,
+            dayIndex,
+            place,
+            note: item.note,
+          };
+        })
+        .filter(Boolean),
+    }));
+  }, [destination, plan]);
+
+  const routePoints = useMemo(
+    () => planDays.flatMap((day) => day.places.map((entry) => entry.place.coordinates)),
+    [planDays]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRouteGeometries() {
+      const nextRoutes = {};
+
+      await Promise.all(
+        planDays.map(async (day) => {
+          const points = day.places.map((entry) => entry.place.coordinates);
+          if (points.length < 2) {
+            nextRoutes[day.day] = points;
+            return;
+          }
+
+          try {
+            const coordinates = points.map(([lat, lng]) => `${lng},${lat}`).join(";");
+            const response = await fetch(
+              `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson`
+            );
+            const data = await response.json();
+            const geometry = data?.routes?.[0]?.geometry?.coordinates?.map(
+              ([lng, lat]) => [lat, lng]
+            );
+            nextRoutes[day.day] = geometry?.length ? geometry : points;
+          } catch {
+            nextRoutes[day.day] = points;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setRouteGeometries(nextRoutes);
+      }
+    }
+
+    if (planDays.length) {
+      loadRouteGeometries();
+    } else {
+      setRouteGeometries({});
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [planDays]);
+
+  useEffect(() => {
+    setActiveStopKey(planDays[0]?.places[0]?.key || "");
+  }, [planDays]);
+
+  const activeStop =
+    planDays.flatMap((day) => day.places).find((entry) => entry.key === activeStopKey) ||
+    planDays[0]?.places[0] ||
+    null;
+
+  if (!routePoints.length) {
+    return (
+      <div className="mb-4 rounded-[1.3rem] border border-dashed border-[#DDD2C3] bg-white px-5 py-8 text-center text-sm text-[#7C7263]">
+        Dodaj atrakcje do dni planu, aby zobaczyc trase na mapie.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4 rounded-[1.4rem] border border-[#E8DFD2] bg-white p-3 shadow-[0_8px_22px_rgba(34,31,25,0.04)]">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">Live route map</p>
+          <p className="mt-2 text-lg font-semibold text-[#1F1D1A]">Trasa aktualizuje sie na biezaco</p>
+        </div>
+        <span className="rounded-full border border-[#E1D7C8] bg-[#FBF8F2] px-3 py-1 text-xs text-[#6B6255]">
+          {planDays.length} dni
+        </span>
+      </div>
+
+      <div className="relative h-[360px] overflow-hidden rounded-[1.25rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,rgba(107,122,82,0.08),transparent_35%),linear-gradient(180deg,#F3EEE5_0%,#ECE5D8_100%)]">
+        <div className="absolute inset-0 z-0 [filter:saturate(0.35)_sepia(0.15)_contrast(0.95)]">
+          <MapContainer
+            center={routePoints[0]}
+            zoom={11}
+            zoomControl={true}
+            attributionControl={false}
+            className="h-[360px] w-full"
+            scrollWheelZoom={true}
+          >
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <FitPlannerRouteBounds points={routePoints} />
+
+            {planDays.map((day) => (
+              <Polyline
+                key={`planner-route-${day.day}`}
+                positions={routeGeometries[day.day] || day.places.map((entry) => entry.place.coordinates)}
+                pathOptions={{ color: day.color, weight: 5, opacity: 0.85 }}
+              />
+            ))}
+
+            {planDays.flatMap((day) =>
+              day.places.map((entry, index) => {
+                const isActive = activeStopKey === entry.key;
+                return (
+                  <Marker
+                    key={entry.key}
+                    position={entry.place.coordinates}
+                    icon={createPlannerStopIcon(day.color, String(index + 1), isActive)}
+                    eventHandlers={{ click: () => setActiveStopKey(entry.key) }}
+                  >
+                    <Popup>
+                      <div className="min-w-[190px]">
+                        <p className="text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
+                          {day.day} · stop {index + 1}
+                        </p>
+                        <p className="mt-2 font-semibold text-[#1F1D1A]">{entry.place.name}</p>
+                        <p className="mt-2 text-sm text-[#5B544A]">
+                          {entry.place.note || entry.place.subtitle || entry.place.info}
+                        </p>
+                        <button
+                          onClick={() =>
+                            window.open(mapsUrl(entry.place), "_blank", "noopener,noreferrer")
+                          }
+                          className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#DCD1C0] bg-[#F8F4ED] px-3 py-1.5 text-xs text-[#3E382F]"
+                        >
+                          Nawiguj <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              })
+            )}
+          </MapContainer>
+        </div>
+
+        <div className="pointer-events-none absolute bottom-3 left-3 z-[650] w-[320px] max-w-[calc(100%-1.5rem)]">
+          <div className="pointer-events-auto rounded-[1.1rem] border border-[#E6DED1] bg-[rgba(255,255,255,0.92)] p-3 shadow-[0_16px_36px_rgba(34,31,25,0.10)] backdrop-blur">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">Active stop</p>
+            <p className="mt-2 text-base font-semibold text-[#1F1D1A]">
+              {activeStop?.place?.name || "Brak punktu"}
+            </p>
+            <p className="mt-2 text-sm text-[#6B6255]">
+              {activeStop
+                ? `${planDays[activeStop.dayIndex]?.day} · punkt ${activeStop.itemIndex + 1}`
+                : "Dodaj punkt do planu"}
+            </p>
+          </div>
+        </div>
+
+        <div className="pointer-events-none absolute right-3 top-3 z-[650] w-[320px] max-w-[calc(100%-1.5rem)]">
+          <div className="pointer-events-auto rounded-[1.1rem] border border-[#E6DED1] bg-[rgba(255,255,255,0.92)] p-3 shadow-[0_16px_36px_rgba(34,31,25,0.10)] backdrop-blur">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">Day colors</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {planDays.map((day, index) => (
+                <span
+                  key={`planner-legend-${day.day}`}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#E1D7C8] bg-white px-3 py-1.5 text-xs text-[#4D463D]"
+                >
+                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: day.color }} />
+                  {day.day || `Day ${index + 1}`}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1198,6 +1441,8 @@ export default function PlannerPanel({
                 </button>
               </div>
             </div>
+
+            <PlannerEditRouteMap destination={selectedDestination} plan={draftPlan} />
 
             <div className="space-y-4">
               {normalizeItinerary(draftPlan?.itinerary || []).map((section, index, allDays) => (

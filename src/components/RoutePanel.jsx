@@ -518,6 +518,13 @@ export default function RoutePanel({
                               <p className="text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
                                 {day.day} · stop {index + 1}
                               </p>
+                              {entry.place.image ? (
+                                <img
+                                  src={entry.place.image}
+                                  alt={entry.place.name}
+                                  className="mt-3 h-28 w-full rounded-xl object-cover"
+                                />
+                              ) : null}
                               <p className="mt-2 font-semibold text-[#1F1D1A]">{entry.place.name}</p>
                               <p className="mt-2 text-sm text-[#5B544A]">
                                 {entry.place.note || entry.place.subtitle || entry.place.info}
