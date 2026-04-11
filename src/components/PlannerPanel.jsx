@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   ArrowDown,
   ArrowUp,
@@ -15,6 +16,7 @@ import {
   Share2,
   Trash2,
   Waves,
+  X,
 } from "lucide-react";
 import {
   deletePlannerPlan,
@@ -78,6 +80,19 @@ function createEmptyPlan(destinationId, index = 0) {
     notes: "",
     itinerary: [createEmptyDay(0)],
   };
+}
+
+function getPlanCover(plan, destination) {
+  const firstPlannedPlaceId = normalizeItinerary(plan?.itinerary || [])
+    .flatMap((day) => day.items.map((item) => normalizeItem(item).placeId))
+    .find(Boolean);
+
+  return (
+    findPlaceById(destination, firstPlannedPlaceId)?.image ||
+    destination?.places?.find((place) => place.image)?.image ||
+    destination?.places?.find((place) => place.gallery?.length)?.gallery?.[0] ||
+    ""
+  );
 }
 
 function SelectInput({ label, value, onChange, options }) {
@@ -151,16 +166,29 @@ function PlannerDayItem({
   place,
   item,
   onRemove,
-  onMoveUp,
-  onMoveDown,
   onNoteChange,
-  isFirst,
-  isLast,
+  onDragStart,
+  onDragEnd,
+  onDragOverCard,
+  onDragLeaveCard,
+  onDropOnCard,
+  isDragging = false,
 }) {
   const Icon = categoryMeta[place.category]?.icon || MapPin;
 
   return (
-    <div className="theme-planner-card rounded-[1.1rem] border border-[#E8DFD2] bg-white p-3">
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOverCard}
+      onDragLeave={onDragLeaveCard}
+      onDrop={onDropOnCard}
+      className={cn(
+        "theme-planner-card rounded-[1.1rem] border border-[#E8DFD2] bg-white p-3 transition",
+        isDragging && "scale-[0.985] opacity-60 shadow-[0_12px_28px_rgba(34,31,25,0.08)]"
+      )}
+    >
       <div className="flex flex-col gap-3 md:flex-row">
         {place.image ? (
           <img
@@ -174,8 +202,8 @@ function PlannerDayItem({
           </span>
         )}
 
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex-1">
             <div className="min-w-0">
               <p className="truncate text-base font-semibold text-[#1F1D1A]">{place.name}</p>
               <p className="mt-1 text-sm text-[#7A7164]">
@@ -183,32 +211,19 @@ function PlannerDayItem({
               </p>
               {place.note ? <p className="mt-2 text-sm text-[#5B544A]">{place.note}</p> : null}
             </div>
+          </div>
 
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={onMoveUp}
-                disabled={isFirst}
-                className="theme-planner-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E3D9CA] bg-[#FBF8F2] text-[#5E564B] transition hover:bg-[#F2ECE2] disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Przesun w gore"
-              >
-                <ArrowUp className="h-4 w-4" />
-              </button>
-              <button
-                onClick={onMoveDown}
-                disabled={isLast}
-                className="theme-planner-button inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#E3D9CA] bg-[#FBF8F2] text-[#5E564B] transition hover:bg-[#F2ECE2] disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Przesun w dol"
-              >
-                <ArrowDown className="h-4 w-4" />
-              </button>
-              <button
-                onClick={onRemove}
-                className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#E3D9CA] bg-[#FBF8F2] px-3 py-2 text-xs text-[#5E564B] transition hover:bg-[#F2ECE2]"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Usun
-              </button>
-            </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span className="inline-flex items-center rounded-full border border-[#E3D9CA] bg-[#FBF8F2] px-3 py-2 text-xs text-[#5E564B]">
+              Przeciagnij, aby zmienic kolejnosc
+            </span>
+            <button
+              onClick={onRemove}
+              className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#E3D9CA] bg-[#FBF8F2] px-3 py-2 text-xs text-[#5E564B] transition hover:bg-[#F2ECE2]"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Usun
+            </button>
           </div>
         </div>
 
@@ -259,20 +274,22 @@ function PlannerPreviewItem({ place, note }) {
 }
 
 function DayColumn({
+  dayIndex,
   day,
   destination,
   onDropPlace,
+  onMovePlannedItem,
   onRemovePlace,
   onDeleteDay,
   onRenameDay,
   onMoveDayUp,
   onMoveDayDown,
-  onMoveItemUp,
-  onMoveItemDown,
   onItemNoteChange,
   isFirstDay,
   isLastDay,
 }) {
+  const [dropIndex, setDropIndex] = useState(null);
+  const [draggingIndex, setDraggingIndex] = useState(null);
   const places = day.items
     .map((item, index) => {
       const normalized = normalizeItem(item);
@@ -281,13 +298,81 @@ function DayColumn({
     })
     .filter(Boolean);
 
+  const readDraggedPlannerItem = (event) => {
+    const payload = event.dataTransfer.getData("application/planner-item");
+    if (!payload) return null;
+
+    try {
+      return JSON.parse(payload);
+    } catch {
+      return null;
+    }
+  };
+
+  const handleDropAtIndex = (event, insertIndex) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const draggedPlannerItem = readDraggedPlannerItem(event);
+    if (draggedPlannerItem) {
+      onMovePlannedItem(
+        draggedPlannerItem.dayIndex,
+        draggedPlannerItem.itemIndex,
+        dayIndex,
+        insertIndex
+      );
+      setDropIndex(null);
+      setDraggingIndex(null);
+      return;
+    }
+
+    const placeId = event.dataTransfer.getData("text/place-id");
+    if (placeId) {
+      onDropPlace(placeId, insertIndex);
+    }
+
+    setDropIndex(null);
+  };
+
+  const renderDropSlot = (slotIndex) => {
+    const isActive = dropIndex === slotIndex;
+
+    return (
+      <div
+        key={`drop-slot-${slotIndex}`}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setDropIndex(slotIndex);
+        }}
+        onDragLeave={() => {
+          if (dropIndex === slotIndex) {
+            setDropIndex(null);
+          }
+        }}
+        onDrop={(event) => handleDropAtIndex(event, slotIndex)}
+        className={cn(
+          "rounded-[1rem] border border-dashed border-transparent transition-all duration-150",
+          isActive
+            ? "my-2 min-h-[68px] border-[#BFAE97] bg-[#F6EFE5]"
+            : "my-0 min-h-[8px] bg-transparent"
+        )}
+      />
+    );
+  };
+
+  const handleCardDragOver = (event, index) => {
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const offsetY = event.clientY - rect.top;
+    const targetIndex = offsetY < rect.height / 2 ? index : index + 1;
+    setDropIndex(targetIndex);
+  };
+
   return (
     <div
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
-        e.preventDefault();
-        const placeId = e.dataTransfer.getData("text/place-id");
-        if (placeId) onDropPlace(placeId);
+        handleDropAtIndex(e, places.length);
       }}
       className="theme-planner-card rounded-[1.4rem] border border-[#E8DFD2] bg-white p-4"
     >
@@ -330,19 +415,32 @@ function DayColumn({
 
       <div className="theme-planner-empty min-h-[140px] space-y-3 rounded-[1.1rem] border border-dashed border-[#DED4C7] bg-[#FBF8F2] p-3">
         {places.length ? (
-          places.map(({ place, item, index }) => (
+          places.flatMap(({ place, item, index }) => [
+            renderDropSlot(index),
             <PlannerDayItem
               key={`${day.day}-${place.id}-${index}`}
               place={place}
               item={item}
               onRemove={() => onRemovePlace(place.id)}
-              onMoveUp={() => onMoveItemUp(index)}
-              onMoveDown={() => onMoveItemDown(index)}
               onNoteChange={(value) => onItemNoteChange(index, value)}
-              isFirst={index === 0}
-              isLast={index === places.length - 1}
-            />
-          ))
+              onDragStart={(event) => {
+                event.dataTransfer.setData(
+                  "application/planner-item",
+                  JSON.stringify({ dayIndex, itemIndex: index })
+                );
+                event.dataTransfer.effectAllowed = "move";
+                setDraggingIndex(index);
+              }}
+              onDragEnd={() => {
+                setDraggingIndex(null);
+                setDropIndex(null);
+              }}
+              onDragOverCard={(event) => handleCardDragOver(event, index)}
+              onDragLeaveCard={() => {}}
+              onDropOnCard={(event) => handleDropAtIndex(event, dropIndex ?? index)}
+              isDragging={draggingIndex === index}
+            />,
+          ]).concat(renderDropSlot(places.length))
         ) : (
           <div className="theme-planner-empty flex min-h-[110px] items-center justify-center rounded-[1rem] border border-dashed border-[#E5DCCF] bg-white/70 px-4 text-center text-sm text-[#7C7263]">
             Przeciagnij tutaj miejscowki z listy po lewej.
@@ -470,6 +568,7 @@ export default function PlannerPanel({
   countries,
   initialCountryId,
   initialDestinationId,
+  initialPlanId,
 }) {
   const [selectedCountryId, setSelectedCountryId] = useState(initialCountryId || countries[0]?.id || "");
   const [selectedDestinationId, setSelectedDestinationId] = useState(
@@ -482,6 +581,8 @@ export default function PlannerPanel({
   const [status, setStatus] = useState("");
   const [saving, setSaving] = useState(false);
   const [loadingPlans, setLoadingPlans] = useState(false);
+  const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
+  const canUsePortal = typeof document !== "undefined";
 
   const selectedCountry = useMemo(
     () => countries.find((country) => country.id === selectedCountryId) || countries[0],
@@ -524,7 +625,15 @@ export default function PlannerPanel({
         };
       });
       setPlans(normalizedPlans);
-      setSelectedPlanId(normalizedPlans[0]?.id || "");
+      setSelectedPlanId((current) => {
+        if (initialPlanId && normalizedPlans.some((plan) => plan.id === initialPlanId)) {
+          return initialPlanId;
+        }
+        if (current && normalizedPlans.some((plan) => plan.id === current)) {
+          return current;
+        }
+        return normalizedPlans[0]?.id || "";
+      });
       return normalizedPlans;
     } catch (error) {
       setStatus(error.message || "Nie udalo sie pobrac planow.");
@@ -540,7 +649,21 @@ export default function PlannerPanel({
     if (!selectedDestination?.id) return;
     loadPlans(selectedDestination.id);
     setStatus("");
-  }, [selectedDestination?.id]);
+  }, [selectedDestination?.id, initialPlanId]);
+
+  useEffect(() => {
+    if (!initialPlanId) return;
+    if (plans.some((plan) => plan.id === initialPlanId)) {
+      setSelectedPlanId(initialPlanId);
+      setPlanPreviewOpen(true);
+    }
+  }, [initialPlanId, plans]);
+
+  useEffect(() => {
+    if (viewMode !== "preview") {
+      setPlanPreviewOpen(false);
+    }
+  }, [viewMode, selectedDestinationId]);
 
   useEffect(() => {
     if (!selectedPlan) {
@@ -587,23 +710,69 @@ export default function PlannerPanel({
     });
   };
 
-  const dropPlaceToDay = (dayIndex, placeId) => {
+  const dropPlaceToDay = (dayIndex, placeId, insertIndex = null) => {
     updateDraft((prev) => {
       const current = normalizeItinerary(prev.itinerary);
       const nextItinerary = current.map((section, index) => {
-        const filteredItems = section.items.filter(
-          (item) => normalizeItem(item).placeId !== placeId
-        );
+        const filteredItems = section.items
+          .map(normalizeItem)
+          .filter((item) => item.placeId !== placeId);
 
         if (index !== dayIndex) {
           return { ...section, items: filteredItems };
         }
 
+        const nextItems = [...filteredItems];
+        const safeInsertIndex =
+          insertIndex == null
+            ? nextItems.length
+            : Math.max(0, Math.min(insertIndex, nextItems.length));
+        nextItems.splice(safeInsertIndex, 0, { placeId, note: "" });
+
         return {
           ...section,
-          items: [...filteredItems, { placeId, note: "" }],
+          items: nextItems,
         };
       });
+
+      return { ...prev, itinerary: nextItinerary, daysCount: nextItinerary.length };
+    });
+  };
+
+  const movePlannedItem = (fromDayIndex, fromItemIndex, toDayIndex, insertIndex) => {
+    updateDraft((prev) => {
+      const current = normalizeItinerary(prev.itinerary);
+      const sourceDay = current[fromDayIndex];
+      const movedItem = sourceDay?.items?.[fromItemIndex]
+        ? normalizeItem(sourceDay.items[fromItemIndex])
+        : null;
+
+      if (!movedItem) return prev;
+
+      const nextItinerary = current.map((section, index) => ({
+        ...section,
+        items:
+          index === fromDayIndex
+            ? section.items
+                .map(normalizeItem)
+                .filter((_, itemIndex) => itemIndex !== fromItemIndex)
+            : section.items.map(normalizeItem),
+      }));
+
+      const targetItems = [...nextItinerary[toDayIndex].items];
+      const adjustedInsertIndex =
+        fromDayIndex === toDayIndex && insertIndex > fromItemIndex
+          ? insertIndex - 1
+          : insertIndex;
+      const safeInsertIndex = Math.max(
+        0,
+        Math.min(adjustedInsertIndex, targetItems.length)
+      );
+      targetItems.splice(safeInsertIndex, 0, movedItem);
+      nextItinerary[toDayIndex] = {
+        ...nextItinerary[toDayIndex],
+        items: targetItems,
+      };
 
       return { ...prev, itinerary: nextItinerary, daysCount: nextItinerary.length };
     });
@@ -651,22 +820,6 @@ export default function PlannerPanel({
         nextItinerary[swapIndex],
         nextItinerary[dayIndex],
       ];
-
-      return { ...prev, itinerary: nextItinerary, daysCount: nextItinerary.length };
-    });
-  };
-
-  const moveItemWithinDay = (dayIndex, itemIndex, direction) => {
-    updateDraft((prev) => {
-      const nextItinerary = normalizeItinerary(prev.itinerary).map((section, index) => {
-        if (index !== dayIndex) return section;
-        const nextItems = [...section.items];
-        const swapIndex = itemIndex + direction;
-        if (swapIndex < 0 || swapIndex >= nextItems.length) return section;
-
-        [nextItems[itemIndex], nextItems[swapIndex]] = [nextItems[swapIndex], nextItems[itemIndex]];
-        return { ...section, items: nextItems };
-      });
 
       return { ...prev, itinerary: nextItinerary, daysCount: nextItinerary.length };
     });
@@ -815,7 +968,7 @@ export default function PlannerPanel({
             viewMode === "edit" ? "lg:grid-cols-[minmax(0,1fr)_320px]" : "lg:grid-cols-[minmax(0,1fr)]"
           )}
         >
-          <SelectInput
+          {false && <SelectInput
             label="Plan"
             value={selectedPlanId}
             onChange={setSelectedPlanId}
@@ -827,7 +980,71 @@ export default function PlannerPanel({
                   }))
                 : [{ value: "", label: loadingPlans ? "Ladowanie..." : "Brak planow" }]
             }
-          />
+          />}
+
+          <div>
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-[#4D463D]">Plan</p>
+                <p className="mt-1 text-sm text-[#6B6255]">
+                  Wybierz wariant podrozy z zapisanych planow dla tej destynacji.
+                </p>
+              </div>
+              <span className="rounded-full border border-[#E1D7C8] bg-white px-3 py-1 text-xs text-[#6B6255]">
+                {loadingPlans ? "Ladowanie" : `${plans.length} planow`}
+              </span>
+            </div>
+
+            {plans.length ? (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {plans.map((plan) => {
+                  const coverImage = getPlanCover(plan, selectedDestination);
+                  const isActive = plan.id === selectedPlanId;
+
+                  return (
+                    <button
+                      key={plan.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPlanId(plan.id);
+                        if (viewMode === "preview") {
+                          setPlanPreviewOpen(true);
+                        }
+                      }}
+                      className={cn(
+                        "overflow-hidden rounded-[1.2rem] border bg-white text-left transition hover:border-[#DCCFBD] hover:shadow-[0_8px_18px_rgba(34,31,25,0.04)]",
+                        isActive ? "border-[#BFAE97] shadow-[0_8px_18px_rgba(34,31,25,0.06)]" : "border-[#E5DCCF]"
+                      )}
+                    >
+                      <div className="h-36 w-full overflow-hidden bg-[#F4EEE3]">
+                        {coverImage ? (
+                          <img
+                            src={coverImage}
+                            alt={plan.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[0.24em] text-[#8A7F6C]">
+                            No image
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        <p className="text-sm font-semibold text-[#1F1D1A]">
+                          {selectedDestination?.name} - plan {plan.daysCount} dniowy
+                        </p>
+                        <p className="mt-1 text-sm text-[#6B6255]">{plan.name}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-[1.1rem] border border-dashed border-[#DDD2C3] bg-white px-5 py-10 text-center text-sm text-[#7C7263]">
+                {loadingPlans ? "Ladowanie planow..." : "Brak planow dla tej destynacji."}
+              </div>
+            )}
+          </div>
 
           {viewMode === "edit" ? (
             <div className="flex flex-col justify-end gap-3 md:flex-row lg:flex-col">
@@ -853,6 +1070,11 @@ export default function PlannerPanel({
       </div>
 
       {viewMode === "preview" ? (
+        <>
+          <div className="rounded-[1.75rem] border border-dashed border-[#DDD2C3] bg-[#FBF8F2] px-5 py-10 text-center text-sm text-[#7C7263]">
+            Kliknij wybrany kafelek planu powyzej, aby otworzyc pelny widok `Ready Plan`.
+          </div>
+          {false && (
         <div className="theme-planner-card rounded-[1.75rem] border border-[#EEE6DA] bg-[#FBF8F2] p-5">
           <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -887,6 +1109,8 @@ export default function PlannerPanel({
             </div>
           )}
         </div>
+          )}
+        </>
       ) : (
         <div className="grid gap-4 xl:grid-cols-[0.74fr_1.26fr]">
           <div className="theme-planner-card rounded-[1.75rem] border border-[#EEE6DA] bg-[#FBF8F2] p-5">
@@ -979,16 +1203,16 @@ export default function PlannerPanel({
               {normalizeItinerary(draftPlan?.itinerary || []).map((section, index, allDays) => (
                 <DayColumn
                   key={`${section.day}-${index}`}
+                  dayIndex={index}
                   day={section}
                   destination={selectedDestination}
-                  onDropPlace={(placeId) => dropPlaceToDay(index, placeId)}
+                  onDropPlace={(placeId, insertIndex) => dropPlaceToDay(index, placeId, insertIndex)}
+                  onMovePlannedItem={movePlannedItem}
                   onRemovePlace={(placeId) => removePlaceFromDay(index, placeId)}
                   onDeleteDay={() => deleteDay(index)}
                   onRenameDay={(value) => renameDay(index, value)}
                   onMoveDayUp={() => moveDay(index, -1)}
                   onMoveDayDown={() => moveDay(index, 1)}
-                  onMoveItemUp={(itemIndex) => moveItemWithinDay(index, itemIndex, -1)}
-                  onMoveItemDown={(itemIndex) => moveItemWithinDay(index, itemIndex, 1)}
                   onItemNoteChange={(itemIndex, value) => updateItemNote(index, itemIndex, value)}
                   isFirstDay={index === 0}
                   isLastDay={index === allDays.length - 1}
@@ -998,6 +1222,54 @@ export default function PlannerPanel({
           </div>
         </div>
       )}
+
+      {planPreviewOpen &&
+        viewMode === "preview" &&
+        activePlanForPreview &&
+        canUsePortal &&
+        createPortal(
+          <div className="fixed inset-0 z-[1550] flex items-center justify-center bg-[rgba(24,21,18,0.58)] p-4 md:p-6">
+            <div className="flex h-[min(88vh,980px)] w-full max-w-[1100px] justify-center">
+              <div className="flex w-full flex-col overflow-hidden rounded-[2rem] border border-[#E6DED1] bg-white p-5 shadow-[0_30px_90px_rgba(0,0,0,0.24)] md:p-6">
+                <div className="mb-5 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-[#8A7F6C]">Ready Plan</p>
+                    <h4 className="mt-2 text-2xl font-semibold text-[#1F1D1A]">
+                      {activePlanForPreview.name}
+                    </h4>
+                    <p className="mt-2 text-sm text-[#6B6255]">
+                      {selectedCountry?.countryName} · {selectedDestination?.name} · {activePlanForPreview.daysCount || 0} dni
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() =>
+                        exportPlanToPdf(selectedDestination, selectedCountry, activePlanForPreview)
+                      }
+                      className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                    >
+                      <FileDown className="h-4 w-4" />
+                      Pobierz PDF
+                    </button>
+                    <button
+                      onClick={() => setPlanPreviewOpen(false)}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#E5DCCF] bg-[#FBF8F2] text-[#3A352E] transition hover:bg-white"
+                      aria-label="Zamknij podglad planu"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto pr-1">
+                  <PlannerPreview destination={selectedDestination} plan={activePlanForPreview} />
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
 
       {status && (
         <div className="pointer-events-none fixed bottom-6 right-6 z-[1450] w-[min(360px,calc(100vw-2rem))] rounded-[1.2rem] border border-[#D5E2C8] bg-[#F4FAEE] px-4 py-3 text-sm text-[#4F6A2F] shadow-[0_18px_40px_rgba(36,32,26,0.10)] backdrop-blur">

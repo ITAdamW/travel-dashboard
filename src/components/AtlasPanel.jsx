@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
+import { CalendarDays } from "lucide-react";
+import { fetchPlannerPlans } from "../lib/supabaseTravelData";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -144,41 +146,132 @@ function AtlasLeafletMap({ countries, selectedCountryId, onSelectCountry }) {
   );
 }
 
-function DestinationRow({ destination, isSelected, onOpen }) {
+function getDestinationCover(destination) {
+  return (
+    destination?.places?.find((place) => place.image)?.image ||
+    destination?.places?.find((place) => place.gallery?.length)?.gallery?.[0] ||
+    ""
+  );
+}
+
+function DestinationRow({
+  destination,
+  isSelected,
+  onOpen,
+  onOpenPlan,
+  firstPlan,
+  status,
+}) {
+  const coverImage = getDestinationCover(destination);
+
   return (
     <button
       onClick={onOpen}
       className={cn(
-        "theme-panel-card w-full rounded-[1.2rem] border px-4 py-4 text-left transition duration-200 hover:border-[#DCCFBD] hover:bg-[#FCFAF6] hover:shadow-[0_8px_18px_rgba(34,31,25,0.04)]",
+        "theme-panel-card w-full overflow-hidden rounded-[1.2rem] border text-left transition duration-200 hover:border-[#DCCFBD] hover:bg-[#FCFAF6] hover:shadow-[0_8px_18px_rgba(34,31,25,0.04)]",
         isSelected ? "border-[#EAE1D5] bg-white" : "border-[#EAE1D5] bg-white"
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.28em] text-[#8A7F6C]">
-            Destination
-          </p>
-          <p className="mt-2 text-lg font-medium text-[#1F1D1A]">
-            {destination.name}
-          </p>
-          <p className="mt-1 text-sm text-[#6B6255]">{destination.area}</p>
+      <div className="flex gap-4 p-4">
+        <div className="h-[92px] w-[92px] shrink-0 overflow-hidden rounded-[1rem] border border-[#E5DCCF] bg-[#F4EEE3]">
+          {coverImage ? (
+            <img
+              src={coverImage}
+              alt={destination.name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[0.24em] text-[#8A7F6C]">
+              No image
+            </div>
+          )}
         </div>
-        <span className="theme-chip rounded-full border border-[#E5DCCF] bg-white px-2.5 py-1 text-xs text-[#8A7F6C]">
-          Panel 2
-        </span>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.28em] text-[#8A7F6C]">
+                Destination
+              </p>
+              <p className="mt-2 text-lg font-medium text-[#1F1D1A]">
+                {destination.name}
+              </p>
+              <p className="mt-1 text-sm text-[#6B6255]">{destination.area}</p>
+            </div>
+            <span
+              className={cn(
+                "theme-chip rounded-full border px-2.5 py-1 text-xs capitalize",
+                status === "visited"
+                  ? "border-[#6B7A52] bg-[#6B7A52] text-white"
+                  : "border-[#CFC7B7] bg-[#E7E2D8] text-[#2B2A27]"
+              )}
+            >
+              {status}
+            </span>
+          </div>
+
+          <div className="mt-4 flex items-end justify-between gap-3">
+            <p className="text-sm leading-6 text-[#5B544A]">
+              {destination.places.length} miejsc do przejrzenia
+            </p>
+            {firstPlan ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpenPlan(destination.id, firstPlan.id);
+                }}
+                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#D8CCBB] bg-[#FBF8F2] px-3 py-2 text-xs font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
+                Otworz plan
+              </button>
+            ) : null}
+          </div>
+        </div>
       </div>
-      <p className="mt-3 text-sm leading-6 text-[#5B544A]">
-        {destination.places.length} miejsc do przejrzenia
-      </p>
     </button>
   );
 }
 
 function PlacesListByDestination({
+  countryStatus,
   destinations,
   selectedDestinationId,
   onOpenPlace,
+  onOpenPlan,
 }) {
+  const [plansByDestination, setPlansByDestination] = useState({});
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPlansForDestinations() {
+      try {
+        const entries = await Promise.all(
+          destinations.map(async (destination) => {
+            const plans = await fetchPlannerPlans(destination.id);
+            return [destination.id, plans];
+          })
+        );
+
+        if (!cancelled) {
+          setPlansByDestination(Object.fromEntries(entries));
+        }
+      } catch {
+        if (!cancelled) {
+          setPlansByDestination({});
+        }
+      }
+    }
+
+    loadPlansForDestinations();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [destinations]);
+
   return (
     <div className="theme-panel-soft flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.6rem] border border-[#E8DFD3] bg-[linear-gradient(180deg,#FBF8F2_0%,#F7F1E7_100%)] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)]">
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -201,6 +294,9 @@ function PlacesListByDestination({
             destination={destination}
             isSelected={destination.id === selectedDestinationId}
             onOpen={() => onOpenPlace(destination.id)}
+            onOpenPlan={onOpenPlan}
+            firstPlan={plansByDestination[destination.id]?.[0] || null}
+            status={countryStatus}
           />
         ))}
       </div>
@@ -214,6 +310,7 @@ export default function AtlasPanel({
   selectedDestinationId,
   onSelectCountry,
   onOpenPlace,
+  onOpenPlan,
 }) {
   return (
     <section className="theme-panel-shell grid grid-cols-1 gap-4 overflow-hidden rounded-[2.2rem] border border-[#E6DED1] bg-[linear-gradient(180deg,#FBF8F2_0%,#F6F1E7_100%)] p-4 shadow-[0_22px_80px_rgba(34,31,25,0.06)] md:h-[calc(100vh-7rem)] md:max-h-[calc(100vh-7rem)] md:grid-cols-[1.45fr_0.82fr] md:p-6">
@@ -229,15 +326,35 @@ export default function AtlasPanel({
             Kliknij panstwo na mapie albo wybierz je z filtra, aby przejrzec
             destynacje i zapisane miejsca warte odwiedzenia.
           </p>
-          <div className="mt-5 flex flex-wrap items-stretch gap-3">
-            <div className="theme-panel-float flex min-h-[96px] min-w-[235px] flex-col justify-center rounded-[1.25rem] border border-[#E5DCCF] bg-white/78 px-4 py-3 backdrop-blur shadow-[0_8px_18px_rgba(34,31,25,0.03)]">
+          <div className="mt-5 grid gap-3 md:grid-cols-[180px_minmax(0,1fr)_220px]">
+            <div className="theme-panel-float flex min-h-[92px] flex-col justify-center rounded-[1.15rem] border border-[#E5DCCF] bg-white/78 px-4 py-3 backdrop-blur shadow-[0_8px_18px_rgba(34,31,25,0.03)]">
+              <p className="text-[10px] uppercase tracking-[0.26em] text-[#8A7F6C]">
+                Dostepne kraje
+              </p>
+              <p className="mt-2 text-3xl font-semibold text-[#1F1D1A]">
+                {countries.length}
+              </p>
+              <p className="mt-1 text-sm text-[#6B6255]">
+                atlas gotowy do przegladania
+              </p>
+            </div>
+
+            <div className="theme-panel-float flex min-h-[92px] flex-col justify-center rounded-[1.15rem] border border-[#E5DCCF] bg-white/78 px-4 py-3 backdrop-blur shadow-[0_8px_18px_rgba(34,31,25,0.03)]">
               <p className="text-[10px] uppercase tracking-[0.26em] text-[#8A7F6C]">
                 Country filter
               </p>
+              <div className="mt-2 flex items-center justify-between gap-3">
+                <p className="text-lg font-medium text-[#1F1D1A]">
+                  {selectedCountry.countryName}
+                </p>
+                <span className="rounded-full border border-[#E2D7C8] bg-white px-3 py-1 text-xs text-[#6B6255]">
+                  aktywny kraj
+                </span>
+              </div>
               <select
                 value={selectedCountry.id}
                 onChange={(e) => onSelectCountry(e.target.value)}
-                className="mt-2 rounded-xl border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-sm text-[#3D382F] outline-none"
+                className="mt-3 rounded-xl border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-sm text-[#3D382F] outline-none"
               >
                 {countries.map((country) => (
                   <option key={country.id} value={country.id}>
@@ -245,20 +362,17 @@ export default function AtlasPanel({
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-sm text-[#6B6255]">
-                {countries.length} countries available
-              </p>
             </div>
-            <div className="theme-panel-float flex min-h-[96px] min-w-[235px] flex-col justify-center rounded-[1.25rem] border border-[#E5DCCF] bg-white/78 px-4 py-3 backdrop-blur shadow-[0_8px_18px_rgba(34,31,25,0.03)]">
+
+            <div className="theme-panel-float flex min-h-[92px] flex-col justify-center rounded-[1.15rem] border border-[#E5DCCF] bg-white/78 px-4 py-3 backdrop-blur shadow-[0_8px_18px_rgba(34,31,25,0.03)]">
               <p className="text-[10px] uppercase tracking-[0.26em] text-[#8A7F6C]">
-                Selected country
+                Destynacje w kraju
               </p>
-              <p className="mt-1 font-medium text-[#1F1D1A]">
-                {selectedCountry.countryName}
+              <p className="mt-2 text-3xl font-semibold text-[#1F1D1A]">
+                {selectedCountry.destinations.length}
               </p>
-              <p className="mt-2 text-sm text-[#6B6255]">
-                {selectedCountry.destinations.length} destination
-                {selectedCountry.destinations.length > 1 ? "s" : ""}
+              <p className="mt-1 text-sm text-[#6B6255]">
+                gotowe do otwarcia w story albo plannerze
               </p>
             </div>
           </div>
@@ -321,9 +435,11 @@ export default function AtlasPanel({
         </p>
 
         <PlacesListByDestination
+          countryStatus={selectedCountry.status}
           destinations={selectedCountry.destinations}
           selectedDestinationId={selectedDestinationId}
           onOpenPlace={onOpenPlace}
+          onOpenPlan={onOpenPlan}
         />
       </aside>
     </section>

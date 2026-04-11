@@ -673,6 +673,20 @@ function StoryPanelBody({
 
   return (
     <>
+      <div className="mb-3">
+        <select
+          value={activeIndex}
+          onChange={(e) => onGoTo(Number(e.target.value))}
+          className="w-full rounded-xl border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-sm text-[#4D463D]"
+        >
+          {slides.map((slide, index) => (
+            <option key={slide.id} value={index}>
+              {slide.title}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">
@@ -700,19 +714,19 @@ function StoryPanelBody({
         )}
       </div>
 
-      <div className="mb-3">
-        <select
-          value={activeIndex}
-          onChange={(e) => onGoTo(Number(e.target.value))}
-          className="w-full rounded-xl border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-sm text-[#4D463D]"
-        >
-          {slides.map((slide, index) => (
-            <option key={slide.id} value={index}>
-              {slide.title}
-            </option>
+      {metaBadges.length > 0 && (
+        <div className={expanded ? "mb-3 grid gap-2" : "mb-3 flex flex-wrap gap-2"}>
+          {metaBadges.map((badge) => (
+            <PlaceMetaBadge
+              key={badge.key}
+              icon={badge.icon}
+              label={badge.label}
+              tooltip={badge.tooltip}
+              expanded={expanded}
+            />
           ))}
-        </select>
-      </div>
+        </div>
+      )}
 
       <div className={expanded ? "flex-1 overflow-y-auto pr-1" : "flex-1 overflow-y-auto pr-1"}>
         <div className="overflow-hidden rounded-[1.1rem] border border-[#E8DFD2]">
@@ -742,20 +756,7 @@ function StoryPanelBody({
           expanded={expanded}
           onExpand={!expanded ? onExpand : undefined}
         />
-        {metaBadges.length > 0 && (
-          <div className={expanded ? "mt-3 grid gap-2" : "mt-3 flex flex-wrap gap-2"}>
-            {metaBadges.map((badge) => (
-              <PlaceMetaBadge
-                key={badge.key}
-                icon={badge.icon}
-                label={badge.label}
-                tooltip={badge.tooltip}
-                expanded={expanded}
-              />
-            ))}
-          </div>
-        )}
-        {galleryImages.length > 0 && (
+        {galleryImages.length > 0 && expanded && (
           <div className="mt-3 rounded-[1rem] border border-[#E8DFD2] bg-white p-3">
             <p className="text-[10px] uppercase tracking-[0.2em] text-[#8A7F6C]">
               Gallery
@@ -787,6 +788,55 @@ function StoryPanelBody({
                         src={img}
                         alt={`${currentSlide.title} ${absoluteIndex + 1}`}
                         className={expanded ? "h-24 w-full object-cover" : "h-14 w-full object-cover"}
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                onClick={() =>
+                  setGalleryStart((prev) =>
+                    Math.min(prev + 1, Math.max(galleryImages.length - 4, 0))
+                  )
+                }
+                className="p-1 text-[#3A352E] transition hover:text-[#1F1D1A] disabled:opacity-30"
+                disabled={galleryStart >= Math.max(galleryImages.length - 4, 0)}
+                aria-label="Nastepne zdjecia"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+        {galleryImages.length > 0 && !expanded && (
+          <div className="mt-3">
+            <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2">
+              <button
+                onClick={() =>
+                  setGalleryStart((prev) => Math.max(prev - 1, 0))
+                }
+                className="p-1 text-[#3A352E] transition hover:text-[#1F1D1A] disabled:opacity-30"
+                disabled={galleryStart === 0}
+                aria-label="Poprzednie zdjecia"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="grid grid-cols-4 gap-2">
+                {visibleThumbs.map((img, idx) => {
+                  const absoluteIndex = galleryStart + idx;
+                  return (
+                    <button
+                      key={`${img}-${absoluteIndex}`}
+                      onClick={() => {
+                        setLightboxIndex(absoluteIndex);
+                        setLightboxOpen(true);
+                      }}
+                      className="overflow-hidden rounded-xl border border-[#E8DFD2] bg-white"
+                    >
+                      <img
+                        src={img}
+                        alt={`${currentSlide.title} ${absoluteIndex + 1}`}
+                        className="h-20 w-full object-cover"
                       />
                     </button>
                   );
@@ -1305,12 +1355,6 @@ export default function StoryPanel({
         }
         detailsOverlay={
           <div className="space-y-3">
-            <FloatingPlanPicker
-              planOptions={planOptions}
-              selectedPlanId={selectedPlanId}
-              onSelectPlan={setSelectedPlanId}
-              loadingPlans={loadingPlans}
-            />
             <FloatingActivePlace
               destination={filteredDestination}
               activePlaceId={activePlaceId}
@@ -1325,6 +1369,12 @@ export default function StoryPanel({
               activePlaceId={activePlaceId}
               selectedCategory={effectiveSelectedCategory}
               onSelectPlace={handleSelectPlace}
+            />
+            <FloatingPlanPicker
+              planOptions={planOptions}
+              selectedPlanId={selectedPlanId}
+              onSelectPlan={setSelectedPlanId}
+              loadingPlans={loadingPlans}
             />
           </div>
         }

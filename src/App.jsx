@@ -107,6 +107,7 @@ export default function App() {
   });
   const [selectedCountryId, setSelectedCountryId] = useState("");
   const [selectedDestinationId, setSelectedDestinationId] = useState("");
+  const [selectedPlannerPlanId, setSelectedPlannerPlanId] = useState("");
   const [session, setSession] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [baseCountries, setBaseCountries] = useState([]);
@@ -516,7 +517,13 @@ export default function App() {
               onSelectDestination={setSelectedDestinationId}
               onOpenPlace={(destinationId) => {
                 setSelectedDestinationId(destinationId);
+                setSelectedPlannerPlanId("");
                 setActivePanel("story");
+              }}
+              onOpenPlan={(destinationId, planId) => {
+                setSelectedDestinationId(destinationId);
+                setSelectedPlannerPlanId(planId);
+                setActivePanel("planner");
               }}
             />
           ) : (
@@ -550,6 +557,7 @@ export default function App() {
               countries={travelCountries}
               initialCountryId={selectedCountryId}
               initialDestinationId={selectedDestinationId}
+              initialPlanId={selectedPlannerPlanId}
               onPlannerSaved={loadTravelData}
             />
           ) : (
