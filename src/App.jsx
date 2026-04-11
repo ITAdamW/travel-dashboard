@@ -26,6 +26,7 @@ import { fetchTravelCountriesFromDb } from "./lib/supabaseTravelData";
 import { ensureCurrentUserProfile } from "./lib/userProfiles";
 
 const THEME_STORAGE_KEY = "travel-dashboard-theme";
+const PENDING_APPROVAL_MESSAGE_KEY = "travel-dashboard-pending-approval-message";
 
 function EmptyPanelState({ message }) {
   return (
@@ -241,6 +242,17 @@ export default function App() {
       try {
         const nextProfile = await ensureCurrentUserProfile(session);
         if (!cancelled) {
+          if (nextProfile && !nextProfile.approved) {
+            setCurrentUserProfile(null);
+            if (typeof window !== "undefined") {
+              window.sessionStorage.setItem(
+                PENDING_APPROVAL_MESSAGE_KEY,
+                "Konto czeka na akceptacje administratora. Po zatwierdzeniu sprobuj zalogowac sie ponownie."
+              );
+            }
+            await supabase?.auth.signOut();
+            return;
+          }
           setCurrentUserProfile(nextProfile);
         }
       } catch {

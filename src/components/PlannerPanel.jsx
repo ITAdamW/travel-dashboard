@@ -303,30 +303,16 @@ function PlannerEditRouteMap({ destination, plan }) {
           </MapContainer>
         </div>
 
-        <div className="pointer-events-none absolute bottom-3 left-3 z-[650] w-[320px] max-w-[calc(100%-1.5rem)]">
-          <div className="pointer-events-auto rounded-[1.1rem] border border-[#E6DED1] bg-[rgba(255,255,255,0.92)] p-3 shadow-[0_16px_36px_rgba(34,31,25,0.10)] backdrop-blur">
-            <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">Active stop</p>
-            <p className="mt-2 text-base font-semibold text-[#1F1D1A]">
-              {activeStop?.place?.name || "Brak punktu"}
-            </p>
-            <p className="mt-2 text-sm text-[#6B6255]">
-              {activeStop
-                ? `${planDays[activeStop.dayIndex]?.day} · punkt ${activeStop.itemIndex + 1}`
-                : "Dodaj punkt do planu"}
-            </p>
-          </div>
-        </div>
-
-        <div className="pointer-events-none absolute right-3 top-3 z-[650] w-[320px] max-w-[calc(100%-1.5rem)]">
-          <div className="pointer-events-auto rounded-[1.1rem] border border-[#E6DED1] bg-[rgba(255,255,255,0.92)] p-3 shadow-[0_16px_36px_rgba(34,31,25,0.10)] backdrop-blur">
-            <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">Day colors</p>
-            <div className="mt-3 flex flex-wrap gap-2">
+        <div className="pointer-events-none absolute bottom-3 left-3 z-[650] w-[250px] max-w-[calc(100%-1.5rem)]">
+          <div className="pointer-events-auto rounded-[1rem] border border-[#E6DED1] bg-[rgba(255,255,255,0.9)] p-2.5 shadow-[0_12px_28px_rgba(34,31,25,0.10)] backdrop-blur">
+            <p className="text-[9px] uppercase tracking-[0.22em] text-[#8A7F6C]">Day colors</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
               {planDays.map((day, index) => (
                 <span
                   key={`planner-legend-${day.day}`}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#E1D7C8] bg-white px-3 py-1.5 text-xs text-[#4D463D]"
+                  className="inline-flex items-center gap-2 rounded-full border border-[#E1D7C8] bg-white px-2.5 py-1 text-[11px] text-[#4D463D]"
                 >
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: day.color }} />
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: day.color }} />
                   {day.day || `Day ${index + 1}`}
                 </span>
               ))}
@@ -1355,74 +1341,81 @@ export default function PlannerPanel({
           )}
         </>
       ) : (
-        <div className="grid gap-4 xl:grid-cols-[0.74fr_1.26fr]">
-          <div className="theme-planner-card rounded-[1.75rem] border border-[#EEE6DA] bg-[#FBF8F2] p-5">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h4 className="font-medium">Saved Places</h4>
-                <p className="mt-1 text-sm text-[#7A7164]">
-                  Przeciagnij miejscowki do konkretnego dnia planu.
-                </p>
-              </div>
-              <span className="rounded-full border border-[#E3D9CA] bg-white px-3 py-1 text-xs text-[#6B6255]">
-                {availablePlaces.length} dostepnych
-              </span>
-            </div>
+        <div className="space-y-4">
+          <div className="grid gap-4 xl:grid-cols-[0.74fr_1.26fr]">
+            <div className="xl:sticky xl:top-[112px] xl:self-start">
+              <div className="theme-planner-card rounded-[1.75rem] border border-[#EEE6DA] bg-[#FBF8F2] p-5">
+                <PlannerEditRouteMap destination={selectedDestination} plan={draftPlan} />
 
-            {draftPlan && (
-              <div className="theme-planner-card mb-4 space-y-4 rounded-[1.2rem] border border-[#E8DFD2] bg-white p-4">
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-[#4D463D]">Nazwa planu</span>
-                  <input
-                    value={draftPlan.name}
-                    onChange={(e) => updateDraft((prev) => ({ ...prev, name: e.target.value }))}
-                    className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none"
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-[#4D463D]">Notatki do planu</span>
-                  <textarea
-                    rows={3}
-                    value={draftPlan.notes || ""}
-                    onChange={(e) => updateDraft((prev) => ({ ...prev, notes: e.target.value }))}
-                    className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none"
-                  />
-                </label>
-              </div>
-            )}
-
-            <div className="max-h-[620px] space-y-3 overflow-y-auto pr-1">
-              {availablePlaces.length ? (
-                availablePlaces.map((place) => (
-                  <PlannerPlaceCard
-                    key={place.id}
-                    place={place}
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData("text/place-id", place.id);
-                      e.dataTransfer.effectAllowed = "move";
-                    }}
-                  />
-                ))
-              ) : (
-                <div className="theme-planner-card rounded-[1.2rem] border border-dashed border-[#DDD2C3] bg-white/70 px-4 py-8 text-center text-sm text-[#7C7263]">
-                  Wszystkie miejscowki sa juz przypisane do planu.
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-medium">Saved Places</h4>
+                    <p className="mt-1 text-sm text-[#7A7164]">
+                      Przeciagnij miejscowki do konkretnego dnia planu.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[#E3D9CA] bg-white px-3 py-1 text-xs text-[#6B6255]">
+                    {availablePlaces.length} dostepnych
+                  </span>
                 </div>
-              )}
-            </div>
-          </div>
 
-          <div className="theme-planner-card rounded-[1.75rem] border border-[#EEE6DA] bg-[#FBF8F2] p-5">
-            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h4 className="font-medium">Edycja planu</h4>
-                <p className="mt-1 text-sm text-[#7A7164]">
-                  Dodawaj dni, ustawiaj kolejnosc i dopisuj notatki do punktow.
-                </p>
+                <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                  {availablePlaces.length ? (
+                    availablePlaces.map((place) => (
+                      <PlannerPlaceCard
+                        key={place.id}
+                        place={place}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData("text/place-id", place.id);
+                          e.dataTransfer.effectAllowed = "move";
+                        }}
+                      />
+                    ))
+                  ) : (
+                    <div className="theme-planner-card rounded-[1.2rem] border border-dashed border-[#DDD2C3] bg-white/70 px-4 py-8 text-center text-sm text-[#7C7263]">
+                      Wszystkie miejscowki sa juz przypisane do planu.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="theme-planner-card rounded-[1.75rem] border border-[#EEE6DA] bg-[#FBF8F2] p-5">
+            <div className="mb-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+                <div>
+                  <h4 className="font-medium">Edycja planu</h4>
+                  <p className="mt-1 text-sm text-[#7A7164]">
+                    Dodawaj dni, ustawiaj kolejnosc i dopisuj notatki do punktow.
+                  </p>
+
+                  {draftPlan && (
+                    <label className="mt-4 block">
+                      <span className="mb-2 block text-sm font-medium text-[#4D463D]">Nazwa planu</span>
+                      <input
+                        value={draftPlan.name}
+                        onChange={(e) => updateDraft((prev) => ({ ...prev, name: e.target.value }))}
+                        className="w-full rounded-[1rem] border border-[#E5DCCF] bg-white px-4 py-3 text-sm text-[#1F1D1A] outline-none"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {draftPlan && (
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-[#4D463D]">Notatki do planu</span>
+                    <textarea
+                      rows={4}
+                      value={draftPlan.notes || ""}
+                      onChange={(e) => updateDraft((prev) => ({ ...prev, notes: e.target.value }))}
+                      className="w-full rounded-[1rem] border border-[#E5DCCF] bg-white px-4 py-3 text-sm text-[#1F1D1A] outline-none"
+                    />
+                  </label>
+                )}
               </div>
 
-              <div className="flex flex-wrap gap-3">
+              <div className="flex flex-wrap gap-3 xl:justify-end">
                 <button
                   onClick={addDay}
                   className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
@@ -1442,9 +1435,7 @@ export default function PlannerPanel({
               </div>
             </div>
 
-            <PlannerEditRouteMap destination={selectedDestination} plan={draftPlan} />
-
-            <div className="space-y-4">
+            <div className="max-h-[980px] space-y-4 overflow-y-auto pr-1">
               {normalizeItinerary(draftPlan?.itinerary || []).map((section, index, allDays) => (
                 <DayColumn
                   key={`${section.day}-${index}`}
@@ -1465,6 +1456,7 @@ export default function PlannerPanel({
               ))}
             </div>
           </div>
+        </div>
         </div>
       )}
 

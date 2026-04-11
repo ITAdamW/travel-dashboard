@@ -11,6 +11,10 @@ function normalizeProfile(row, fallbackUser = null) {
   const firstName = row?.first_name || metadata.first_name || "";
   const lastName = row?.last_name || metadata.last_name || "";
   const navbarStyle = metadata.navbar_style || "capsule";
+  const approved =
+    typeof row?.approved === "boolean"
+      ? row.approved
+      : metadata.account_approved === true;
 
   return {
     id: row?.id || fallbackUser?.id || "",
@@ -19,6 +23,9 @@ function normalizeProfile(row, fallbackUser = null) {
     firstName,
     lastName,
     role,
+    approved,
+    approvedAt: row?.approved_at || null,
+    approvedBy: row?.approved_by || null,
     navbarStyle,
     createdAt: row?.created_at || null,
     updatedAt: row?.updated_at || null,
@@ -35,6 +42,7 @@ async function syncAuthMetadata(user, profile) {
     last_name: profile.lastName || "",
     full_name: [profile.firstName, profile.lastName].filter(Boolean).join(" "),
     role: profile.role || "user",
+    account_approved: profile.approved === true,
     navbar_style: profile.navbarStyle || "capsule",
   };
 
@@ -45,6 +53,7 @@ async function syncAuthMetadata(user, profile) {
     currentMetadata.last_name !== nextMetadata.last_name ||
     currentMetadata.full_name !== nextMetadata.full_name ||
     currentMetadata.role !== nextMetadata.role ||
+    currentMetadata.account_approved !== nextMetadata.account_approved ||
     currentMetadata.navbar_style !== nextMetadata.navbar_style;
 
   if (!hasChanged) return profile;
@@ -83,6 +92,10 @@ export async function ensureCurrentUserProfile(session) {
 
     const resolvedRole =
       existingProfile?.role || metadata.role || (adminCount === 0 ? "admin" : "user");
+    const resolvedApproved =
+      typeof existingProfile?.approved === "boolean"
+        ? existingProfile.approved
+        : metadata.account_approved === true || adminCount === 0;
 
     const payload = {
       id: user.id,
@@ -91,6 +104,11 @@ export async function ensureCurrentUserProfile(session) {
       first_name: existingProfile?.first_name || metadata.first_name || "",
       last_name: existingProfile?.last_name || metadata.last_name || "",
       role: resolvedRole,
+      approved: resolvedApproved,
+      approved_at: resolvedApproved
+        ? existingProfile?.approved_at || new Date().toISOString()
+        : null,
+      approved_by: existingProfile?.approved_by || null,
     };
 
     const { data: savedProfile, error: upsertError } = await supabase
@@ -113,6 +131,7 @@ export async function ensureCurrentUserProfile(session) {
         first_name: metadata.first_name || "",
         last_name: metadata.last_name || "",
         role: metadata.role || "admin",
+        approved: true,
         navbarStyle: metadata.navbar_style || "capsule",
       },
       user
@@ -132,6 +151,7 @@ export async function updateCurrentUserProfile(session, values) {
     firstName: values.firstName.trim(),
     lastName: values.lastName.trim(),
     role: values.role || session.user.user_metadata?.role || "user",
+    approved: session.user.user_metadata?.account_approved === true,
     navbarStyle: values.navbarStyle || session.user.user_metadata?.navbar_style || "capsule",
   };
 
@@ -144,6 +164,7 @@ export async function updateCurrentUserProfile(session, values) {
         first_name: profile.firstName,
         last_name: profile.lastName,
         role: profile.role,
+        approved: profile.approved,
       },
       { onConflict: "id" }
     );
@@ -182,4 +203,35 @@ export async function updateUserRole(userId, role) {
   if (error) throw error;
 
   return normalizeProfile(data);
+}
+
+export async function updateUserApproval(userId, approved) {
+  if (!supabase) return null;
+
+  const payload = {
+    approved,
+    approved_at: approved ? new Date().toISOString() : null,
+    approved_by: approved ? (await supabase.auth.getUser()).data.user?.id || null : null,
+  };
+
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .update(payload)
+    .eq("id", userId)
+    .select("*")
+    .single();
+
+  if (error) throw error;
+
+  return normalizeProfile(data);
+}
+
+export async function deleteUserAccount(userId) {
+  if (!supabase) return;
+
+  const { error } = await supabase.rpc("delete_user_account", {
+    target_user_id: userId,
+  });
+
+  if (error) throw error;
 }
