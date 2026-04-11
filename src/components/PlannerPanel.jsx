@@ -569,6 +569,7 @@ export default function PlannerPanel({
   initialCountryId,
   initialDestinationId,
   initialPlanId,
+  onOpenRoute,
 }) {
   const [selectedCountryId, setSelectedCountryId] = useState(initialCountryId || countries[0]?.id || "");
   const [selectedDestinationId, setSelectedDestinationId] = useState(
@@ -655,7 +656,6 @@ export default function PlannerPanel({
     if (!initialPlanId) return;
     if (plans.some((plan) => plan.id === initialPlanId)) {
       setSelectedPlanId(initialPlanId);
-      setPlanPreviewOpen(true);
     }
   }, [initialPlanId, plans]);
 
@@ -1243,6 +1243,19 @@ export default function PlannerPanel({
                   </div>
 
                   <div className="flex items-center gap-3">
+                    <button
+                      onClick={() =>
+                        onOpenRoute?.(
+                          selectedCountry?.id,
+                          selectedDestination?.id,
+                          activePlanForPreview.id
+                        )
+                      }
+                      className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#D8CCBB] bg-[#FBF8F2] px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                    >
+                      <Route className="h-4 w-4" />
+                      Otworz Route
+                    </button>
                     <button
                       onClick={() =>
                         exportPlanToPdf(selectedDestination, selectedCountry, activePlanForPreview)

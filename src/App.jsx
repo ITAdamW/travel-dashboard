@@ -5,6 +5,7 @@ import {
   Globe2,
   Images,
   Map,
+  Route as RouteIcon,
   Moon,
   Settings2,
   Sun,
@@ -13,6 +14,7 @@ import {
 import AtlasPanel from "./components/AtlasPanel";
 import StoryPanel from "./components/StoryPanel";
 import PlannerPanel from "./components/PlannerPanel";
+import RoutePanel from "./components/RoutePanel";
 import LoginPanel from "./components/LoginPanel";
 import MediaPanel from "./components/MediaPanel";
 import DataAdminPanel from "./components/DataAdminPanel";
@@ -279,9 +281,10 @@ export default function App() {
     { key: "atlas", label: "Atlas", panelLabel: "Panel 1", number: "1", icon: Globe2, visible: true },
     { key: "story", label: "Destination", panelLabel: "Panel 2", number: "2", icon: Map, visible: true },
     { key: "planner", label: "Planner", panelLabel: "Panel 3", number: "3", icon: BookImage, visible: true },
-    { key: "media", label: "Media", panelLabel: "Panel 4", number: "4", icon: Images, visible: isAdmin },
-    { key: "admin", label: "Data admin", panelLabel: "Panel 5", number: "5", icon: Database, visible: isAdmin },
-    { key: "users", label: "Users", panelLabel: "Panel 6", number: "6", icon: UsersIcon, visible: isAdmin },
+    { key: "route", label: "Route", panelLabel: "Panel 4", number: "4", icon: RouteIcon, visible: true },
+    { key: "media", label: "Media", panelLabel: "Panel 5", number: "5", icon: Images, visible: isAdmin },
+    { key: "admin", label: "Data admin", panelLabel: "Panel 6", number: "6", icon: Database, visible: isAdmin },
+    { key: "users", label: "Users", panelLabel: "Panel 7", number: "7", icon: UsersIcon, visible: isAdmin },
   ].filter((item) => item.visible);
 
   if (authLoading) {
@@ -558,10 +561,28 @@ export default function App() {
               initialCountryId={selectedCountryId}
               initialDestinationId={selectedDestinationId}
               initialPlanId={selectedPlannerPlanId}
+              onOpenRoute={(countryId, destinationId, planId) => {
+                setSelectedCountryId(countryId);
+                setSelectedDestinationId(destinationId);
+                setSelectedPlannerPlanId(planId);
+                setActivePanel("route");
+              }}
               onPlannerSaved={loadTravelData}
             />
           ) : (
             <EmptyPanelState message="Planner pojawi sie po dodaniu pierwszej destynacji w bazie." />
+          ))}
+
+        {activePanel === "route" &&
+          (travelCountries.length > 0 ? (
+            <RoutePanel
+              countries={travelCountries}
+              initialCountryId={selectedCountryId}
+              initialDestinationId={selectedDestinationId}
+              initialPlanId={selectedPlannerPlanId}
+            />
+          ) : (
+            <EmptyPanelState message="Route pojawi sie po dodaniu pierwszego planu w bazie." />
           ))}
 
         {activePanel === "media" &&

@@ -1,4 +1,4 @@
-import { Compass, Map as MapIcon, NotebookPen } from "lucide-react";
+import { Compass, Map as MapIcon, NotebookPen, Route as RouteIcon } from "lucide-react";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -8,12 +8,13 @@ const panelMeta = [
   { id: "atlas", label: "Panel 1", name: "Atlas", icon: MapIcon },
   { id: "story", label: "Panel 2", name: "Destination", icon: Compass },
   { id: "planner", label: "Panel 3", name: "Planner", icon: NotebookPen },
+  { id: "route", label: "Panel 4", name: "Route", icon: RouteIcon },
 ];
 
 export default function PanelNav({ activePanel, onChange }) {
   return (
     <div className="mb-4 rounded-[1.15rem] border border-[#E7DED2] bg-[linear-gradient(180deg,#FCFAF6_0%,#F6F0E5_100%)] p-1.5 shadow-[0_6px_18px_rgba(34,31,25,0.035)]">
-      <div className="grid grid-cols-3 gap-1.5">
+      <div className="grid grid-cols-4 gap-1.5">
         {panelMeta.map((panel) => {
           const Icon = panel.icon;
 
