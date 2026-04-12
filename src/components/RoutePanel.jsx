@@ -8,14 +8,24 @@ import {
   useMap,
 } from "react-leaflet";
 import {
+  Clock3,
   ChevronDown,
   ChevronUp,
   ExternalLink,
   MapPinned,
+  Ruler,
   Route as RouteIcon,
 } from "lucide-react";
 import { divIcon } from "leaflet";
 import { fetchPlannerPlans } from "../lib/supabaseTravelData";
+import { updatePlaceRoutePath } from "../lib/supabaseTravelData";
+import {
+  enrichPlaceForDisplay,
+  getPlaceRoutePath,
+  getTrailRouteHint,
+  isTrailPlace,
+} from "../lib/placePresentation";
+import { resolveTrailGeometryForPlace } from "../lib/trailGeometry";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -101,6 +111,8 @@ export default function RoutePanel({
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [activeStopKey, setActiveStopKey] = useState("");
   const [routeGeometries, setRouteGeometries] = useState({});
+  const [trailGeometries, setTrailGeometries] = useState({});
+  const [trailGeometryLoading, setTrailGeometryLoading] = useState({});
   const [collapsedDays, setCollapsedDays] = useState({});
   const [selectedDayIndex, setSelectedDayIndex] = useState(null);
 
@@ -113,6 +125,17 @@ export default function RoutePanel({
     selectedCountry?.destinations?.find(
       (destination) => destination.id === selectedDestinationId
     ) || selectedCountry?.destinations?.[0];
+
+  const displayDestination = useMemo(() => {
+    if (!selectedDestination) return selectedDestination;
+
+    return {
+      ...selectedDestination,
+      places: (selectedDestination.places || []).map((place) =>
+        enrichPlaceForDisplay(place)
+      ),
+    };
+  }, [selectedDestination]);
 
   const selectedPlan =
     plans.find((plan) => plan.id === selectedPlanId) || plans[0] || null;
@@ -192,14 +215,14 @@ export default function RoutePanel({
   }, [selectedDestination?.id, initialPlanId]);
 
   const planDays = useMemo(() => {
-    if (!selectedPlan || !selectedDestination) return [];
+    if (!selectedPlan || !displayDestination) return [];
 
     return normalizeItinerary(selectedPlan.itinerary).map((day, dayIndex) => ({
       ...day,
       color: dayPalette[dayIndex % dayPalette.length],
       places: day.items
         .map((item, itemIndex) => {
-          const place = findPlaceById(selectedDestination, item.placeId);
+          const place = findPlaceById(displayDestination, item.placeId);
           if (!place) return null;
           return {
             key: `${dayIndex}-${itemIndex}-${place.id}`,
@@ -211,7 +234,7 @@ export default function RoutePanel({
         })
         .filter(Boolean),
     }));
-  }, [selectedDestination, selectedPlan]);
+  }, [displayDestination, selectedPlan]);
 
   const routePoints = useMemo(
     () => planDays.flatMap((day) => day.places.map((entry) => entry.place.coordinates)),
@@ -292,6 +315,122 @@ export default function RoutePanel({
     visibleDays.flatMap((day) => day.places).find((entry) => entry.key === activeStopKey) ||
     visibleDays[0]?.places[0] ||
     null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function preloadTrailGeometries() {
+      const trailPlaces = [
+        ...new Map(
+          planDays
+            .flatMap((day) => day.places.map((entry) => entry.place))
+            .filter((place) => place && isTrailPlace(place))
+            .map((place) => [place.id, place])
+        ).values(),
+      ];
+
+      if (!trailPlaces.length) {
+        return;
+      }
+
+      await Promise.all(
+        trailPlaces.map(async (trailPlace) => {
+          const storedGeometry = getPlaceRoutePath(trailPlace);
+          if (storedGeometry.length > 1) {
+            if (!cancelled) {
+              setTrailGeometries((current) => ({
+                ...current,
+                [trailPlace.id]: storedGeometry,
+              }));
+            }
+            return;
+          }
+
+          if (Object.prototype.hasOwnProperty.call(trailGeometries, trailPlace.id)) {
+            return;
+          }
+
+          if (!cancelled) {
+            setTrailGeometryLoading((current) => ({
+              ...current,
+              [trailPlace.id]: true,
+            }));
+          }
+
+          try {
+            const geometry = await resolveTrailGeometryForPlace(
+              trailPlace,
+              getTrailRouteHint(trailPlace)
+            );
+            if (!cancelled) {
+              setTrailGeometries((current) => ({
+                ...current,
+                [trailPlace.id]: geometry,
+              }));
+            }
+            if (geometry.length > 1) {
+              updatePlaceRoutePath(trailPlace.id, geometry).catch(() => {});
+            }
+          } catch {
+            if (!cancelled) {
+              setTrailGeometries((current) => ({
+                ...current,
+                [trailPlace.id]: [],
+              }));
+            }
+          } finally {
+            if (!cancelled) {
+              setTrailGeometryLoading((current) => ({
+                ...current,
+                [trailPlace.id]: false,
+              }));
+            }
+          }
+        })
+      );
+    }
+
+    preloadTrailGeometries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [planDays, trailGeometries]);
+
+  const activeTrailGeometry = useMemo(() => {
+    const activePlace = activeStop?.place;
+
+    if (!activePlace || !isTrailPlace(activePlace)) {
+      return [];
+    }
+
+    const storedGeometry = getPlaceRoutePath(activePlace);
+    if (storedGeometry.length > 1) {
+      return storedGeometry;
+    }
+
+    return trailGeometries[activePlace.id] || [];
+  }, [activeStop, trailGeometries]);
+
+  const mapBoundsPoints = useMemo(() => {
+    if (activeTrailGeometry.length > 1) {
+      return [...visibleRoutePoints, ...activeTrailGeometry];
+    }
+
+    return visibleRoutePoints;
+  }, [activeTrailGeometry, visibleRoutePoints]);
+
+  const activeStopDistance =
+    activeStop?.place?.distanceKm && activeStop.place.distanceKm > 0
+      ? `${activeStop.place.distanceKm % 1 === 0 ? activeStop.place.distanceKm.toFixed(0) : activeStop.place.distanceKm.toFixed(1)} km`
+      : "";
+  const activeStopDuration =
+    activeStop?.place?.durationHours && activeStop.place.durationHours > 0
+      ? `${activeStop.place.durationHours % 1 === 0 ? activeStop.place.durationHours.toFixed(0) : activeStop.place.durationHours.toFixed(1)} h`
+      : "";
+  const activeTrailGeometryLoading = activeStop?.place?.id
+    ? trailGeometryLoading[activeStop.place.id]
+    : false;
 
   return (
     <section className="rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
@@ -481,7 +620,7 @@ export default function RoutePanel({
             <div className="relative min-h-[860px] overflow-hidden rounded-[1.6rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,rgba(107,122,82,0.08),transparent_35%),linear-gradient(180deg,#F3EEE5_0%,#ECE5D8_100%)]">
               <div className="absolute inset-0 z-0 [filter:saturate(0.35)_sepia(0.15)_contrast(0.95)]">
                 <MapContainer
-                  center={visibleRoutePoints[0]}
+                  center={mapBoundsPoints[0]}
                   zoom={11}
                   zoomControl={true}
                   attributionControl={false}
@@ -489,7 +628,7 @@ export default function RoutePanel({
                   scrollWheelZoom={true}
                 >
                   <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                  <FitRouteBounds points={visibleRoutePoints} />
+                  <FitRouteBounds points={mapBoundsPoints} />
 
                   {visibleDays.map((day) => (
                     <Polyline
@@ -502,6 +641,18 @@ export default function RoutePanel({
                       }}
                     />
                   ))}
+
+                  {activeTrailGeometry.length > 1 && (
+                    <Polyline
+                      positions={activeTrailGeometry}
+                      pathOptions={{
+                        color: "#1F1D1A",
+                        weight: 6,
+                        opacity: 0.9,
+                        dashArray: "10 10",
+                      }}
+                    />
+                  )}
 
                   {visibleDays.flatMap((day) =>
                     day.places.map((entry, index) => {
@@ -529,6 +680,22 @@ export default function RoutePanel({
                               <p className="mt-2 text-sm text-[#5B544A]">
                                 {entry.place.note || entry.place.subtitle || entry.place.info}
                               </p>
+                              {(entry.place.distanceKm || entry.place.durationHours) && (
+                                <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#4D463D]">
+                                  {entry.place.distanceKm ? (
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-[#E1D7C8] bg-white px-2.5 py-1">
+                                      <Ruler className="h-3.5 w-3.5" />
+                                      {entry.place.distanceKm} km
+                                    </span>
+                                  ) : null}
+                                  {entry.place.durationHours ? (
+                                    <span className="inline-flex items-center gap-1 rounded-full border border-[#E1D7C8] bg-white px-2.5 py-1">
+                                      <Clock3 className="h-3.5 w-3.5" />
+                                      {entry.place.durationHours} h
+                                    </span>
+                                  ) : null}
+                                </div>
+                              )}
                               <button
                                 onClick={() =>
                                   window.open(mapsUrl(entry.place), "_blank", "noopener,noreferrer")
@@ -566,6 +733,35 @@ export default function RoutePanel({
                   </div>
                   {activeStop?.note ? (
                     <p className="mt-3 text-sm leading-6 text-[#4D463D]">{activeStop.note}</p>
+                  ) : null}
+                  {(activeStopDistance || activeStopDuration) && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {activeStopDistance ? (
+                        <span className="inline-flex items-center gap-2 rounded-full border border-[#E1D7C8] bg-white px-3 py-1.5 text-xs text-[#4D463D]">
+                          <Ruler className="h-3.5 w-3.5 text-[#6B7A52]" />
+                          {activeStopDistance}
+                        </span>
+                      ) : null}
+                      {activeStopDuration ? (
+                        <span className="inline-flex items-center gap-2 rounded-full border border-[#E1D7C8] bg-white px-3 py-1.5 text-xs text-[#4D463D]">
+                          <Clock3 className="h-3.5 w-3.5 text-[#6B7A52]" />
+                          {activeStopDuration}
+                        </span>
+                      ) : null}
+                    </div>
+                  )}
+                  {activeTrailGeometry.length > 1 ? (
+                    <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[#8A7F6C]">
+                      Zaznaczono przebieg szlaku na mapie
+                    </p>
+                  ) : activeTrailGeometryLoading ? (
+                    <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[#8A7F6C]">
+                      Ladowanie przebiegu szlaku...
+                    </p>
+                  ) : activeStop?.place && isTrailPlace(activeStop.place) ? (
+                    <p className="mt-3 text-xs uppercase tracking-[0.18em] text-[#8A7F6C]">
+                      Nie znaleziono jeszcze geometrii szlaku
+                    </p>
                   ) : null}
                 </div>
               </div>

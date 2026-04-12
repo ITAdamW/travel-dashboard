@@ -43,6 +43,9 @@ create table if not exists public.places (
   ticket text not null default '',
   reservation text not null default '',
   paid text not null default '',
+  distance_km double precision not null default 0,
+  duration_hours double precision not null default 0,
+  route_path jsonb not null default '[]'::jsonb,
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

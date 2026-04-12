@@ -8,6 +8,7 @@ import {
   upsertDestination,
   upsertPlace,
 } from "../lib/supabaseTravelData";
+import { buildMadeiraPrPlaceTemplates } from "../lib/madeiraPrCatalog";
 
 const placeCategories = [
   { value: "beach", label: "Plaża" },
@@ -15,6 +16,7 @@ const placeCategories = [
   { value: "cafe", label: "Kawiarnia / relax" },
   { value: "museum", label: "Muzeum / architektura" },
   { value: "city", label: "Miasto / spacer" },
+  { value: "trail", label: "Szlak" },
 ];
 
 function slugify(value) {
@@ -151,6 +153,8 @@ function toPlaceForm(place) {
     reservation: place?.reservation || "",
     paid: place?.paid || "",
     rating: place?.rating ?? 4.5,
+    distanceKm: place?.distanceKm ?? place?.distance_km ?? 0,
+    durationHours: place?.durationHours ?? place?.duration_hours ?? 0,
   };
 }
 
@@ -369,6 +373,8 @@ export default function DataAdminPanel({
             ticket: "",
             reservation: "",
             paid: "",
+            distanceKm: 0,
+            durationHours: 0,
           },
           selectedDestination.places.length
         ),
@@ -377,6 +383,60 @@ export default function DataAdminPanel({
         countryId: selectedCountryId,
         destinationId: selectedDestinationId,
         placeId: nextId,
+      })
+    );
+  };
+
+  const addMadeiraPrPlaces = () => {
+    if (!selectedDestination) return;
+
+    const anchorCoordinates =
+      selectedDestination.places?.find((place) =>
+        Array.isArray(place.coordinates) &&
+        Number.isFinite(Number(place.coordinates[0])) &&
+        Number.isFinite(Number(place.coordinates[1])) &&
+        (Number(place.coordinates[0]) !== 0 || Number(place.coordinates[1]) !== 0)
+      )?.coordinates || [32.75, -16.95];
+
+    const templates = buildMadeiraPrPlaceTemplates(anchorCoordinates);
+    runAction(
+      async () => {
+        for (const [index, place] of templates.entries()) {
+          const existingPlace =
+            selectedDestination?.places?.find(
+              (existing) => existing.id === place.id
+            ) || null;
+          const mergedPlace = existingPlace
+            ? {
+                ...place,
+                image: existingPlace.image || place.image,
+                gallery: existingPlace.gallery?.length
+                  ? existingPlace.gallery
+                  : place.gallery,
+                video: existingPlace.video || place.video,
+                videos: existingPlace.videos?.length
+                  ? existingPlace.videos
+                  : place.videos,
+                routePath: existingPlace.routePath?.length
+                  ? existingPlace.routePath
+                  : place.routePath,
+              }
+            : place;
+
+          await upsertPlace(
+            selectedDestinationId,
+            mergedPlace,
+            selectedDestination?.places?.findIndex((existingPlace) => existingPlace.id === place.id) >= 0
+              ? selectedDestination.places.findIndex((existingPlace) => existingPlace.id === place.id)
+              : (selectedDestination.places?.length || 0) + index
+          );
+        }
+      },
+      "Dodano lub zaktualizowano szablony PR Madery w miejscowkach.",
+      () => ({
+        countryId: selectedCountryId,
+        destinationId: selectedDestinationId,
+        placeId: templates[0]?.id || selectedPlaceId,
       })
     );
   };
@@ -606,10 +666,19 @@ export default function DataAdminPanel({
           title="Place"
           subtitle="Dodawaj i edytuj konkretne miejscówki wraz z koordynatami i opisami."
           action={
-            <ActionButton onClick={addPlace} disabled={loading || !selectedDestination}>
-              <Plus className="h-4 w-4" />
-              Dodaj miejscówkę
-            </ActionButton>
+            <div className="flex flex-wrap gap-2">
+              <ActionButton onClick={addPlace} disabled={loading || !selectedDestination}>
+                <Plus className="h-4 w-4" />
+                Dodaj miejscówkę
+              </ActionButton>
+              <ActionButton
+                onClick={addMadeiraPrPlaces}
+                disabled={loading || !selectedDestination}
+              >
+                <Plus className="h-4 w-4" />
+                Dodaj wszystkie PR Madery
+              </ActionButton>
+            </div>
           }
         >
           <div className="space-y-4">
@@ -710,6 +779,22 @@ export default function DataAdminPanel({
               value={String(placeForm.rating)}
               onChange={(value) => setPlaceForm((prev) => ({ ...prev, rating: value }))}
               placeholder="np. 4.8"
+              type="number"
+            />
+            <TextInput
+              label="Dystans w 2 strony (km)"
+              value={String(placeForm.distanceKm)}
+              onChange={(value) => setPlaceForm((prev) => ({ ...prev, distanceKm: value }))}
+              placeholder="np. 11"
+              type="number"
+            />
+            <TextInput
+              label="Czas w 2 strony (h)"
+              value={String(placeForm.durationHours)}
+              onChange={(value) =>
+                setPlaceForm((prev) => ({ ...prev, durationHours: value }))
+              }
+              placeholder="np. 4.5"
               type="number"
             />
             <div className="flex flex-wrap gap-3">

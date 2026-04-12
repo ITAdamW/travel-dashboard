@@ -12,22 +12,26 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   BadgeAlert,
   CalendarCheck2,
+  Clock3,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
   Coffee,
   CreditCard,
   ExternalLink,
+  Footprints,
   Landmark,
   MapPin,
   Mountain,
   Route,
+  Ruler,
   Star,
   Ticket,
   Waves,
   X,
 } from "lucide-react";
 import { fetchPlannerPlans } from "../lib/supabaseTravelData";
+import { enrichPlaceForDisplay } from "../lib/placePresentation";
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80";
@@ -38,6 +42,7 @@ const categoryMeta = {
   cafe: { label: "Kawiarnie / relax", icon: Coffee, color: "#9A6945" },
   museum: { label: "Muzea / architektura", icon: Landmark, color: "#7A6250" },
   city: { label: "Miasto / spacer", icon: Route, color: "#5D6274" },
+  trail: { label: "Szlaki", icon: Footprints, color: "#7A8F61" },
 };
 
 function mapsUrl(place) {
@@ -181,6 +186,19 @@ function RatingStars({ rating }) {
       <span className="ml-1 text-sm text-[#6B6255]">{rating.toFixed(1)}</span>
     </div>
   );
+}
+
+function formatDistance(distanceKm) {
+  if (!distanceKm) return "";
+  const rounded = distanceKm % 1 === 0 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
+  return `${rounded} km`;
+}
+
+function formatDuration(durationHours) {
+  if (!durationHours) return "";
+  const rounded =
+    durationHours % 1 === 0 ? durationHours.toFixed(0) : durationHours.toFixed(1);
+  return `${rounded} h`;
 }
 
 function getPlaceMetaBadges(place) {
@@ -391,6 +409,51 @@ function StoryDescription({ text, expanded = false, onExpand }) {
           document.body
         )}
     </>
+  );
+}
+
+function TrailSummary({ place, expanded = false }) {
+  const items = [
+    place?.distanceKm
+      ? {
+          key: "distance",
+          icon: Ruler,
+          value: formatDistance(place.distanceKm),
+        }
+      : null,
+    place?.durationHours
+      ? {
+          key: "duration",
+          icon: Clock3,
+          value: formatDuration(place.durationHours),
+        }
+      : null,
+  ].filter(Boolean);
+
+  if (!items.length) return null;
+
+  return (
+    <div className={expanded ? "mt-3" : "mt-3"}>
+      <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-[#8A7F6C]">
+        <Footprints className="h-3.5 w-3.5" />
+        Szacowany czas i dystans w 2 strony
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {items.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <div
+              key={item.key}
+              className="inline-flex items-center gap-2 rounded-full border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-sm font-medium text-[#3A352E]"
+            >
+              <Icon className="h-4 w-4 text-[#6B7A52]" />
+              {item.value}
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -714,21 +777,21 @@ function StoryPanelBody({
         )}
       </div>
 
-      {metaBadges.length > 0 && (
-        <div className={expanded ? "mb-3 grid gap-2" : "mb-3 flex flex-wrap gap-2"}>
-          {metaBadges.map((badge) => (
-            <PlaceMetaBadge
-              key={badge.key}
-              icon={badge.icon}
-              label={badge.label}
-              tooltip={badge.tooltip}
-              expanded={expanded}
-            />
-          ))}
-        </div>
-      )}
-
       <div className={expanded ? "flex-1 overflow-y-auto pr-1" : "flex-1 overflow-y-auto pr-1"}>
+        {metaBadges.length > 0 && (
+          <div className={expanded ? "mb-3 grid gap-2" : "mb-3 flex flex-wrap gap-2"}>
+            {metaBadges.map((badge) => (
+              <PlaceMetaBadge
+                key={badge.key}
+                icon={badge.icon}
+                label={badge.label}
+                tooltip={badge.tooltip}
+                expanded={expanded}
+              />
+            ))}
+          </div>
+        )}
+
         <div className="overflow-hidden rounded-[1.1rem] border border-[#E8DFD2]">
           <button
             onClick={() => {
@@ -756,6 +819,7 @@ function StoryPanelBody({
           expanded={expanded}
           onExpand={!expanded ? onExpand : undefined}
         />
+        <TrailSummary place={currentSlide.place} expanded={expanded} />
         {galleryImages.length > 0 && expanded && (
           <div className="mt-3 rounded-[1rem] border border-[#E8DFD2] bg-white p-3">
             <p className="text-[10px] uppercase tracking-[0.2em] text-[#8A7F6C]">
@@ -920,7 +984,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
         <StoryPanelBody
           slides={slides}
           activeIndex={activeIndex}
-          currentSlide={currentSlide}
+          currentSlide={{ ...currentSlide, place: activePlace }}
           galleryImages={galleryImages}
           galleryStart={galleryStart}
           setGalleryStart={setGalleryStart}
@@ -995,7 +1059,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
                 <StoryPanelBody
                   slides={slides}
                   activeIndex={activeIndex}
-                  currentSlide={currentSlide}
+                  currentSlide={{ ...currentSlide, place: activePlace }}
                   galleryImages={galleryImages}
                   galleryStart={galleryStart}
                   setGalleryStart={setGalleryStart}
@@ -1185,7 +1249,7 @@ export default function StoryPanel({
   const filteredDestination = useMemo(
     () => ({
       ...safeDestination,
-      places: filteredPlaces,
+      places: filteredPlaces.map((place) => enrichPlaceForDisplay(place)),
     }),
     [safeDestination, filteredPlaces]
   );

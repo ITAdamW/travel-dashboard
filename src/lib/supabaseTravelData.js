@@ -8,6 +8,15 @@ function ensureArray(value, fallback = []) {
   return Array.isArray(value) ? value : fallback;
 }
 
+function isMissingColumnError(error, columnName) {
+  const message = String(error?.message || "");
+  const details = String(error?.details || "");
+  const hint = String(error?.hint || "");
+  const combined = `${message} ${details} ${hint}`.toLowerCase();
+
+  return combined.includes(String(columnName).toLowerCase());
+}
+
 export function toCountryRow(country, index = 0) {
   return {
     id: country.id,
@@ -54,6 +63,9 @@ export function toPlaceRow(destinationId, place, index = 0) {
     ticket: place.ticket || "",
     reservation: place.reservation || "",
     paid: place.paid || "",
+    distance_km: Number(place.distanceKm ?? place.distance_km ?? 0),
+    duration_hours: Number(place.durationHours ?? place.duration_hours ?? 0),
+    route_path: ensureArray(place.routePath ?? place.route_path, []),
     sort_order: index,
   };
 }
@@ -82,6 +94,9 @@ export function mapDbToCountries(countryRows, destinationRows, placeRows) {
           ticket: place.ticket,
           reservation: place.reservation,
           paid: place.paid,
+          distanceKm: place.distance_km ?? 0,
+          durationHours: place.duration_hours ?? 0,
+          routePath: ensureArray(place.route_path, []),
         })
       )
     );
@@ -146,7 +161,19 @@ export async function upsertDestination(countryId, destination, index = 0) {
 }
 
 export async function upsertPlace(destinationId, place, index = 0) {
-  const { error } = await supabase.from("places").upsert(toPlaceRow(destinationId, place, index));
+  const fullRow = toPlaceRow(destinationId, place, index);
+  let { error } = await supabase.from("places").upsert(fullRow);
+
+  if (
+    error &&
+    (isMissingColumnError(error, "distance_km") ||
+      isMissingColumnError(error, "duration_hours") ||
+      isMissingColumnError(error, "route_path"))
+  ) {
+    const { distance_km, duration_hours, route_path, ...legacyRow } = fullRow;
+    ({ error } = await supabase.from("places").upsert(legacyRow));
+  }
+
   if (error) throw error;
 }
 
@@ -207,5 +234,22 @@ export async function upsertPlannerPlan(destinationId, plan, index = 0) {
 
 export async function deletePlannerPlan(planId) {
   const { error } = await supabase.from("planner_plans").delete().eq("id", planId);
+  if (error) throw error;
+}
+
+export async function updatePlaceRoutePath(placeId, routePath) {
+  if (!supabase || !placeId) return;
+
+  const { error } = await supabase
+    .from("places")
+    .update({
+      route_path: ensureArray(routePath, []),
+    })
+    .eq("id", placeId);
+
+  if (error && isMissingColumnError(error, "route_path")) {
+    return;
+  }
+
   if (error) throw error;
 }
