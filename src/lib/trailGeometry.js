@@ -5,6 +5,8 @@ function normalizeText(value) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+const OVERPASS_TIMEOUT_MS = 8000;
+
 const KNOWN_TRAIL_ALIASES = [
   {
     match: ["balcoes"],
@@ -187,6 +189,9 @@ async function fetchFromOverpass(query) {
   ];
 
   for (const endpoint of endpoints) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), OVERPASS_TIMEOUT_MS);
+
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -194,6 +199,7 @@ async function fetchFromOverpass(query) {
           "Content-Type": "text/plain;charset=UTF-8",
         },
         body: query,
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -203,10 +209,49 @@ async function fetchFromOverpass(query) {
       return await response.json();
     } catch {
       // Try the next endpoint.
+    } finally {
+      clearTimeout(timeoutId);
     }
   }
 
   throw new Error("Nie udalo sie pobrac geometrii szlaku z Overpass.");
+}
+
+function isValidCoordinatePair(value) {
+  return (
+    Array.isArray(value) &&
+    value.length >= 2 &&
+    Number.isFinite(Number(value[0])) &&
+    Number.isFinite(Number(value[1]))
+  );
+}
+
+export function buildFallbackTrailGeometry(place, routeHint) {
+  const startPoint = isValidCoordinatePair(routeHint?.startCoordinates)
+    ? routeHint.startCoordinates
+    : isValidCoordinatePair(place?.startCoordinates)
+      ? place.startCoordinates
+      : isValidCoordinatePair(place?.coordinates)
+        ? place.coordinates
+        : null;
+  const endPoint = isValidCoordinatePair(routeHint?.targetCoordinates)
+    ? routeHint.targetCoordinates
+    : isValidCoordinatePair(place?.endCoordinates)
+      ? place.endCoordinates
+      : null;
+
+  if (!startPoint || !endPoint) {
+    return [];
+  }
+
+  const start = [Number(startPoint[0]), Number(startPoint[1])];
+  const end = [Number(endPoint[0]), Number(endPoint[1])];
+
+  if (haversineDistance(start, end) < 0.02) {
+    return [];
+  }
+
+  return [start, end];
 }
 
 function createNodeKey(point) {
@@ -396,6 +441,7 @@ out geom;
 }
 
 export async function resolveTrailGeometryForPlace(place, routeHint) {
+  const fallbackGeometry = buildFallbackTrailGeometry(place, routeHint);
   const storedTarget = routeHint?.targetCoordinates;
 
   if (
@@ -414,5 +460,10 @@ export async function resolveTrailGeometryForPlace(place, routeHint) {
     }
   }
 
-  return fetchTrailGeometryForPlace(place);
+  const fetchedGeometry = await fetchTrailGeometryForPlace(place);
+  if (fetchedGeometry.length > 1) {
+    return fetchedGeometry;
+  }
+
+  return fallbackGeometry;
 }

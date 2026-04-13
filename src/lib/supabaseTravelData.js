@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { getPlaceMetadataMap, setPlaceMetadata } from "./placeMetadataStore";
 
 function sortByOrder(items) {
   return [...items].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
@@ -66,11 +67,20 @@ export function toPlaceRow(destinationId, place, index = 0) {
     distance_km: Number(place.distanceKm ?? place.distance_km ?? 0),
     duration_hours: Number(place.durationHours ?? place.duration_hours ?? 0),
     route_path: ensureArray(place.routePath ?? place.route_path, []),
+    start_latitude: Number(
+      place.startCoordinates?.[0] ?? place.start_latitude ?? 0
+    ),
+    start_longitude: Number(
+      place.startCoordinates?.[1] ?? place.start_longitude ?? 0
+    ),
+    end_latitude: Number(place.endCoordinates?.[0] ?? place.end_latitude ?? 0),
+    end_longitude: Number(place.endCoordinates?.[1] ?? place.end_longitude ?? 0),
     sort_order: index,
   };
 }
 
 export function mapDbToCountries(countryRows, destinationRows, placeRows) {
+  const placeMetadataMap = getPlaceMetadataMap();
   const placesByDestination = new Map();
   for (const destination of destinationRows) {
     placesByDestination.set(
@@ -94,9 +104,26 @@ export function mapDbToCountries(countryRows, destinationRows, placeRows) {
           ticket: place.ticket,
           reservation: place.reservation,
           paid: place.paid,
-          distanceKm: place.distance_km ?? 0,
-          durationHours: place.duration_hours ?? 0,
-          routePath: ensureArray(place.route_path, []),
+          distanceKm:
+            place.distance_km ??
+            placeMetadataMap[place.id]?.distanceKm ??
+            0,
+          durationHours:
+            place.duration_hours ??
+            placeMetadataMap[place.id]?.durationHours ??
+            0,
+          routePath: ensureArray(
+            place.route_path,
+            ensureArray(placeMetadataMap[place.id]?.routePath, [])
+          ),
+          startCoordinates:
+            place.start_latitude || place.start_longitude
+              ? [place.start_latitude, place.start_longitude]
+              : ensureArray(placeMetadataMap[place.id]?.startCoordinates, []),
+          endCoordinates:
+            place.end_latitude || place.end_longitude
+              ? [place.end_latitude, place.end_longitude]
+              : ensureArray(placeMetadataMap[place.id]?.endCoordinates, []),
         })
       )
     );
@@ -168,9 +195,36 @@ export async function upsertPlace(destinationId, place, index = 0) {
     error &&
     (isMissingColumnError(error, "distance_km") ||
       isMissingColumnError(error, "duration_hours") ||
-      isMissingColumnError(error, "route_path"))
+      isMissingColumnError(error, "route_path") ||
+      isMissingColumnError(error, "start_latitude") ||
+      isMissingColumnError(error, "start_longitude") ||
+      isMissingColumnError(error, "end_latitude") ||
+      isMissingColumnError(error, "end_longitude"))
   ) {
-    const { distance_km, duration_hours, route_path, ...legacyRow } = fullRow;
+    setPlaceMetadata(place.id, {
+      distanceKm: fullRow.distance_km,
+      durationHours: fullRow.duration_hours,
+      routePath: fullRow.route_path,
+      startCoordinates:
+        fullRow.start_latitude || fullRow.start_longitude
+          ? [fullRow.start_latitude, fullRow.start_longitude]
+          : [],
+      endCoordinates:
+        fullRow.end_latitude || fullRow.end_longitude
+          ? [fullRow.end_latitude, fullRow.end_longitude]
+          : [],
+    });
+
+    const {
+      distance_km,
+      duration_hours,
+      route_path,
+      start_latitude,
+      start_longitude,
+      end_latitude,
+      end_longitude,
+      ...legacyRow
+    } = fullRow;
     ({ error } = await supabase.from("places").upsert(legacyRow));
   }
 
@@ -239,6 +293,10 @@ export async function deletePlannerPlan(planId) {
 
 export async function updatePlaceRoutePath(placeId, routePath) {
   if (!supabase || !placeId) return;
+
+  setPlaceMetadata(placeId, {
+    routePath: ensureArray(routePath, []),
+  });
 
   const { error } = await supabase
     .from("places")

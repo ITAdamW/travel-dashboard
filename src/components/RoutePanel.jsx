@@ -25,7 +25,11 @@ import {
   getTrailRouteHint,
   isTrailPlace,
 } from "../lib/placePresentation";
-import { resolveTrailGeometryForPlace } from "../lib/trailGeometry";
+import {
+  buildFallbackTrailGeometry,
+  resolveTrailGeometryForPlace,
+} from "../lib/trailGeometry";
+import { getCachedTrailPath, setCachedTrailPath } from "../lib/trailCache";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -335,6 +339,7 @@ export default function RoutePanel({
 
       await Promise.all(
         trailPlaces.map(async (trailPlace) => {
+          const routeHint = getTrailRouteHint(trailPlace);
           const storedGeometry = getPlaceRoutePath(trailPlace);
           if (storedGeometry.length > 1) {
             if (!cancelled) {
@@ -346,8 +351,29 @@ export default function RoutePanel({
             return;
           }
 
-          if (Object.prototype.hasOwnProperty.call(trailGeometries, trailPlace.id)) {
+          const cachedGeometry = getCachedTrailPath(trailPlace.id);
+          if (cachedGeometry.length > 1) {
+            if (!cancelled) {
+              setTrailGeometries((current) => ({
+                ...current,
+                [trailPlace.id]: cachedGeometry,
+              }));
+            }
             return;
+          }
+
+          const fallbackGeometry = buildFallbackTrailGeometry(trailPlace, routeHint);
+          if (fallbackGeometry.length > 1 && !cancelled) {
+            setTrailGeometries((current) => {
+              if (current[trailPlace.id]?.length > 1) {
+                return current;
+              }
+
+              return {
+                ...current,
+                [trailPlace.id]: fallbackGeometry,
+              };
+            });
           }
 
           if (!cancelled) {
@@ -360,7 +386,7 @@ export default function RoutePanel({
           try {
             const geometry = await resolveTrailGeometryForPlace(
               trailPlace,
-              getTrailRouteHint(trailPlace)
+              routeHint
             );
             if (!cancelled) {
               setTrailGeometries((current) => ({
@@ -369,6 +395,7 @@ export default function RoutePanel({
               }));
             }
             if (geometry.length > 1) {
+              setCachedTrailPath(trailPlace.id, geometry);
               updatePlaceRoutePath(trailPlace.id, geometry).catch(() => {});
             }
           } catch {
@@ -395,7 +422,7 @@ export default function RoutePanel({
     return () => {
       cancelled = true;
     };
-  }, [planDays, trailGeometries]);
+  }, [planDays]);
 
   const activeTrailGeometry = useMemo(() => {
     const activePlace = activeStop?.place;

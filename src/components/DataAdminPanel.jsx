@@ -155,6 +155,10 @@ function toPlaceForm(place) {
     rating: place?.rating ?? 4.5,
     distanceKm: place?.distanceKm ?? place?.distance_km ?? 0,
     durationHours: place?.durationHours ?? place?.duration_hours ?? 0,
+    startLatitude: place?.startCoordinates?.[0] ?? place?.start_latitude ?? 0,
+    startLongitude: place?.startCoordinates?.[1] ?? place?.start_longitude ?? 0,
+    endLatitude: place?.endCoordinates?.[0] ?? place?.end_latitude ?? 0,
+    endLongitude: place?.endCoordinates?.[1] ?? place?.end_longitude ?? 0,
   };
 }
 
@@ -294,6 +298,20 @@ export default function DataAdminPanel({
             ...placeForm,
             id: slugify(placeForm.id) || placeForm.id,
             coordinates: [Number(placeForm.latitude) || 0, Number(placeForm.longitude) || 0],
+            startCoordinates:
+              Number(placeForm.startLatitude) || Number(placeForm.startLongitude)
+                ? [
+                    Number(placeForm.startLatitude) || 0,
+                    Number(placeForm.startLongitude) || 0,
+                  ]
+                : [],
+            endCoordinates:
+              Number(placeForm.endLatitude) || Number(placeForm.endLongitude)
+                ? [
+                    Number(placeForm.endLatitude) || 0,
+                    Number(placeForm.endLongitude) || 0,
+                  ]
+                : [],
           },
           selectedDestination?.places.findIndex((place) => place.id === selectedPlaceId) || 0
         ),
@@ -375,6 +393,8 @@ export default function DataAdminPanel({
             paid: "",
             distanceKm: 0,
             durationHours: 0,
+            startCoordinates: [],
+            endCoordinates: [],
           },
           selectedDestination.places.length
         ),
@@ -399,6 +419,80 @@ export default function DataAdminPanel({
       )?.coordinates || [32.75, -16.95];
 
     const templates = buildMadeiraPrPlaceTemplates(anchorCoordinates);
+    const existingPlaces = selectedDestination.places || [];
+    const existingPrIds = new Set(
+      existingPlaces
+        .filter((place) => String(place.id || "").startsWith("madeira-pr-"))
+        .map((place) => place.id)
+    );
+    const missingTemplates = templates.filter((place) => !existingPrIds.has(place.id));
+
+    if (!missingTemplates.length) {
+      setStatus("Wszystkie szablony PR Madery sa juz dodane.");
+      return;
+    }
+
+    runAction(
+      async () => {
+        for (const [index, place] of missingTemplates.entries()) {
+          const existingPlace =
+            selectedDestination?.places?.find(
+              (existing) => existing.id === place.id
+            ) || null;
+          const mergedPlace = existingPlace
+            ? {
+                ...place,
+                image: existingPlace.image || place.image,
+                gallery: existingPlace.gallery?.length
+                  ? existingPlace.gallery
+                  : place.gallery,
+                video: existingPlace.video || place.video,
+                videos: existingPlace.videos?.length
+                  ? existingPlace.videos
+                  : place.videos,
+                routePath: existingPlace.routePath?.length
+                  ? existingPlace.routePath
+                  : place.routePath,
+                startCoordinates: existingPlace.startCoordinates?.length
+                  ? existingPlace.startCoordinates
+                  : place.startCoordinates,
+                endCoordinates: existingPlace.endCoordinates?.length
+                  ? existingPlace.endCoordinates
+                  : place.endCoordinates,
+              }
+            : place;
+
+          await upsertPlace(
+            selectedDestinationId,
+            mergedPlace,
+            selectedDestination?.places?.findIndex((existingPlace) => existingPlace.id === place.id) >= 0
+              ? selectedDestination.places.findIndex((existingPlace) => existingPlace.id === place.id)
+              : (selectedDestination.places?.length || 0) + index
+          );
+        }
+      },
+      `Dodano ${missingTemplates.length} szablonow PR Madery do miejscowek.`,
+      () => ({
+        countryId: selectedCountryId,
+        destinationId: selectedDestinationId,
+        placeId: missingTemplates[0]?.id || selectedPlaceId,
+      })
+    );
+  };
+
+  const syncMadeiraPrPlaces = () => {
+    if (!selectedDestination) return;
+
+    const anchorCoordinates =
+      selectedDestination.places?.find((place) =>
+        Array.isArray(place.coordinates) &&
+        Number.isFinite(Number(place.coordinates[0])) &&
+        Number.isFinite(Number(place.coordinates[1])) &&
+        (Number(place.coordinates[0]) !== 0 || Number(place.coordinates[1]) !== 0)
+      )?.coordinates || [32.75, -16.95];
+
+    const templates = buildMadeiraPrPlaceTemplates(anchorCoordinates);
+
     runAction(
       async () => {
         for (const [index, place] of templates.entries()) {
@@ -420,19 +514,29 @@ export default function DataAdminPanel({
                 routePath: existingPlace.routePath?.length
                   ? existingPlace.routePath
                   : place.routePath,
+                startCoordinates: existingPlace.startCoordinates?.length
+                  ? existingPlace.startCoordinates
+                  : place.startCoordinates,
+                endCoordinates: existingPlace.endCoordinates?.length
+                  ? existingPlace.endCoordinates
+                  : place.endCoordinates,
               }
             : place;
+
+          const existingIndex = selectedDestination?.places?.findIndex(
+            (existingPlace) => existingPlace.id === place.id
+          );
 
           await upsertPlace(
             selectedDestinationId,
             mergedPlace,
-            selectedDestination?.places?.findIndex((existingPlace) => existingPlace.id === place.id) >= 0
-              ? selectedDestination.places.findIndex((existingPlace) => existingPlace.id === place.id)
+            existingIndex >= 0
+              ? existingIndex
               : (selectedDestination.places?.length || 0) + index
           );
         }
       },
-      "Dodano lub zaktualizowano szablony PR Madery w miejscowkach.",
+      "Zsynchronizowano wszystkie PR Madery bez ruszania pozostalych miejsc.",
       () => ({
         countryId: selectedCountryId,
         destinationId: selectedDestinationId,
@@ -678,6 +782,13 @@ export default function DataAdminPanel({
                 <Plus className="h-4 w-4" />
                 Dodaj wszystkie PR Madery
               </ActionButton>
+              <ActionButton
+                onClick={syncMadeiraPrPlaces}
+                disabled={loading || !selectedDestination}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Napraw / zsynchronizuj PR Madery
+              </ActionButton>
             </div>
           }
         >
@@ -721,6 +832,42 @@ export default function DataAdminPanel({
               value={String(placeForm.longitude)}
               onChange={(value) => setPlaceForm((prev) => ({ ...prev, longitude: value }))}
               placeholder="np. 19.9366"
+              type="number"
+            />
+            <TextInput
+              label="Start latitude"
+              value={String(placeForm.startLatitude)}
+              onChange={(value) =>
+                setPlaceForm((prev) => ({ ...prev, startLatitude: value }))
+              }
+              placeholder="np. 32.7354"
+              type="number"
+            />
+            <TextInput
+              label="Start longitude"
+              value={String(placeForm.startLongitude)}
+              onChange={(value) =>
+                setPlaceForm((prev) => ({ ...prev, startLongitude: value }))
+              }
+              placeholder="np. -16.8863"
+              type="number"
+            />
+            <TextInput
+              label="Koniec latitude"
+              value={String(placeForm.endLatitude)}
+              onChange={(value) =>
+                setPlaceForm((prev) => ({ ...prev, endLatitude: value }))
+              }
+              placeholder="np. 32.7415"
+              type="number"
+            />
+            <TextInput
+              label="Koniec longitude"
+              value={String(placeForm.endLongitude)}
+              onChange={(value) =>
+                setPlaceForm((prev) => ({ ...prev, endLongitude: value }))
+              }
+              placeholder="np. -16.8902"
               type="number"
             />
             <SelectInput

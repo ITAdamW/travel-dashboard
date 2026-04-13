@@ -46,6 +46,10 @@ create table if not exists public.places (
   distance_km double precision not null default 0,
   duration_hours double precision not null default 0,
   route_path jsonb not null default '[]'::jsonb,
+  start_latitude double precision not null default 0,
+  start_longitude double precision not null default 0,
+  end_latitude double precision not null default 0,
+  end_longitude double precision not null default 0,
   sort_order integer not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

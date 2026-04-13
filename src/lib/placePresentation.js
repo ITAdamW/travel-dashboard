@@ -1,3 +1,5 @@
+import { getMadeiraPrSeedDetails } from "./madeiraPrCatalog";
+
 const MADEIRA_TRAIL_ESTIMATES = [
   {
     match: ["25 fontes", "risco"],
@@ -89,6 +91,8 @@ export const MADEIRA_OFFICIAL_PR_TRAILS = [
   { ref: "PR 28", name: "Levada da Rocha Vermelha", aliases: ["pr 28", "levada da rocha vermelha"] },
 ];
 
+const MADEIRA_PR_SEED_DETAILS = getMadeiraPrSeedDetails();
+
 const MADEIRA_TRAIL_ROUTE_HINTS = [
   {
     match: ["pr 1.2"],
@@ -163,6 +167,9 @@ export function isTrailPlace(place) {
   );
 
   return (
+    MADEIRA_PR_SEED_DETAILS.some((trail) =>
+      trail.aliases.some((alias) => haystack.includes(normalizeText(alias)))
+    ) ||
     MADEIRA_OFFICIAL_PR_TRAILS.some((trail) =>
       trail.aliases.some((alias) => haystack.includes(normalizeText(alias)))
     ) ||
@@ -233,6 +240,9 @@ export function getTrailRouteHint(place) {
   );
 
   const officialTrail =
+    MADEIRA_PR_SEED_DETAILS.find((trail) =>
+      trail.aliases.some((alias) => haystack.includes(normalizeText(alias)))
+    ) ||
     MADEIRA_OFFICIAL_PR_TRAILS.find((trail) =>
       trail.aliases.some((alias) => haystack.includes(normalizeText(alias)))
     ) || null;
@@ -250,7 +260,13 @@ export function getTrailRouteHint(place) {
     officialName: officialTrail?.name || place?.name || "",
     aliases: [...new Set([...(officialTrail?.aliases || []), ...(specificHint?.aliases || [])])],
     refs: [...new Set([normalizeText(officialTrail?.ref || ""), ...(specificHint?.refs || [])].filter(Boolean))],
-    startCoordinates: specificHint?.startCoordinates || null,
-    targetCoordinates: specificHint?.targetCoordinates || null,
+    startCoordinates:
+      place?.startCoordinates?.length >= 2
+        ? place.startCoordinates
+        : specificHint?.startCoordinates || officialTrail?.startCoordinates || null,
+    targetCoordinates:
+      place?.endCoordinates?.length >= 2
+        ? place.endCoordinates
+        : specificHint?.targetCoordinates || officialTrail?.targetCoordinates || null,
   };
 }
