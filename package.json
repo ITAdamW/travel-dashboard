@@ -8,7 +8,9 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "generate:madeira-route-paths": "node scripts/generateMadeiraPrRoutePaths.mjs"
+    "generate:madeira-route-paths": "node scripts/generateMadeiraPrRoutePaths.mjs",
+    "generate:madeira-workbook-trail-paths": "node scripts/generateMadeiraWorkbookTrailPaths.mjs",
+    "import:madeira-workbook": "python3 scripts/import_madeira_workbook.py"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0",

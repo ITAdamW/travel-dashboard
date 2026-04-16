@@ -104,7 +104,9 @@ const MADEIRA_TRAIL_ROUTE_HINTS = [
   },
   {
     match: ["25 fontes"],
-    startCoordinates: [32.7616151, -17.1344219],
+    startCoordinates: [32.7549076, -17.1360567],
+    aliases: ["25 fontes", "levada das 25 fontes", "levada do risco"],
+    refs: ["pr 6"],
   },
   {
     match: ["pr 6.6"],
@@ -112,7 +114,9 @@ const MADEIRA_TRAIL_ROUTE_HINTS = [
   },
   {
     match: ["levada do moinho"],
-    startCoordinates: [32.8554391, -17.1776393],
+    startCoordinates: [32.845761284036236, -17.1937167037166],
+    aliases: ["levada do moinho", "pr 7"],
+    refs: ["pr 7"],
   },
   {
     match: ["caldeirao verde"],
@@ -136,6 +140,10 @@ function normalizeText(value) {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
+}
+
+function normalizeTrailIdentityValue(value) {
+  return normalizeText(value).replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 function toFiniteNumber(value) {
@@ -269,4 +277,47 @@ export function getTrailRouteHint(place) {
         ? place.endCoordinates
         : specificHint?.targetCoordinates || officialTrail?.targetCoordinates || null,
   };
+}
+
+export function getTrailIdentity(place) {
+  const routeHint = getTrailRouteHint(place);
+  const aliases = [
+    place?.name,
+    place?.subtitle,
+    routeHint?.officialName,
+    ...(routeHint?.aliases || []),
+    ...(routeHint?.refs || []),
+    routeHint?.ref,
+  ]
+    .map(normalizeTrailIdentityValue)
+    .filter(Boolean);
+
+  return {
+    ref: normalizeTrailIdentityValue(routeHint?.ref || ""),
+    officialName: normalizeTrailIdentityValue(
+      routeHint?.officialName || place?.name || ""
+    ),
+    aliases: [...new Set(aliases)],
+  };
+}
+
+export function isSameTrailFamily(leftPlace, rightPlace) {
+  if (!leftPlace || !rightPlace) return false;
+
+  const left = getTrailIdentity(leftPlace);
+  const right = getTrailIdentity(rightPlace);
+
+  if (left.ref && right.ref && left.ref === right.ref) {
+    return true;
+  }
+
+  if (
+    left.officialName &&
+    right.officialName &&
+    left.officialName === right.officialName
+  ) {
+    return true;
+  }
+
+  return left.aliases.some((alias) => right.aliases.includes(alias));
 }

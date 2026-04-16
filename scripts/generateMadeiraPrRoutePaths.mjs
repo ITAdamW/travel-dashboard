@@ -18,6 +18,7 @@ const OVERPASS_ENDPOINTS = [
 ];
 const OVERPASS_TIMEOUT_MS = 30000;
 const OFFICIAL_FETCH_TIMEOUT_MS = 30000;
+const FETCH_RETRY_COUNT = 3;
 
 function slugify(value) {
   return String(value || "")
@@ -115,6 +116,23 @@ function normalizeGeometry(geometry) {
   return result;
 }
 
+function geometryLengthKm(geometry) {
+  let total = 0;
+
+  for (let index = 1; index < geometry.length; index += 1) {
+    total += haversineDistance(geometry[index - 1], geometry[index]);
+  }
+
+  return total;
+}
+
+function getOfficialCoordinatePoint(officialTrail) {
+  const lat = Number(officialTrail?.coordenadas?.latitude);
+  const lon = Number(officialTrail?.coordenadas?.longitude);
+
+  return Number.isFinite(lat) && Number.isFinite(lon) ? [lat, lon] : null;
+}
+
 function toSqlJson(value) {
   return JSON.stringify(value).replace(/'/g, "''");
 }
@@ -125,48 +143,84 @@ function escapeOverpassString(value) {
     .replace(/"/g, '\\"');
 }
 
-async function fetchJson(url) {
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithTimeout(url, options, timeoutMs) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), OFFICIAL_FETCH_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(url, {
-      headers: {
-        Accept: "application/json,text/plain,*/*",
-      },
+    return await fetch(url, {
+      ...options,
       signal: controller.signal,
     });
-
-    if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`);
-    }
-
-    return await response.json();
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-async function fetchText(url) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), OFFICIAL_FETCH_TIMEOUT_MS);
+async function fetchJson(url) {
+  let lastError = null;
 
-  try {
-    const response = await fetch(url, {
-      headers: {
-        Accept: "application/xml,text/xml,application/gpx+xml,*/*",
-      },
-      signal: controller.signal,
-    });
+  for (let attempt = 1; attempt <= FETCH_RETRY_COUNT; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(
+        url,
+        {
+          headers: {
+            Accept: "application/json,text/plain,*/*",
+          },
+        },
+        OFFICIAL_FETCH_TIMEOUT_MS
+      );
 
-    if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      lastError = error;
+      if (attempt < FETCH_RETRY_COUNT) {
+        await sleep(1000 * attempt);
+      }
     }
-
-    return await response.text();
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  throw lastError;
+}
+
+async function fetchText(url) {
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= FETCH_RETRY_COUNT; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(
+        url,
+        {
+          headers: {
+            Accept: "application/xml,text/xml,application/gpx+xml,*/*",
+          },
+        },
+        OFFICIAL_FETCH_TIMEOUT_MS
+      );
+
+      if (!response.ok) {
+        throw new Error(`Request failed: ${response.status}`);
+      }
+
+      return await response.text();
+    } catch (error) {
+      lastError = error;
+      if (attempt < FETCH_RETRY_COUNT) {
+        await sleep(1000 * attempt);
+      }
+    }
+  }
+
+  throw lastError;
 }
 
 async function fetchFromOverpass(query) {
@@ -322,6 +376,10 @@ function buildPathGraph(elements) {
   return { graph, pointsByKey };
 }
 
+function getNodeDegree(graph, key) {
+  return Array.isArray(graph.get(key)) ? graph.get(key).length : 0;
+}
+
 function findNearestNode(point, pointsByKey) {
   let bestKey = "";
   let bestDistance = Infinity;
@@ -381,6 +439,213 @@ function dijkstraPath(graph, startKey, endKey) {
   return path;
 }
 
+function dijkstraDistances(graph, startKey) {
+  const distances = new Map([[startKey, 0]]);
+  const previous = new Map();
+  const visited = new Set();
+
+  while (true) {
+    let currentKey = "";
+    let currentDistance = Infinity;
+
+    for (const [key, distance] of distances.entries()) {
+      if (!visited.has(key) && distance < currentDistance) {
+        currentKey = key;
+        currentDistance = distance;
+      }
+    }
+
+    if (!currentKey) {
+      break;
+    }
+
+    visited.add(currentKey);
+    for (const edge of graph.get(currentKey) || []) {
+      const nextDistance = currentDistance + edge.weight;
+      if (nextDistance < (distances.get(edge.key) ?? Infinity)) {
+        distances.set(edge.key, nextDistance);
+        previous.set(edge.key, currentKey);
+      }
+    }
+  }
+
+  return { distances, previous };
+}
+
+function rebuildPath(previous, endKey) {
+  const path = [endKey];
+  let cursor = endKey;
+
+  while (previous.has(cursor)) {
+    cursor = previous.get(cursor);
+    path.unshift(cursor);
+  }
+
+  return path;
+}
+
+function isUsableEndpoint(startPoint, endPoint, expectedDistanceKm) {
+  if (!startPoint || !endPoint) {
+    return false;
+  }
+
+  const directDistanceKm = haversineDistance(startPoint, endPoint);
+  if (directDistanceKm < 0.03) {
+    return false;
+  }
+
+  if (
+    expectedDistanceKm > 0 &&
+    directDistanceKm > Math.max(expectedDistanceKm * 1.2, expectedDistanceKm + 1.2)
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function scoreCandidateNode({
+  key,
+  distanceKm,
+  graph,
+  startKey,
+  targetDistanceKm,
+  targetPoint,
+  pointsByKey,
+}) {
+  if (key === startKey || distanceKm < 0.15) {
+    return -Infinity;
+  }
+
+  let score = distanceKm * 12;
+  if (targetDistanceKm > 0) {
+    score -= Math.abs(distanceKm - targetDistanceKm) * 20;
+  }
+
+  const degree = getNodeDegree(graph, key);
+  if (degree <= 1) score += 14;
+  else if (degree === 2) score += 6;
+  else score -= degree * 2;
+
+  if (targetPoint) {
+    score -= haversineDistance(pointsByKey.get(key), targetPoint) * 8;
+  }
+
+  return score;
+}
+
+function getOfficialLabelValue(valuesInfo, key) {
+  return String(valuesInfo?.[key]?.[`${key}Valor`] || "").trim();
+}
+
+function isLoopLikeTrail(trail, officialTrail, usableEndPoint, startPoint) {
+  if (
+    usableEndPoint &&
+    startPoint &&
+    haversineDistance(startPoint, usableEndPoint) < 0.15
+  ) {
+    return true;
+  }
+
+  const trailStart = normalizeText(trail?.startLabel || "");
+  const trailEnd = normalizeText(trail?.targetLabel || "");
+  if (trailStart && trailEnd && trailStart === trailEnd) {
+    return true;
+  }
+
+  const officialStart = normalizeText(
+    getOfficialLabelValue(officialTrail?.valuesInfo, "value5")
+  );
+  const officialEnd = normalizeText(
+    getOfficialLabelValue(officialTrail?.valuesInfo, "value6")
+  );
+
+  return Boolean(officialStart && officialEnd && officialStart === officialEnd);
+}
+
+function resolveGraphGeometry({
+  graph,
+  pointsByKey,
+  startPoint,
+  endPoint,
+  expectedDistanceKm = 0,
+  trail = null,
+  officialTrail = null,
+}) {
+  if (!graph.size || !startPoint) {
+    return [];
+  }
+
+  const nearestStart = findNearestNode(startPoint, pointsByKey);
+  if (!nearestStart.key || nearestStart.distanceKm > 1.5) {
+    return [];
+  }
+
+  const usableEndPoint = isUsableEndpoint(startPoint, endPoint, expectedDistanceKm)
+    ? endPoint
+    : null;
+  const nearestEnd = usableEndPoint ? findNearestNode(usableEndPoint, pointsByKey) : null;
+
+  const shortestPathGeometry =
+    nearestEnd?.key && nearestEnd.distanceKm <= 1.5
+      ? normalizeGeometry([
+          startPoint,
+          ...dijkstraPath(graph, nearestStart.key, nearestEnd.key)
+            .map((key) => pointsByKey.get(key))
+            .filter(Boolean),
+          usableEndPoint,
+        ])
+      : [];
+
+  const shortestPathDistanceKm = geometryLengthKm(shortestPathGeometry);
+  if (
+    shortestPathGeometry.length > 1 &&
+    (!expectedDistanceKm ||
+      Math.abs(shortestPathDistanceKm - expectedDistanceKm) <=
+        Math.max(expectedDistanceKm * 0.75, 2.5))
+  ) {
+    return shortestPathGeometry;
+  }
+
+  const loopLike = isLoopLikeTrail(trail, officialTrail, usableEndPoint, startPoint);
+  const targetDistanceKm =
+    expectedDistanceKm > 0 ? (loopLike ? expectedDistanceKm / 2 : expectedDistanceKm) : 0;
+  const { distances, previous } = dijkstraDistances(graph, nearestStart.key);
+
+  let bestKey = "";
+  let bestScore = -Infinity;
+
+  for (const [key, distanceKm] of distances.entries()) {
+    const score = scoreCandidateNode({
+      key,
+      distanceKm,
+      graph,
+      startKey: nearestStart.key,
+      targetDistanceKm,
+      targetPoint: usableEndPoint,
+      pointsByKey,
+    });
+
+    if (score > bestScore) {
+      bestKey = key;
+      bestScore = score;
+    }
+  }
+
+  if (!bestKey) {
+    return shortestPathGeometry;
+  }
+
+  const keyPath = rebuildPath(previous, bestKey);
+  const candidateGeometry = normalizeGeometry([
+    startPoint,
+    ...keyPath.map((key) => pointsByKey.get(key)).filter(Boolean),
+    ...(usableEndPoint ? [usableEndPoint] : []),
+  ]);
+
+  return candidateGeometry.length > 1 ? candidateGeometry : shortestPathGeometry;
+}
+
 async function fetchPathBetweenPoints(startPoint, endPoint) {
   const margin = Math.max(
     0.01,
@@ -436,6 +701,53 @@ out geom;
     ...keyPath.map((key) => pointsByKey.get(key)).filter(Boolean),
     endPoint,
   ]);
+}
+
+async function fetchOpenGraphAroundStart(trail, officialTrail) {
+  const startPoint =
+    getOfficialCoordinatePoint(officialTrail) ||
+    toCoordinatePair(trail.startCoordinates);
+  const endPoint = toCoordinatePair(trail.targetCoordinates);
+  const expectedDistanceKm = Number(trail.distanceKm) || 0;
+
+  if (!startPoint) {
+    return [];
+  }
+
+  const radiusMeters = Math.max(
+    3500,
+    Math.min(18000, Math.round((expectedDistanceKm || 4) * 1800))
+  );
+
+  const query = `
+[out:json][timeout:90];
+(
+  relation["route"="hiking"](around:${radiusMeters},${startPoint[0]},${startPoint[1]});
+)->.rels;
+(
+  way(r.rels);
+  way["highway"~"path|footway|track|steps|service|living_street|residential|unclassified|pedestrian"](around:${radiusMeters},${startPoint[0]},${startPoint[1]});
+  way["route"="hiking"](around:${radiusMeters},${startPoint[0]},${startPoint[1]});
+);
+out geom;
+`;
+
+  const data = await fetchFromOverpass(query);
+  const elements = Array.isArray(data?.elements) ? data.elements : [];
+  const wayElements = elements.filter(
+    (element) => element?.type === "way" && Array.isArray(element?.geometry)
+  );
+  const { graph, pointsByKey } = buildPathGraph(wayElements);
+
+  return resolveGraphGeometry({
+    graph,
+    pointsByKey,
+    startPoint,
+    endPoint,
+    expectedDistanceKm,
+    trail,
+    officialTrail,
+  });
 }
 
 async function fetchNamedPathBetweenPoints(trail, officialTrail, startPoint, endPoint) {
@@ -508,6 +820,63 @@ out geom;
   ]);
 }
 
+async function fetchExactRelationGeometryForTrail(trail, officialTrail) {
+  const startPoint =
+    getOfficialCoordinatePoint(officialTrail) ||
+    toCoordinatePair(trail.startCoordinates);
+  const endPoint = toCoordinatePair(trail.targetCoordinates);
+  const expectedDistanceKm = Number(trail.distanceKm) || 0;
+  const point = startPoint || endPoint || [0, 0];
+  const around =
+    Array.isArray(point) && point.length >= 2 && point.every(Number.isFinite)
+      ? `(around:12000,${point[0]},${point[1]})`
+      : "(32.45,-17.35,32.95,-16.55)";
+  const queries = [
+    trail.ref
+      ? `
+[out:json][timeout:90];
+relation["route"="hiking"]["ref"~"^${escapeOverpassString(trail.ref)}$",i]${around};
+way(r);
+out geom;
+`
+      : "",
+    officialTrail?.title || trail.name
+      ? `
+[out:json][timeout:90];
+relation["route"="hiking"]["name"~"^${escapeOverpassString(
+          officialTrail?.title || trail.name
+        )}$",i]${around};
+way(r);
+out geom;
+`
+      : "",
+  ].filter(Boolean);
+
+  for (const query of queries) {
+    const data = await fetchFromOverpass(query);
+    const elements = Array.isArray(data?.elements) ? data.elements : [];
+    const wayElements = elements.filter(
+      (element) => element?.type === "way" && Array.isArray(element?.geometry)
+    );
+    const { graph, pointsByKey } = buildPathGraph(wayElements);
+    const geometry = resolveGraphGeometry({
+      graph,
+      pointsByKey,
+      startPoint,
+      endPoint,
+      expectedDistanceKm,
+      trail,
+      officialTrail,
+    });
+
+    if (geometry.length > 1) {
+      return geometry;
+    }
+  }
+
+  return [];
+}
+
 async function fetchRelationGeometryForTrail(trail, officialTrail) {
   const refPattern = escapeOverpassString(String(trail.ref || "").trim());
   const titlePattern = escapeOverpassString(
@@ -518,12 +887,10 @@ async function fetchRelationGeometryForTrail(trail, officialTrail) {
     .filter(Boolean)
     .join("|");
   const point =
+    getOfficialCoordinatePoint(officialTrail) ||
     trail.startCoordinates ||
     trail.targetCoordinates ||
-    [
-      Number(officialTrail?.coordenadas?.latitude || 0),
-      Number(officialTrail?.coordenadas?.longitude || 0),
-    ];
+    [0, 0];
   const around =
     Array.isArray(point) && point.length >= 2 && point.every(Number.isFinite)
       ? `(around:18000,${point[0]},${point[1]})`
@@ -538,24 +905,31 @@ async function fetchRelationGeometryForTrail(trail, officialTrail) {
   relation["route"="hiking"]["name"~"^${titlePattern}$",i]${around};
   ${aliasQuery}
 );
+way(r);
 out geom;
 `;
 
   const data = await fetchFromOverpass(query);
   const elements = Array.isArray(data?.elements) ? data.elements : [];
-  const best = [...elements]
-    .filter((element) => Array.isArray(element?.geometry) && element.geometry.length > 1)
-    .sort(
-      (left, right) =>
-        (Array.isArray(right.geometry) ? right.geometry.length : 0) -
-        (Array.isArray(left.geometry) ? left.geometry.length : 0)
-    )[0];
+  const startPoint =
+    getOfficialCoordinatePoint(officialTrail) ||
+    toCoordinatePair(trail.startCoordinates);
+  const endPoint = toCoordinatePair(trail.targetCoordinates);
+  const expectedDistanceKm = Number(trail.distanceKm) || 0;
+  const wayElements = elements.filter(
+    (element) => element?.type === "way" && Array.isArray(element?.geometry)
+  );
+  const { graph, pointsByKey } = buildPathGraph(wayElements);
 
-  if (!best?.geometry?.length) {
-    return [];
-  }
-
-  return normalizeGeometry(best.geometry.map((point) => [point.lat, point.lon]));
+  return resolveGraphGeometry({
+    graph,
+    pointsByKey,
+    startPoint,
+    endPoint,
+    expectedDistanceKm,
+    trail,
+    officialTrail,
+  });
 }
 
 function scoreNamedGeometry(element, trail, officialTrail, startPoint, endPoint) {
@@ -608,14 +982,8 @@ function scoreNamedGeometry(element, trail, officialTrail, startPoint, endPoint)
 
 async function fetchNamedGeometryForTrail(trail, officialTrail) {
   const startPoint =
-    toCoordinatePair(trail.startCoordinates) ||
-    (Number.isFinite(Number(officialTrail?.coordenadas?.latitude)) &&
-    Number.isFinite(Number(officialTrail?.coordenadas?.longitude))
-      ? [
-          Number(officialTrail.coordenadas.latitude),
-          Number(officialTrail.coordenadas.longitude),
-        ]
-      : null);
+    getOfficialCoordinatePoint(officialTrail) ||
+    toCoordinatePair(trail.startCoordinates);
   const endPoint = toCoordinatePair(trail.targetCoordinates);
   const aliases = [
     trail.ref,
@@ -662,14 +1030,8 @@ out geom;
 
 async function fetchExactNameGeometryForTrail(trail, officialTrail) {
   const startPoint =
-    toCoordinatePair(trail.startCoordinates) ||
-    (Number.isFinite(Number(officialTrail?.coordenadas?.latitude)) &&
-    Number.isFinite(Number(officialTrail?.coordenadas?.longitude))
-      ? [
-          Number(officialTrail.coordenadas.latitude),
-          Number(officialTrail.coordenadas.longitude),
-        ]
-      : null);
+    getOfficialCoordinatePoint(officialTrail) ||
+    toCoordinatePair(trail.startCoordinates);
   const endPoint = toCoordinatePair(trail.targetCoordinates);
   const names = [...new Set([trail.name, officialTrail?.title].filter(Boolean))];
 
@@ -730,7 +1092,14 @@ function toCoordinatePair(value) {
 
 async function main() {
   const trails = getMadeiraPrSeedDetails();
-  const officialTrails = await fetchJson(OFFICIAL_TRAILS_ENDPOINT);
+  let officialTrails = [];
+  try {
+    officialTrails = await fetchJson(OFFICIAL_TRAILS_ENDPOINT);
+  } catch (error) {
+    console.warn(
+      `Warning: failed to fetch official Madeira trails catalog, continuing with local seed data only. ${error?.message || error}`
+    );
+  }
   const officialLookup = buildOfficialLookup(officialTrails);
   const results = [];
 
@@ -750,6 +1119,15 @@ async function main() {
         source = geometry.length > 1 ? "official-gpx" : "official-gpx-empty";
       } catch {
         geometry = [];
+      }
+    }
+
+    if (geometry.length < 2) {
+      try {
+        geometry = await fetchExactRelationGeometryForTrail(trail, officialTrail);
+        source = geometry.length > 1 ? "osm-relation-exact" : source;
+      } catch {
+        // Continue to broader relation query.
       }
     }
 
@@ -781,15 +1159,18 @@ async function main() {
     }
 
     if (geometry.length < 2) {
+      try {
+        geometry = await fetchOpenGraphAroundStart(trail, officialTrail);
+        source = geometry.length > 1 ? "osm-open-graph" : source;
+      } catch {
+        // Continue to point-to-point queries.
+      }
+    }
+
+    if (geometry.length < 2) {
       const startPoint =
-        toCoordinatePair(trail.startCoordinates) ||
-        (Number.isFinite(Number(officialTrail?.coordenadas?.latitude)) &&
-        Number.isFinite(Number(officialTrail?.coordenadas?.longitude))
-          ? [
-              Number(officialTrail.coordenadas.latitude),
-              Number(officialTrail.coordenadas.longitude),
-            ]
-          : null);
+        getOfficialCoordinatePoint(officialTrail) ||
+        toCoordinatePair(trail.startCoordinates);
       const endPoint = toCoordinatePair(trail.targetCoordinates);
 
       if (startPoint && endPoint) {
@@ -857,6 +1238,7 @@ async function main() {
   const inferredCount = results.filter((entry) =>
     [
       "osm-relation",
+      "osm-relation-exact",
       "osm-named",
       "osm-exact-name",
       "osm-named-path",

@@ -1,6 +1,26 @@
-import { useEffect } from "react";
-import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from "react-leaflet";
-import { ExternalLink, Star } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  CircleMarker,
+  MapContainer,
+  Polyline,
+  Popup,
+  TileLayer,
+  useMap,
+} from "react-leaflet";
+import { ExternalLink, Footprints, Star } from "lucide-react";
+import { updatePlaceRoutePath } from "../lib/supabaseTravelData";
+import {
+  enrichPlaceForDisplay,
+  isSameTrailFamily,
+  getPlaceRoutePath,
+  getTrailRouteHint,
+  isTrailPlace,
+} from "../lib/placePresentation";
+import {
+  buildFallbackTrailGeometry,
+  resolveTrailGeometryForPlace,
+} from "../lib/trailGeometry";
+import { getCachedTrailPath, setCachedTrailPath } from "../lib/trailCache";
 
 function FitBounds({ points }) {
   const map = useMap();
@@ -36,8 +56,149 @@ function mapsUrl(place) {
   return `https://www.google.com/maps/dir/?api=1&destination=${place.coordinates[0]},${place.coordinates[1]}`;
 }
 
+function withTrailResolutionCoordinates(place, routeHint) {
+  if (
+    Array.isArray(routeHint?.startCoordinates) &&
+    routeHint.startCoordinates.length >= 2
+  ) {
+    return {
+      ...place,
+      coordinates: routeHint.startCoordinates,
+    };
+  }
+
+  return place;
+}
+
+function findRelatedExactTrailGeometry(place, trailPlaces, trailGeometries) {
+  for (const candidate of trailPlaces) {
+    if (!candidate || candidate.id === place.id) continue;
+    if (!isSameTrailFamily(place, candidate)) continue;
+
+    const stored = getPlaceRoutePath(candidate);
+    if (stored.length >= 3) return stored;
+
+    const runtime = Array.isArray(trailGeometries[candidate.id])
+      ? trailGeometries[candidate.id]
+      : [];
+    if (runtime.length >= 3) return runtime;
+  }
+
+  return [];
+}
+
+function resolveDisplayedTrailGeometry(place, trailPlaces, trailGeometries) {
+  const stored = getPlaceRoutePath(place);
+  const runtime = Array.isArray(trailGeometries[place.id])
+    ? trailGeometries[place.id]
+    : [];
+  const direct = stored.length > runtime.length ? stored : runtime;
+
+  if (direct.length >= 3) {
+    return { geometry: direct, kind: "exact" };
+  }
+
+  const relatedExact = findRelatedExactTrailGeometry(
+    place,
+    trailPlaces,
+    trailGeometries
+  );
+  if (relatedExact.length >= 3) {
+    return { geometry: relatedExact, kind: "exact" };
+  }
+
+  if (direct.length >= 2) {
+    return { geometry: direct, kind: "approx" };
+  }
+
+  return { geometry: [], kind: "missing" };
+}
+
 export default function DestinationMapLeaflet({ destination, activePlaceId, onSelectPlace }) {
-  const activePlace = destination.places.find((place) => place.id === activePlaceId) || destination.places[0];
+  const [showTrailLayer, setShowTrailLayer] = useState(false);
+  const [trailGeometries, setTrailGeometries] = useState({});
+  const displayPlaces = useMemo(
+    () => (destination.places || []).map((place) => enrichPlaceForDisplay(place)),
+    [destination.places]
+  );
+  const trailPlaces = useMemo(
+    () => displayPlaces.filter((place) => isTrailPlace(place)),
+    [displayPlaces]
+  );
+  const activePlace =
+    displayPlaces.find((place) => place.id === activePlaceId) || displayPlaces[0];
+
+  useEffect(() => {
+    if (!showTrailLayer || !trailPlaces.length) return;
+
+    let cancelled = false;
+
+    async function preloadTrailGeometries() {
+      await Promise.all(
+        trailPlaces.map(async (trailPlace) => {
+          const storedGeometry = getPlaceRoutePath(trailPlace);
+          if (storedGeometry.length > 1) {
+            if (!cancelled) {
+              setTrailGeometries((current) => ({
+                ...current,
+                [trailPlace.id]: storedGeometry,
+              }));
+            }
+            return;
+          }
+
+          const cachedGeometry = getCachedTrailPath(trailPlace.id);
+          if (cachedGeometry.length > 1) {
+            if (!cancelled) {
+              setTrailGeometries((current) => ({
+                ...current,
+                [trailPlace.id]: cachedGeometry,
+              }));
+            }
+            return;
+          }
+
+          const routeHint = getTrailRouteHint(trailPlace);
+          const resolutionPlace = withTrailResolutionCoordinates(
+            trailPlace,
+            routeHint
+          );
+          const fallbackGeometry = buildFallbackTrailGeometry(trailPlace, routeHint);
+
+          if (fallbackGeometry.length > 1 && !cancelled) {
+            setTrailGeometries((current) => ({
+              ...current,
+              [trailPlace.id]: current[trailPlace.id]?.length > 1 ? current[trailPlace.id] : fallbackGeometry,
+            }));
+          }
+
+          try {
+            const resolvedGeometry = await resolveTrailGeometryForPlace(
+              resolutionPlace,
+              routeHint
+            );
+
+            if (!cancelled && resolvedGeometry.length > 1) {
+              setTrailGeometries((current) => ({
+                ...current,
+                [trailPlace.id]: resolvedGeometry,
+              }));
+              setCachedTrailPath(trailPlace.id, resolvedGeometry);
+              updatePlaceRoutePath(trailPlace.id, resolvedGeometry).catch(() => {});
+            }
+          } catch {
+            // Keep the fallback geometry when network lookup fails.
+          }
+        })
+      );
+    }
+
+    preloadTrailGeometries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showTrailLayer, trailPlaces]);
 
   return (
     <div className="rounded-[2rem] border border-[#E6DED1] bg-white p-5 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
@@ -49,7 +210,7 @@ export default function DestinationMapLeaflet({ destination, activePlaceId, onSe
       <div className="relative aspect-[16/9] overflow-hidden rounded-[1.5rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,rgba(107,122,82,0.08),transparent_35%),linear-gradient(180deg,#F3EEE5_0%,#ECE5D8_100%)]">
         <div className="absolute inset-0 z-0 [filter:saturate(0.35)_sepia(0.15)_contrast(0.95)]">
           <MapContainer
-            center={destination.places[0].coordinates}
+            center={displayPlaces[0].coordinates}
             zoom={10}
             zoomControl={true}
             attributionControl={false}
@@ -57,8 +218,31 @@ export default function DestinationMapLeaflet({ destination, activePlaceId, onSe
             scrollWheelZoom={true}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            <FitBounds points={destination.places} />
-            {destination.places.map((place) => {
+            <FitBounds points={displayPlaces} />
+            {showTrailLayer &&
+              trailPlaces.map((place) => {
+                const { geometry, kind } = resolveDisplayedTrailGeometry(
+                  place,
+                  trailPlaces,
+                  trailGeometries
+                );
+
+                if (geometry.length < 2) return null;
+
+                return (
+                  <Polyline
+                    key={`trail-${place.id}`}
+                    positions={geometry}
+                    pathOptions={{
+                      color: kind === "exact" ? "#6B7A52" : "#98A27A",
+                      weight: kind === "exact" ? 5 : 3,
+                      opacity: kind === "exact" ? 0.78 : 0.55,
+                      dashArray: kind === "exact" ? undefined : "8 10",
+                    }}
+                  />
+                );
+              })}
+            {displayPlaces.map((place) => {
               const isActive = place.id === activePlaceId;
               return (
                 <CircleMarker
@@ -90,6 +274,24 @@ export default function DestinationMapLeaflet({ destination, activePlaceId, onSe
         </div>
 
         <MiniWorldLocator destination={destination} />
+
+        {trailPlaces.length > 0 && (
+          <div className="absolute left-6 top-6 z-[600] max-w-[calc(100%-1.5rem)] rounded-[1.35rem] border border-[#DCD3C4] bg-white/96 px-4 py-3 shadow-[0_10px_24px_rgba(34,31,25,0.10)] backdrop-blur">
+            <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">
+              Warstwa szlakow
+            </p>
+            <button
+              onClick={() => setShowTrailLayer((current) => !current)}
+              className="mt-2 inline-flex items-center gap-2 rounded-full border border-[#DCD1C0] bg-[#F8F4ED] px-3 py-2 text-xs font-medium text-[#3E382F] transition hover:bg-[#F2ECE2]"
+            >
+              <Footprints className="h-3.5 w-3.5" />
+              {showTrailLayer ? "Ukryj wszystkie trasy" : "Pokaz wszystkie trasy"}
+            </button>
+            <p className="mt-2 text-xs text-[#6B6255]">
+              {trailPlaces.length} {trailPlaces.length === 1 ? "szlak" : "szlaki"} pokazuje sie i znika jednym kliknieciem.
+            </p>
+          </div>
+        )}
 
         <div className="absolute left-1/2 top-6 z-[600] w-[330px] max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-[1.5rem] border border-[#E4DACA] bg-white/97 p-4 shadow-[0_10px_24px_rgba(34,31,25,0.10)] backdrop-blur">
           <div className="flex items-start justify-between gap-3">

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,
   Marker,
+  Polyline,
   Popup as LeafletPopup,
   TileLayer,
   useMap,
@@ -30,8 +31,22 @@ import {
   Waves,
   X,
 } from "lucide-react";
-import { fetchPlannerPlans } from "../lib/supabaseTravelData";
-import { enrichPlaceForDisplay } from "../lib/placePresentation";
+import {
+  fetchPlannerPlans,
+  updatePlaceRoutePath,
+} from "../lib/supabaseTravelData";
+import {
+  enrichPlaceForDisplay,
+  isSameTrailFamily,
+  getPlaceRoutePath,
+  getTrailRouteHint,
+  isTrailPlace,
+} from "../lib/placePresentation";
+import {
+  buildFallbackTrailGeometry,
+  resolveTrailGeometryForPlace,
+} from "../lib/trailGeometry";
+import { getCachedTrailPath, setCachedTrailPath } from "../lib/trailCache";
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80";
@@ -47,6 +62,64 @@ const categoryMeta = {
 
 function mapsUrl(place) {
   return `https://www.google.com/maps/dir/?api=1&destination=${place.coordinates[0]},${place.coordinates[1]}`;
+}
+
+function withTrailResolutionCoordinates(place, routeHint) {
+  if (
+    Array.isArray(routeHint?.startCoordinates) &&
+    routeHint.startCoordinates.length >= 2
+  ) {
+    return {
+      ...place,
+      coordinates: routeHint.startCoordinates,
+    };
+  }
+
+  return place;
+}
+
+function findRelatedExactTrailGeometry(place, trailPlaces, trailGeometries) {
+  for (const candidate of trailPlaces) {
+    if (!candidate || candidate.id === place.id) continue;
+    if (!isSameTrailFamily(place, candidate)) continue;
+
+    const stored = getPlaceRoutePath(candidate);
+    if (stored.length >= 3) return stored;
+
+    const runtime = Array.isArray(trailGeometries[candidate.id])
+      ? trailGeometries[candidate.id]
+      : [];
+    if (runtime.length >= 3) return runtime;
+  }
+
+  return [];
+}
+
+function resolveDisplayedTrailGeometry(place, trailPlaces, trailGeometries) {
+  const stored = getPlaceRoutePath(place);
+  const runtime = Array.isArray(trailGeometries[place.id])
+    ? trailGeometries[place.id]
+    : [];
+  const direct = stored.length > runtime.length ? stored : runtime;
+
+  if (direct.length >= 3) {
+    return { geometry: direct, kind: "exact" };
+  }
+
+  const relatedExact = findRelatedExactTrailGeometry(
+    place,
+    trailPlaces,
+    trailGeometries
+  );
+  if (relatedExact.length >= 3) {
+    return { geometry: relatedExact, kind: "exact" };
+  }
+
+  if (direct.length >= 2) {
+    return { geometry: direct, kind: "approx" };
+  }
+
+  return { geometry: [], kind: "missing" };
 }
 
 function findPlaceById(destination, id) {
@@ -464,7 +537,7 @@ function FloatingPlanPicker({
   loadingPlans,
 }) {
   return (
-    <div className="rounded-[1.35rem] border border-[#EEE6DA] bg-[rgba(251,248,242,0.92)] p-4 shadow-[0_14px_30px_rgba(34,31,25,0.10)] backdrop-blur">
+    <div className="rounded-[1.35rem] border border-[#EEE6DA] bg-[rgba(251,248,242,0.92)] p-3 shadow-[0_14px_30px_rgba(34,31,25,0.10)] backdrop-blur">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
@@ -642,30 +715,70 @@ function FloatingCategoryPicker({
       <p className="text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
         Typ atrakcji
       </p>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
         {availableCategories.map((item) => {
           const Icon = categoryMeta[item.key].icon;
           return (
             <button
               key={item.key}
               onClick={() => onSelectCategory(item.key)}
-              className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm ${
+              className={`flex min-h-[52px] w-full items-center gap-3 rounded-[1rem] border px-3 py-2.5 text-left text-sm transition ${
                 item.key === selectedCategory
-                  ? "border-[#D8CCBB] bg-white text-[#1F1D1A]"
-                  : "border-[#E1D7C8] bg-white text-[#4D463D]"
+                  ? "border-[#D8CCBB] bg-white text-[#1F1D1A] shadow-[0_10px_24px_rgba(34,31,25,0.05)]"
+                  : "border-[#E1D7C8] bg-white text-[#4D463D] hover:bg-[#F8F2E9]"
               }`}
             >
               <span
-                className="inline-flex h-6 w-6 items-center justify-center rounded-full text-white"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white"
                 style={{ backgroundColor: categoryMeta[item.key].color }}
               >
                 <Icon className="h-3.5 w-3.5" />
               </span>
-              {item.label}
+              <span className="min-w-0 flex-1 leading-5">{item.label}</span>
+              <span className="shrink-0 rounded-full border border-[#E6DED1] bg-[#FBF8F2] px-2 py-0.5 text-xs font-semibold text-[#6B6255]">
+                {item.count}
+              </span>
             </button>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function FloatingTrailLayerToggle({
+  trailCount,
+  showTrailLayer,
+  onToggle,
+}) {
+  if (!trailCount) return null;
+
+  return (
+    <div className="rounded-[1.35rem] border border-[#EEE6DA] bg-[rgba(251,248,242,0.92)] p-4 shadow-[0_14px_30px_rgba(34,31,25,0.10)] backdrop-blur">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
+            Warstwa szlakow
+          </p>
+          <p className="mt-1 text-sm leading-5 text-[#4D463D]">
+            Pokaz lub ukryj wszystkie trasy jednym kliknieciem.
+          </p>
+        </div>
+        <span className="rounded-full border border-[#E1D7C8] bg-white px-2.5 py-1 text-sm font-semibold text-[#4D463D]">
+          {trailCount}
+        </span>
+      </div>
+      <button
+        onClick={onToggle}
+        className={`mt-3 inline-flex w-full items-center justify-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium transition ${
+          showTrailLayer
+            ? "border-[#6B7A52] bg-[#6B7A52] text-white hover:opacity-90"
+            : "border-[#D8CCBB] bg-white text-[#1F1D1A] hover:bg-[#F8F2E9]"
+        }`}
+      >
+        <Footprints className="h-4 w-4" />
+        {showTrailLayer ? "Ukryj wszystkie szlaki" : "Pokaz wszystkie szlaki"}
+      </button>
     </div>
   );
 }
@@ -697,18 +810,25 @@ function FloatingCategoryPlaces({
           {selectedGroup.count}
         </span>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4 max-h-[24rem] space-y-2 overflow-y-auto pr-1">
         {selectedGroup.places.map((place) => (
           <button
             key={place.id}
             onClick={() => onSelectPlace(place.id)}
-            className={`rounded-full border px-3 py-1.5 text-sm ${
+            className={`flex w-full items-center justify-between gap-3 rounded-[1rem] border px-3 py-3 text-left text-sm transition ${
               place.id === activePlaceId
-                ? "border-[#D8CCBB] bg-white text-[#1F1D1A]"
-                : "border-[#E1D7C8] bg-white text-[#4D463D]"
+                ? "border-[#D8CCBB] bg-white text-[#1F1D1A] shadow-[0_10px_24px_rgba(34,31,25,0.05)]"
+                : "border-[#E1D7C8] bg-white text-[#4D463D] hover:bg-[#F8F2E9]"
             }`}
           >
-            {place.name}
+            <span className="min-w-0 flex-1 break-words leading-5">{place.name}</span>
+            <span
+              className="inline-flex h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{
+                backgroundColor:
+                  categoryMeta[place.category]?.color || categoryMeta.city.color,
+              }}
+            />
           </button>
         ))}
       </div>
@@ -1107,6 +1227,8 @@ function DestinationMapSurface({
   destination,
   activePlaceId,
   selectedCategory,
+  showTrailLayer,
+  trailGeometries,
   onSelectPlace,
   storyOverlay,
   detailsOverlay,
@@ -1141,7 +1263,9 @@ function DestinationMapSurface({
         </div>
 
         <div className="pointer-events-none absolute right-4 top-4 z-[700] hidden w-[310px] xl:block">
-          <div className="pointer-events-auto">{detailsOverlay}</div>
+          <div className="pointer-events-auto max-h-[calc(100vh-10rem)] overflow-y-auto pr-1">
+            {detailsOverlay}
+          </div>
         </div>
 
         <div className="absolute inset-0 z-0 overflow-hidden rounded-[1.6rem] [filter:saturate(0.35)_sepia(0.15)_contrast(0.95)]">
@@ -1155,6 +1279,31 @@ function DestinationMapSurface({
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <FitBounds points={destination.places} />
+            {showTrailLayer &&
+              destination.places
+                .filter((place) => isTrailPlace(place))
+                .map((place) => {
+                  const { geometry, kind } = resolveDisplayedTrailGeometry(
+                    place,
+                    destination.places.filter((entry) => isTrailPlace(entry)),
+                    trailGeometries
+                  );
+
+                  if (geometry.length < 2) return null;
+
+                  return (
+                    <Polyline
+                      key={`story-trail-${place.id}`}
+                      positions={geometry}
+                      pathOptions={{
+                        color: kind === "exact" ? "#6B7A52" : "#98A27A",
+                        weight: kind === "exact" ? 5 : 3,
+                        opacity: kind === "exact" ? 0.82 : 0.58,
+                        dashArray: kind === "exact" ? undefined : "8 10",
+                      }}
+                    />
+                  );
+                })}
             {destination.places.map((place) => {
               const isActive = place.id === activePlaceId;
               const isCategorySelected = place.category === selectedCategory;
@@ -1231,6 +1380,8 @@ export default function StoryPanel({
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
   const [activePlaceId, setActivePlaceId] = useState(safeDestination.places?.[0]?.id || "");
   const [selectedCategory, setSelectedCategory] = useState("beach");
+  const [showTrailLayer, setShowTrailLayer] = useState(false);
+  const [trailGeometries, setTrailGeometries] = useState({});
   const [destinationDialogOpen, setDestinationDialogOpen] = useState(false);
   const [pendingCountryId, setPendingCountryId] = useState(selectedCountryId);
   const [pendingDestinationId, setPendingDestinationId] =
@@ -1258,6 +1409,10 @@ export default function StoryPanel({
     () => countByCategory(filteredDestination.places || []).filter((item) => item.count > 0),
     [filteredDestination]
   );
+  const trailPlaces = useMemo(
+    () => (filteredDestination.places || []).filter((place) => isTrailPlace(place)),
+    [filteredDestination.places]
+  );
   const planOptions = useMemo(
     () => [
       { id: "all-places", label: "Wszystkie miejscowki" },
@@ -1272,6 +1427,81 @@ export default function StoryPanel({
     availableCategories.find((item) => item.key === selectedCategory)?.key ||
     availableCategories[0]?.key ||
     "beach";
+
+  useEffect(() => {
+    if (!showTrailLayer || !trailPlaces.length) return;
+
+    let cancelled = false;
+
+    async function preloadTrailGeometries() {
+      await Promise.all(
+        trailPlaces.map(async (trailPlace) => {
+          const storedGeometry = getPlaceRoutePath(trailPlace);
+          if (storedGeometry.length > 1) {
+            if (!cancelled) {
+              setTrailGeometries((current) => ({
+                ...current,
+                [trailPlace.id]: storedGeometry,
+              }));
+            }
+            return;
+          }
+
+          const cachedGeometry = getCachedTrailPath(trailPlace.id);
+          if (cachedGeometry.length > 1) {
+            if (!cancelled) {
+              setTrailGeometries((current) => ({
+                ...current,
+                [trailPlace.id]: cachedGeometry,
+              }));
+            }
+            return;
+          }
+
+          const routeHint = getTrailRouteHint(trailPlace);
+          const resolutionPlace = withTrailResolutionCoordinates(
+            trailPlace,
+            routeHint
+          );
+          const fallbackGeometry = buildFallbackTrailGeometry(trailPlace, routeHint);
+
+          if (fallbackGeometry.length > 1 && !cancelled) {
+            setTrailGeometries((current) => ({
+              ...current,
+              [trailPlace.id]:
+                current[trailPlace.id]?.length > 1
+                  ? current[trailPlace.id]
+                  : fallbackGeometry,
+            }));
+          }
+
+          try {
+            const resolvedGeometry = await resolveTrailGeometryForPlace(
+              resolutionPlace,
+              routeHint
+            );
+
+            if (!cancelled && resolvedGeometry.length > 1) {
+              setTrailGeometries((current) => ({
+                ...current,
+                [trailPlace.id]: resolvedGeometry,
+              }));
+              setCachedTrailPath(trailPlace.id, resolvedGeometry);
+              updatePlaceRoutePath(trailPlace.id, resolvedGeometry).catch(() => {});
+            }
+          } catch {
+            // Keep fallback geometry when lookup fails.
+          }
+        })
+      );
+    }
+
+    preloadTrailGeometries();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showTrailLayer, trailPlaces]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1405,6 +1635,8 @@ export default function StoryPanel({
         destination={filteredDestination}
         activePlaceId={activePlaceId}
         selectedCategory={effectiveSelectedCategory}
+        showTrailLayer={showTrailLayer}
+        trailGeometries={trailGeometries}
         onSelectPlace={handleSelectPlace}
         storyOverlay={
           <DestinationTabs
@@ -1427,6 +1659,11 @@ export default function StoryPanel({
               availableCategories={availableCategories}
               selectedCategory={effectiveSelectedCategory}
               onSelectCategory={setSelectedCategory}
+            />
+            <FloatingTrailLayerToggle
+              trailCount={trailPlaces.length}
+              showTrailLayer={showTrailLayer}
+              onToggle={() => setShowTrailLayer((current) => !current)}
             />
             <FloatingCategoryPlaces
               destination={filteredDestination}
