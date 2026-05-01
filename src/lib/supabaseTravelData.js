@@ -252,6 +252,7 @@ export function toPlannerPlanRow(destinationId, plan, index = 0) {
     destination_id: destinationId,
     name: plan.name,
     days_count: Number(plan.daysCount ?? plan.itinerary?.length ?? 1),
+    is_favorite: Boolean(plan.isFavorite ?? plan.is_favorite ?? false),
     itinerary: ensureArray(plan.itinerary, []),
     notes: plan.notes || "",
     sort_order: index,
@@ -274,6 +275,29 @@ export async function fetchPlannerPlans(destinationId) {
     destinationId: plan.destination_id,
     name: plan.name,
     daysCount: plan.days_count,
+    isFavorite: Boolean(plan.is_favorite),
+    notes: plan.notes || "",
+    itinerary: ensureArray(plan.itinerary, []),
+  }));
+}
+
+export async function fetchFavoritePlannerPlans() {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from("planner_plans")
+    .select("*")
+    .eq("is_favorite", true)
+    .order("sort_order", { ascending: true });
+
+  if (error) throw error;
+
+  return (data || []).map((plan) => ({
+    id: plan.id,
+    destinationId: plan.destination_id,
+    name: plan.name,
+    daysCount: plan.days_count,
+    isFavorite: Boolean(plan.is_favorite),
     notes: plan.notes || "",
     itinerary: ensureArray(plan.itinerary, []),
   }));

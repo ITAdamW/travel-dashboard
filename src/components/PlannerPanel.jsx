@@ -24,12 +24,14 @@ import {
   Route,
   Save,
   Share2,
+  Star,
   Trash2,
   Waves,
   X,
 } from "lucide-react";
 import {
   deletePlannerPlan,
+  fetchFavoritePlannerPlans,
   fetchPlannerPlans,
   upsertPlannerPlan,
 } from "../lib/supabaseTravelData";
@@ -888,6 +890,8 @@ export default function PlannerPanel({
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
   const [placeSearchTerm, setPlaceSearchTerm] = useState("");
+  const [globalFavoritePlans, setGlobalFavoritePlans] = useState([]);
+  const [pendingGlobalPreviewPlanId, setPendingGlobalPreviewPlanId] = useState("");
   const canUsePortal = typeof document !== "undefined";
   const previousInitialCountryIdRef = useRef(initialCountryId);
   const previousInitialDestinationIdRef = useRef(initialDestinationId);
@@ -904,6 +908,28 @@ export default function PlannerPanel({
 
   const selectedPlan =
     plans.find((plan) => plan.id === selectedPlanId) || plans[0] || null;
+  const decoratedGlobalFavoritePlans = useMemo(
+    () =>
+      globalFavoritePlans
+        .map((plan) => {
+          const country = countries.find((entry) =>
+            entry.destinations?.some((destination) => destination.id === plan.destinationId)
+          );
+          const destination =
+            country?.destinations?.find((entry) => entry.id === plan.destinationId) || null;
+          if (!country || !destination) return null;
+
+          return {
+            ...plan,
+            countryId: country.id,
+            countryName: country.countryName,
+            destinationName: destination.name,
+            coverImage: getPlanCover(plan, destination),
+          };
+        })
+        .filter(Boolean),
+    [countries, globalFavoritePlans]
+  );
 
   useEffect(() => {
     const initialCountryChanged = previousInitialCountryIdRef.current !== initialCountryId;
@@ -980,9 +1006,28 @@ export default function PlannerPanel({
     }
   };
 
+  const loadGlobalFavoritePlans = async () => {
+    try {
+      const nextPlans = await fetchFavoritePlannerPlans();
+      setGlobalFavoritePlans(
+        nextPlans.map((plan) => {
+          const itinerary = normalizeItinerary(plan.itinerary);
+          return {
+            ...plan,
+            itinerary,
+            daysCount: itinerary.length,
+          };
+        })
+      );
+    } catch (error) {
+      setStatus(error.message || "Nie udalo sie pobrac ulubionych planow.");
+    }
+  };
+
   useEffect(() => {
     if (!selectedDestination?.id) return;
     loadPlans(selectedDestination.id);
+    loadGlobalFavoritePlans();
     setStatus("");
   }, [selectedDestination?.id, initialPlanId]);
 
@@ -998,6 +1043,13 @@ export default function PlannerPanel({
       setPlanPreviewOpen(false);
     }
   }, [viewMode, selectedDestinationId]);
+
+  useEffect(() => {
+    if (!pendingGlobalPreviewPlanId) return;
+    if (selectedPlan?.id !== pendingGlobalPreviewPlanId) return;
+    setPlanPreviewOpen(true);
+    setPendingGlobalPreviewPlanId("");
+  }, [pendingGlobalPreviewPlanId, selectedPlan?.id]);
 
   useEffect(() => {
     const selectedPlanKey = `${selectedDestination?.id || ""}:${selectedPlanId || selectedPlan?.id || ""}`;
@@ -1049,10 +1101,43 @@ export default function PlannerPanel({
   const createPlan = () => {
     if (!selectedDestination) return;
     const nextPlan = createEmptyPlan(selectedDestination.id, plans.length);
+    nextPlan.isFavorite = false;
     setPlans((prev) => [...prev, nextPlan]);
     setSelectedPlanId(nextPlan.id);
     setDraftPlan(nextPlan);
     setViewMode("edit");
+  };
+
+  const togglePlanFavorite = async (plan) => {
+    if (!selectedDestination || !plan) return;
+    setSaving(true);
+    setStatus("");
+
+    try {
+      const currentIndex = plans.findIndex((entry) => entry.id === plan.id);
+      const nextPlan = {
+        ...plan,
+        isFavorite: !plan.isFavorite,
+        itinerary: normalizeItinerary(plan.itinerary),
+      };
+      await upsertPlannerPlan(
+        selectedDestination.id,
+        nextPlan,
+        currentIndex >= 0 ? currentIndex : 0
+      );
+      await loadPlans(selectedDestination.id);
+      await loadGlobalFavoritePlans();
+      setSelectedPlanId(plan.id);
+      setStatus(
+        nextPlan.isFavorite
+          ? "Plan dodano do ulubionych."
+          : "Plan usunieto z ulubionych."
+      );
+    } catch (error) {
+      setStatus(error.message || "Nie udalo sie zmienic statusu ulubionego planu.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const updateDraft = (updater) => {
@@ -1224,10 +1309,10 @@ export default function PlannerPanel({
       const nextIndex = savedIndex >= 0 ? savedIndex : plans.length;
       await upsertPlannerPlan(selectedDestination.id, normalizedPlan, nextIndex);
       const nextPlans = await loadPlans(selectedDestination.id);
+      await loadGlobalFavoritePlans();
       setSelectedPlanId(normalizedPlan.id);
       setDraftPlan(nextPlans.find((plan) => plan.id === normalizedPlan.id) || normalizedPlan);
       setStatus("Plan zostal zapisany do Supabase.");
-      setViewMode("preview");
     } catch (error) {
       setStatus(error.message || "Nie udalo sie zapisac planu.");
     } finally {
@@ -1243,6 +1328,7 @@ export default function PlannerPanel({
     try {
       await deletePlannerPlan(selectedPlan.id);
       const nextPlans = await loadPlans(selectedDestination.id);
+      await loadGlobalFavoritePlans();
       setDraftPlan(
         nextPlans[0]
           ? {
@@ -1304,6 +1390,82 @@ export default function PlannerPanel({
           Edycja planow
         </button>
       </div>
+
+      {decoratedGlobalFavoritePlans.length ? (
+        <div className="theme-planner-card mb-6 rounded-[1.4rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
+          <div className="mb-3 flex items-center gap-2">
+            <Star className="h-4 w-4 fill-[#C58A3D] text-[#C58A3D]" />
+            <div>
+              <p className="text-sm font-medium text-[#4D463D]">Ulubione plany</p>
+              <p className="mt-1 text-sm text-[#6B6255]">
+                Szybki dostep do ulubionych planow bez podzialu na kraj i destynacje.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {decoratedGlobalFavoritePlans.map((plan) => (
+              <div
+                key={`favorite-global-${plan.id}`}
+                className="overflow-hidden rounded-[1.2rem] border border-[#E5DCCF] bg-white transition hover:border-[#DCCFBD] hover:shadow-[0_8px_18px_rgba(34,31,25,0.04)]"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode("preview");
+                    setPlanPreviewOpen(false);
+                    setPendingGlobalPreviewPlanId(plan.id);
+                    setSelectedCountryId(plan.countryId);
+                    setSelectedDestinationId(plan.destinationId);
+                    setSelectedPlanId(plan.id);
+                  }}
+                  className="block w-full text-left"
+                >
+                  <div className="relative h-36 w-full overflow-hidden bg-[#F4EEE3]">
+                    {plan.coverImage ? (
+                      <img
+                        src={plan.coverImage}
+                        alt={plan.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[0.24em] text-[#8A7F6C]">
+                        No image
+                      </div>
+                    )}
+                    <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/92 px-2.5 py-1 text-xs font-medium text-[#7A5A1F] shadow-[0_8px_18px_rgba(34,31,25,0.08)]">
+                      <Star className="h-3.5 w-3.5 fill-[#C58A3D] text-[#C58A3D]" />
+                      Ulubiony
+                    </span>
+                  </div>
+                  <div className="p-3">
+                    <p className="text-sm font-semibold text-[#1F1D1A]">{plan.name}</p>
+                    <p className="mt-1 text-sm text-[#6B6255]">
+                      {plan.countryName} · {plan.destinationName} · {plan.daysCount} dni
+                    </p>
+                  </div>
+                </button>
+                <div className="border-t border-[#EEE6DA] px-3 pb-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCountryId(plan.countryId);
+                      setSelectedDestinationId(plan.destinationId);
+                      setSelectedPlanId(plan.id);
+                      setPlanPreviewOpen(false);
+                      setViewMode("edit");
+                    }}
+                    className="theme-planner-button inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#D8CCBB] bg-[#FBF8F2] px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                  >
+                    <PencilLine className="h-4 w-4" />
+                    Edytuj planer
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="mb-6 grid gap-4 md:grid-cols-2">
         <SelectInput
@@ -1406,7 +1568,23 @@ export default function PlannerPanel({
                         </div>
                       </button>
 
-                      <div className="border-t border-[#EEE6DA] px-3 pb-3 pt-2">
+                      <div className="grid gap-2 border-t border-[#EEE6DA] px-3 pb-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => togglePlanFavorite(plan)}
+                          disabled={saving}
+                          className="theme-planner-button inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#E3D9CA] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Star
+                            className={cn(
+                              "h-4 w-4",
+                              plan.isFavorite
+                                ? "fill-[#C58A3D] text-[#C58A3D]"
+                                : "text-[#8A7F6C]"
+                            )}
+                          />
+                          {plan.isFavorite ? "Usun z ulubionych" : "Dodaj do ulubionych"}
+                        </button>
                         <button
                           type="button"
                           onClick={() => {

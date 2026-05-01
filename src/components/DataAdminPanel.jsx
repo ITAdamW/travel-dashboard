@@ -103,6 +103,79 @@ function SelectInput({ label, value, onChange, options }) {
   );
 }
 
+function SearchableSelectInput({ label, value, onChange, options, placeholder = "Szukaj..." }) {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value) || null;
+  const [query, setQuery] = useState(selectedOption?.label || "");
+
+  useEffect(() => {
+    setQuery(selectedOption?.label || "");
+  }, [selectedOption?.label]);
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredOptions = options.filter((option) =>
+    !normalizedQuery ? true : option.label.toLowerCase().includes(normalizedQuery)
+  );
+
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-[#4D463D]">{label}</span>
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+          }}
+          onBlur={() => {
+            window.setTimeout(() => {
+              setOpen(false);
+              setQuery(selectedOption?.label || "");
+            }, 120);
+          }}
+          placeholder={placeholder}
+          className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+        />
+
+        {open ? (
+          <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 max-h-72 overflow-y-auto rounded-[1rem] border border-[#E5DCCF] bg-white p-2 shadow-[0_18px_40px_rgba(34,31,25,0.12)]">
+            {filteredOptions.length ? (
+              <div className="space-y-1">
+                {filteredOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      onChange(option.value);
+                      setQuery(option.label);
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "w-full rounded-[0.9rem] px-3 py-2.5 text-left text-sm transition",
+                      option.value === value
+                        ? "bg-[#FBF8F2] text-[#1F1D1A]"
+                        : "text-[#4D463D] hover:bg-[#F8F2E9]"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-[0.9rem] bg-[#FBF8F2] px-3 py-3 text-sm text-[#6B6255]">
+                Brak pasujacych miejsc.
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </label>
+  );
+}
+
 function FileInput({ label, onChange, accept = "", helperText = "", fileName = "" }) {
   return (
     <label className="block">
@@ -872,7 +945,7 @@ export default function DataAdminPanel({
           }
         >
           <div className="space-y-4">
-            <SelectInput
+            <SearchableSelectInput
               label="Wybrane miejsce"
               value={selectedPlaceId}
               onChange={setSelectedPlaceId}
@@ -880,6 +953,7 @@ export default function DataAdminPanel({
                 value: place.id,
                 label: place.name,
               }))}
+              placeholder="Wyszukaj miejscowke po nazwie..."
             />
             <TextInput
               label="ID miejsca"
