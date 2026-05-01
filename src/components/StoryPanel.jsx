@@ -1501,7 +1501,7 @@ function DestinationMapSurface({
 
   return (
     <div className="theme-story-card overflow-hidden rounded-[2rem] border border-[#E6DED1] bg-white p-4 shadow-[0_18px_60px_rgba(34,31,25,0.06)]">
-      <div className="relative h-[clamp(720px,calc(100vh-10rem),980px)] rounded-[1.6rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,rgba(107,122,82,0.08),transparent_35%),linear-gradient(180deg,#F3EEE5_0%,#ECE5D8_100%)]">
+      <div className="relative h-[calc(100dvh-7.5rem)] min-h-[720px] rounded-[1.6rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,rgba(107,122,82,0.08),transparent_35%),linear-gradient(180deg,#F3EEE5_0%,#ECE5D8_100%)]">
         <div className="pointer-events-none absolute bottom-4 right-4 z-[700] w-[360px] max-w-[calc(100%-2rem)]">
           <div className="pointer-events-auto">
             <FloatingToolbar
@@ -1518,8 +1518,10 @@ function DestinationMapSurface({
         </div>
 
         <div className="pointer-events-none absolute right-4 top-4 z-[700] hidden w-[310px] xl:block [bottom:8.5rem]">
-          <div className="pointer-events-auto h-full overflow-y-auto pr-1">
-            {detailsOverlay}
+          <div className="pointer-events-auto h-full overflow-hidden rounded-[1.35rem]">
+            <div className="story-details-scroll h-full overflow-y-auto pr-1">
+              {detailsOverlay}
+            </div>
           </div>
         </div>
 

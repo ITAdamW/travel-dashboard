@@ -112,7 +112,7 @@ function AtlasLeafletMap({ countries, selectedCountryId, onSelectCountry }) {
       style={{
         position: "relative",
         width: "100%",
-        height: "480px",
+        height: "100%",
         overflow: "hidden",
         borderRadius: "32px",
         border: "1px solid rgba(231, 222, 210, 0.95)",
@@ -313,8 +313,8 @@ export default function AtlasPanel({
   onOpenPlan,
 }) {
   return (
-    <section className="theme-panel-shell grid grid-cols-1 gap-4 overflow-hidden rounded-[2.2rem] border border-[#E6DED1] bg-[linear-gradient(180deg,#FBF8F2_0%,#F6F1E7_100%)] p-4 shadow-[0_22px_80px_rgba(34,31,25,0.06)] md:h-[calc(100vh-7rem)] md:max-h-[calc(100vh-7rem)] md:grid-cols-[1.45fr_0.82fr] md:p-6">
-      <div className="theme-panel-main relative rounded-[2rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,_rgba(107,122,82,0.12),_transparent_28%),linear-gradient(180deg,_#F7F3EC_0%,_#F2ECE2_100%)] p-4 md:p-6">
+    <section className="theme-panel-shell grid grid-cols-1 gap-4 overflow-hidden rounded-[2.2rem] border border-[#E6DED1] bg-[linear-gradient(180deg,#FBF8F2_0%,#F6F1E7_100%)] p-4 shadow-[0_22px_80px_rgba(34,31,25,0.06)] md:h-[calc(100dvh-7rem)] md:max-h-[calc(100dvh-7rem)] md:grid-cols-[1.45fr_0.82fr] md:p-6">
+      <div className="theme-panel-main relative flex min-h-0 flex-col overflow-hidden rounded-[2rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,_rgba(107,122,82,0.12),_transparent_28%),linear-gradient(180deg,_#F7F3EC_0%,_#F2ECE2_100%)] p-4 md:h-full md:p-6">
         <div className="mb-5">
           <p className="mb-2 text-xs uppercase tracking-[0.35em] text-[#8A7F6C]">
             Travel Atlas
@@ -378,13 +378,15 @@ export default function AtlasPanel({
           </div>
         </div>
 
-        <AtlasLeafletMap
-          countries={countries}
-          selectedCountryId={selectedCountry.id}
-          onSelectCountry={onSelectCountry}
-        />
+        <div className="min-h-0 flex-1">
+          <AtlasLeafletMap
+            countries={countries}
+            selectedCountryId={selectedCountry.id}
+            onSelectCountry={onSelectCountry}
+          />
+        </div>
 
-        <div className="theme-panel-float pointer-events-none absolute bottom-6 left-6 z-[500] rounded-[1.2rem] border border-[#E5DCCF] bg-white/90 px-4 py-3 shadow-[0_10px_24px_rgba(36,32,26,0.05)] backdrop-blur">
+        <div className="theme-panel-float pointer-events-none absolute bottom-9 left-9 z-[500] rounded-[1.2rem] border border-[#E5DCCF] bg-white/90 px-4 py-3 shadow-[0_10px_24px_rgba(36,32,26,0.05)] backdrop-blur">
           <p className="text-[10px] uppercase tracking-[0.28em] text-[#8A7F6C]">
             Legend
           </p>

@@ -154,6 +154,8 @@ textarea {
 
 .atlas-scroll {
   scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(123, 114, 99, 0.45) transparent;
   padding-right: 2px;
 }
 
@@ -184,6 +186,14 @@ textarea {
   background: rgba(123, 114, 99, 0.5);
   border: 2px solid transparent;
   background-clip: padding-box;
+}
+
+.story-details-scroll {
+  scrollbar-width: none;
+}
+
+.story-details-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .app-shell {
