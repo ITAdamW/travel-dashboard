@@ -753,7 +753,7 @@ function PlannerPreview({ destination, plan }) {
     <div className="space-y-4">
       {normalizeItinerary(plan.itinerary).map((section, index) => (
         <div
-          key={`${section.day}-${index}`}
+          key={`preview-day-${index}`}
           className="theme-planner-card overflow-hidden rounded-[1.5rem] border border-[#E8DFD2] bg-white"
         >
           <div className="theme-planner-dayhead border-b border-[#EEE6DA] bg-[#FBF8F2] px-5 py-4">
@@ -774,7 +774,7 @@ function PlannerPreview({ destination, plan }) {
 
               return (
                 <PlannerPreviewItem
-                  key={`${section.day}-${place.id}-${itemIndex}`}
+                  key={`preview-item-${index}-${itemIndex}-${place.id}`}
                   place={place}
                   note={normalized.note}
                 />
@@ -1368,40 +1368,59 @@ export default function PlannerPanel({
                   const isActive = plan.id === selectedPlanId;
 
                   return (
-                    <button
+                    <div
                       key={plan.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPlanId(plan.id);
-                        if (viewMode === "preview") {
-                          setPlanPreviewOpen(true);
-                        }
-                      }}
                       className={cn(
-                        "overflow-hidden rounded-[1.2rem] border bg-white text-left transition hover:border-[#DCCFBD] hover:shadow-[0_8px_18px_rgba(34,31,25,0.04)]",
+                        "overflow-hidden rounded-[1.2rem] border bg-white transition hover:border-[#DCCFBD] hover:shadow-[0_8px_18px_rgba(34,31,25,0.04)]",
                         isActive ? "border-[#BFAE97] shadow-[0_8px_18px_rgba(34,31,25,0.06)]" : "border-[#E5DCCF]"
                       )}
                     >
-                      <div className="h-36 w-full overflow-hidden bg-[#F4EEE3]">
-                        {coverImage ? (
-                          <img
-                            src={coverImage}
-                            alt={plan.name}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[0.24em] text-[#8A7F6C]">
-                            No image
-                          </div>
-                        )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPlanId(plan.id);
+                          if (viewMode === "preview") {
+                            setPlanPreviewOpen(true);
+                          }
+                        }}
+                        className="block w-full text-left"
+                      >
+                        <div className="h-36 w-full overflow-hidden bg-[#F4EEE3]">
+                          {coverImage ? (
+                            <img
+                              src={coverImage}
+                              alt={plan.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[0.24em] text-[#8A7F6C]">
+                              No image
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3">
+                          <p className="text-sm font-semibold text-[#1F1D1A]">
+                            {selectedDestination?.name} - plan {plan.daysCount} dniowy
+                          </p>
+                          <p className="mt-1 text-sm text-[#6B6255]">{plan.name}</p>
+                        </div>
+                      </button>
+
+                      <div className="border-t border-[#EEE6DA] px-3 pb-3 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedPlanId(plan.id);
+                            setViewMode("edit");
+                            setPlanPreviewOpen(false);
+                          }}
+                          className="theme-planner-button inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#D8CCBB] bg-[#FBF8F2] px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                        >
+                          <PencilLine className="h-4 w-4" />
+                          Edytuj planer
+                        </button>
                       </div>
-                      <div className="p-3">
-                        <p className="text-sm font-semibold text-[#1F1D1A]">
-                          {selectedDestination?.name} - plan {plan.daysCount} dniowy
-                        </p>
-                        <p className="mt-1 text-sm text-[#6B6255]">{plan.name}</p>
-                      </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>
@@ -1438,7 +1457,18 @@ export default function PlannerPanel({
       {viewMode === "preview" ? (
         <>
           <div className="rounded-[1.75rem] border border-dashed border-[#DDD2C3] bg-[#FBF8F2] px-5 py-10 text-center text-sm text-[#7C7263]">
-            Kliknij wybrany kafelek planu powyzej, aby otworzyc pelny widok `Ready Plan`.
+            <div className="mx-auto flex max-w-[520px] flex-col items-center gap-4">
+              <p>
+                Kliknij wybrany kafelek planu powyzej, aby otworzyc pelny widok `Ready Plan`.
+              </p>
+              <button
+                onClick={createPlan}
+                className="theme-planner-button inline-flex items-center justify-center gap-2 rounded-full border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+              >
+                <Plus className="h-4 w-4" />
+                Dodaj plan
+              </button>
+            </div>
           </div>
           {false && (
         <div className="theme-planner-card rounded-[1.75rem] border border-[#EEE6DA] bg-[#FBF8F2] p-5">
@@ -1589,7 +1619,7 @@ export default function PlannerPanel({
             <div className="max-h-[980px] space-y-4 overflow-y-auto pr-1">
               {normalizeItinerary(draftPlan?.itinerary || []).map((section, index, allDays) => (
                 <DayColumn
-                  key={`${section.day}-${index}`}
+                  key={`planner-day-${index}`}
                   dayIndex={index}
                   day={section}
                   destination={selectedDestination}

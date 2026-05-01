@@ -2,6 +2,12 @@ function cn(...classes) {
   return classes.filter(Boolean).join(" ");
 }
 
+function normalizeMarkdownInput(text) {
+  return String(text || "")
+    .replace(/\]\s*\n\s*\(/g, "](")
+    .replace(/\]\s+\(/g, "](");
+}
+
 function normalizeHref(rawHref) {
   const value = (rawHref || "").trim();
   if (!value) return null;
@@ -17,7 +23,7 @@ function normalizeHref(rawHref) {
 }
 
 function renderInline(text) {
-  const source = String(text || "");
+  const source = normalizeMarkdownInput(text);
   const pattern =
     /(\*\*([^*]+)\*\*|\*([^*]+)\*|\[([^\]]+)\]\(([^)]+)\)|((?:https?:\/\/|www\.)[^\s<]+))/g;
   const nodes = [];
@@ -82,7 +88,7 @@ function renderInline(text) {
 }
 
 function parseBlocks(text) {
-  const lines = String(text || "").replace(/\r\n/g, "\n").split("\n");
+  const lines = normalizeMarkdownInput(text).replace(/\r\n/g, "\n").split("\n");
   const blocks = [];
   let paragraphLines = [];
   let listItems = [];

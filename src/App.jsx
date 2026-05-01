@@ -211,7 +211,11 @@ export default function App() {
         return [];
       }
 
-      return await refreshStorageMedia(dbCountries);
+      // Update the admin-facing data immediately after the DB read so add/edit
+      // actions feel instant, then hydrate images/videos in the background.
+      setTravelCountries(dbCountries);
+      refreshStorageMedia(dbCountries).catch(() => {});
+      return dbCountries;
     } catch (error) {
       setBaseCountries([]);
       setTravelCountries([]);

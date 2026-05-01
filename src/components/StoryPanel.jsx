@@ -14,6 +14,7 @@ import {
   BadgeAlert,
   CalendarCheck2,
   Clock3,
+  ChevronsUpDown,
   ChevronLeft,
   ChevronRight,
   ChevronUp,
@@ -217,6 +218,36 @@ function FitBounds({ points }) {
       maxZoom: 12,
     });
   }, [map, points]);
+
+  return null;
+}
+
+function SyncMapSize() {
+  const map = useMap();
+
+  useEffect(() => {
+    const invalidate = () => {
+      window.requestAnimationFrame(() => {
+        map.invalidateSize();
+      });
+    };
+
+    invalidate();
+
+    const container = map.getContainer();
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => invalidate())
+        : null;
+
+    observer?.observe(container);
+    window.addEventListener("resize", invalidate);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", invalidate);
+    };
+  }, [map]);
 
   return null;
 }
@@ -868,22 +899,95 @@ function StoryPanelBody({
   onExpand,
   onClose,
 }) {
+  const [placePickerOpen, setPlacePickerOpen] = useState(false);
+  const [placeSearchTerm, setPlaceSearchTerm] = useState("");
   const visibleThumbs = galleryImages.slice(galleryStart, galleryStart + 4);
+  const filteredSlides = useMemo(() => {
+    const query = placeSearchTerm.trim().toLowerCase();
+    if (!query) {
+      return slides.map((slide, index) => ({ ...slide, originalIndex: index }));
+    }
+
+    return slides
+      .map((slide, index) => ({ ...slide, originalIndex: index }))
+      .filter((slide) =>
+        [slide.title, slide.subtitle, slide.description]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(query))
+      );
+  }, [placeSearchTerm, slides]);
+  const hasActiveSlideInResults = filteredSlides.some(
+    (slide) => slide.originalIndex === activeIndex
+  );
+  const activeSlideLabel = slides[activeIndex]?.title || "Wybierz miejscowke";
+
+  useEffect(() => {
+    if (!placePickerOpen) {
+      setPlaceSearchTerm("");
+    }
+  }, [placePickerOpen]);
 
   return (
     <>
-      <div className="mb-3">
-        <select
-          value={activeIndex}
-          onChange={(e) => onGoTo(Number(e.target.value))}
-          className="w-full rounded-xl border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-sm text-[#4D463D]"
-        >
-          {slides.map((slide, index) => (
-            <option key={slide.id} value={index}>
-              {slide.title}
-            </option>
-          ))}
-        </select>
+      <div className="mb-3 space-y-2">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setPlacePickerOpen((current) => !current)}
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-left text-sm text-[#4D463D] transition hover:bg-white"
+          >
+            <span className="min-w-0 flex-1 truncate">{activeSlideLabel}</span>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 text-[#8A7F6C]" />
+          </button>
+
+          {placePickerOpen ? (
+            <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 rounded-[1.1rem] border border-[#E5DCCF] bg-white p-3 shadow-[0_18px_40px_rgba(34,31,25,0.12)]">
+              <input
+                type="text"
+                value={placeSearchTerm}
+                onChange={(e) => setPlaceSearchTerm(e.target.value)}
+                placeholder="Wpisz nazwe miejscowki..."
+                autoFocus
+                className="w-full rounded-xl border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-sm text-[#4D463D] outline-none transition focus:border-[#B9AE9A]"
+              />
+              <div className="mt-3 max-h-64 overflow-y-auto pr-1">
+                {filteredSlides.length ? (
+                  <div className="space-y-2">
+                    {filteredSlides.map((slide) => (
+                      <button
+                        key={slide.id}
+                        type="button"
+                        onClick={() => {
+                          onGoTo(slide.originalIndex);
+                          setPlacePickerOpen(false);
+                        }}
+                        className={`flex w-full items-center justify-between gap-3 rounded-[0.9rem] border px-3 py-2.5 text-left text-sm transition ${
+                          slide.originalIndex === activeIndex
+                            ? "border-[#D8CCBB] bg-[#FBF8F2] text-[#1F1D1A]"
+                            : "border-[#EEE6DA] bg-white text-[#4D463D] hover:bg-[#F8F2E9]"
+                        }`}
+                      >
+                        <span className="min-w-0 flex-1 break-words">{slide.title}</span>
+                        {slide.originalIndex === activeIndex ? (
+                          <span className="text-xs font-medium text-[#8A7F6C]">Aktywna</span>
+                        ) : null}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-[0.9rem] border border-[#EEE6DA] bg-[#FBF8F2] px-3 py-3 text-sm text-[#6B6255]">
+                    Brak pasujacych miejscowek.
+                  </div>
+                )}
+              </div>
+              {!hasActiveSlideInResults && placeSearchTerm.trim() ? (
+                <p className="mt-3 text-xs text-[#8A7F6C]">
+                  Aktualnie wybrana miejscowka nie pasuje do filtra.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div className="mb-3 flex items-start justify-between gap-3">
@@ -894,9 +998,14 @@ function StoryPanelBody({
           <h3 className="mt-2 text-xl font-semibold text-[#1F1D1A]">
             {currentSlide.title}
           </h3>
-          <p className="mt-2 text-sm font-medium text-[#6B7A52]">
-            {currentSlide.subtitle}
-          </p>
+          {currentSlide.subtitle ? (
+            <RichText
+              text={currentSlide.subtitle}
+              className="mt-2 space-y-1 text-sm font-medium text-[#6B7A52]"
+              paragraphClassName="text-sm font-medium leading-6 text-[#6B7A52]"
+              listClassName="text-sm font-medium text-[#6B7A52]"
+            />
+          ) : null}
         </div>
         {expanded ? (
           <button
@@ -1262,7 +1371,7 @@ function DestinationMapSurface({
 
   return (
     <div className="theme-story-card overflow-hidden rounded-[2rem] border border-[#E6DED1] bg-white p-4 shadow-[0_18px_60px_rgba(34,31,25,0.06)]">
-      <div className="relative rounded-[1.6rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,rgba(107,122,82,0.08),transparent_35%),linear-gradient(180deg,#F3EEE5_0%,#ECE5D8_100%)] min-h-[860px]">
+      <div className="relative h-[clamp(720px,calc(100vh-10rem),980px)] rounded-[1.6rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,rgba(107,122,82,0.08),transparent_35%),linear-gradient(180deg,#F3EEE5_0%,#ECE5D8_100%)]">
         <div className="pointer-events-none absolute bottom-4 right-4 z-[700] w-[360px] max-w-[calc(100%-2rem)]">
           <div className="pointer-events-auto">
             <FloatingToolbar
@@ -1278,8 +1387,8 @@ function DestinationMapSurface({
           <div className="pointer-events-auto">{storyOverlay}</div>
         </div>
 
-        <div className="pointer-events-none absolute right-4 top-4 z-[700] hidden w-[310px] xl:block">
-          <div className="pointer-events-auto max-h-[calc(100vh-10rem)] overflow-y-auto pr-1">
+        <div className="pointer-events-none absolute right-4 top-4 z-[700] hidden w-[310px] xl:block [bottom:8.5rem]">
+          <div className="pointer-events-auto h-full overflow-y-auto pr-1">
             {detailsOverlay}
           </div>
         </div>
@@ -1294,6 +1403,7 @@ function DestinationMapSurface({
             scrollWheelZoom={true}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <SyncMapSize />
             <FitBounds points={destination.places} />
             {showTrailLayer &&
               destination.places

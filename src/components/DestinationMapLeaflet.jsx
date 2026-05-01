@@ -33,6 +33,36 @@ function FitBounds({ points }) {
   return null;
 }
 
+function SyncMapSize() {
+  const map = useMap();
+
+  useEffect(() => {
+    const invalidate = () => {
+      window.requestAnimationFrame(() => {
+        map.invalidateSize();
+      });
+    };
+
+    invalidate();
+
+    const container = map.getContainer();
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => invalidate())
+        : null;
+
+    observer?.observe(container);
+    window.addEventListener("resize", invalidate);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", invalidate);
+    };
+  }, [map]);
+
+  return null;
+}
+
 function MiniWorldLocator({ destination }) {
   const lat = destination.places.reduce((sum, p) => sum + p.coordinates[0], 0) / destination.places.length;
   const lng = destination.places.reduce((sum, p) => sum + p.coordinates[1], 0) / destination.places.length;
@@ -219,6 +249,7 @@ export default function DestinationMapLeaflet({ destination, activePlaceId, onSe
             scrollWheelZoom={true}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <SyncMapSize />
             <FitBounds points={displayPlaces} />
             {showTrailLayer &&
               trailPlaces.map((place) => {

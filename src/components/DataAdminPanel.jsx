@@ -8,20 +8,14 @@ import {
   upsertDestination,
   upsertPlace,
 } from "../lib/supabaseTravelData";
+import { replaceCover } from "../lib/storageMedia";
 import { buildMadeiraPrPlaceTemplates } from "../lib/madeiraPrCatalog";
 import {
   MADEIRA_WORKBOOK_CATEGORY_ASSIGNMENTS,
   PLACE_CATEGORY_OPTIONS,
 } from "../lib/placeCategories";
 
-const placeCategories = [
-  { value: "beach", label: "Plaża" },
-  { value: "viewpoint", label: "Punkt widokowy" },
-  { value: "cafe", label: "Kawiarnia / relax" },
-  { value: "museum", label: "Muzeum / architektura" },
-  { value: "city", label: "Miasto / spacer" },
-  { value: "trail", label: "Szlak" },
-];
+const DEFAULT_PLACE_NOTE = "[Google Maps]()";
 
 function slugify(value) {
   return (value || "")
@@ -109,6 +103,28 @@ function SelectInput({ label, value, onChange, options }) {
   );
 }
 
+function FileInput({ label, onChange, accept = "", helperText = "", fileName = "" }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-[#4D463D]">{label}</span>
+      <input
+        type="file"
+        accept={accept}
+        onChange={(e) => onChange(e.target.files?.[0] || null)}
+        className="block w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition file:mr-4 file:rounded-full file:border-0 file:bg-[#1F1D1A] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[#2C2924]"
+      />
+      {fileName ? (
+        <span className="mt-2 block text-xs leading-5 text-[#5E564B]">
+          Wybrany plik: {fileName}
+        </span>
+      ) : null}
+      {helperText ? (
+        <span className="mt-2 block text-xs leading-5 text-[#7A7164]">{helperText}</span>
+      ) : null}
+    </label>
+  );
+}
+
 function ActionButton({ children, onClick, variant = "default", type = "button", disabled }) {
   return (
     <button
@@ -157,7 +173,7 @@ function toPlaceForm(place) {
     category: place?.category || "city",
     latitude: place?.coordinates?.[0] ?? 0,
     longitude: place?.coordinates?.[1] ?? 0,
-    note: place?.note || "",
+    note: place?.note || DEFAULT_PLACE_NOTE,
     status: place?.status || "planned",
     subtitle: place?.subtitle || "",
     description: place?.description || "",
@@ -193,6 +209,7 @@ export default function DataAdminPanel({
   const [placeForm, setPlaceForm] = useState(
     toPlaceForm(countries[0]?.destinations?.[0]?.places?.[0])
   );
+  const [placeCoverFile, setPlaceCoverFile] = useState(null);
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -241,6 +258,7 @@ export default function DataAdminPanel({
 
   useEffect(() => {
     setPlaceForm(toPlaceForm(selectedPlace));
+    setPlaceCoverFile(null);
   }, [selectedPlace?.id]);
 
   const runAction = async (action, message, nextSelection) => {
@@ -303,13 +321,15 @@ export default function DataAdminPanel({
 
   const handleSavePlace = () =>
     runAction(
-      () =>
-        upsertPlace(
+      async () => {
+        const nextPlaceId = slugify(placeForm.id) || placeForm.id;
+
+        await upsertPlace(
           selectedDestinationId,
           {
             ...selectedPlace,
             ...placeForm,
-            id: slugify(placeForm.id) || placeForm.id,
+            id: nextPlaceId,
             coordinates: [Number(placeForm.latitude) || 0, Number(placeForm.longitude) || 0],
             startCoordinates:
               Number(placeForm.startLatitude) || Number(placeForm.startLongitude)
@@ -327,8 +347,15 @@ export default function DataAdminPanel({
                 : [],
           },
           selectedDestination?.places.findIndex((place) => place.id === selectedPlaceId) || 0
-        ),
-      "Zapisano zmiany miejscówki w Supabase.",
+        );
+
+        if (placeCoverFile && selectedCountryId && selectedDestinationId && nextPlaceId) {
+          await replaceCover(selectedCountryId, selectedDestinationId, nextPlaceId, placeCoverFile);
+        }
+      },
+      placeCoverFile
+        ? "Zapisano zmiany miejscówki i wgrano cover do Supabase."
+        : "Zapisano zmiany miejscówki w Supabase.",
       () => ({
         countryId: selectedCountryId,
         destinationId: selectedDestinationId,
@@ -391,7 +418,7 @@ export default function DataAdminPanel({
             name: "Nowe miejsce",
             category: "city",
             coordinates: [0, 0],
-            note: "",
+            note: DEFAULT_PLACE_NOTE,
             status: "planned",
             subtitle: "",
             description: "",
@@ -948,6 +975,13 @@ export default function DataAdminPanel({
               value={placeForm.description}
               onChange={(value) => setPlaceForm((prev) => ({ ...prev, description: value }))}
               placeholder="Dłuższy opis miejsca"
+            />
+            <FileInput
+              label="Cover miejsca"
+              accept="image/*"
+              fileName={placeCoverFile?.name || ""}
+              onChange={setPlaceCoverFile}
+              helperText="Mozesz od razu dodac nowy cover. Zostanie zapisany przy kliknieciu 'Zapisz miejscowke'."
             />
             <TextInput
               label="Info"
