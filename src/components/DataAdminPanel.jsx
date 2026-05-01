@@ -9,6 +9,10 @@ import {
   upsertPlace,
 } from "../lib/supabaseTravelData";
 import { buildMadeiraPrPlaceTemplates } from "../lib/madeiraPrCatalog";
+import {
+  MADEIRA_WORKBOOK_CATEGORY_ASSIGNMENTS,
+  PLACE_CATEGORY_OPTIONS,
+} from "../lib/placeCategories";
 
 const placeCategories = [
   { value: "beach", label: "Plaża" },
@@ -229,15 +233,15 @@ export default function DataAdminPanel({
 
   useEffect(() => {
     setCountryForm(toCountryForm(selectedCountry));
-  }, [selectedCountry]);
+  }, [selectedCountry?.id]);
 
   useEffect(() => {
     setDestinationForm(toDestinationForm(selectedDestination));
-  }, [selectedDestination]);
+  }, [selectedDestination?.id]);
 
   useEffect(() => {
     setPlaceForm(toPlaceForm(selectedPlace));
-  }, [selectedPlace]);
+  }, [selectedPlace?.id]);
 
   const runAction = async (action, message, nextSelection) => {
     setLoading(true);
@@ -554,6 +558,38 @@ export default function DataAdminPanel({
     );
   };
 
+  const syncMadeiraWorkbookCategories = () => {
+    if (!selectedDestination) return;
+
+    runAction(
+      async () => {
+        for (const assignment of MADEIRA_WORKBOOK_CATEGORY_ASSIGNMENTS) {
+          const existingPlace =
+            selectedDestination?.places?.find((place) => place.id === assignment.id) || null;
+          if (!existingPlace || existingPlace.category === assignment.category) continue;
+
+          const existingIndex =
+            selectedDestination?.places?.findIndex((place) => place.id === assignment.id) || 0;
+
+          await upsertPlace(
+            selectedDestinationId,
+            {
+              ...existingPlace,
+              category: assignment.category,
+            },
+            existingIndex
+          );
+        }
+      },
+      "Zsynchronizowano kategorie workbookowych miejsc na Maderze.",
+      () => ({
+        countryId: selectedCountryId,
+        destinationId: selectedDestinationId,
+        placeId: selectedPlaceId,
+      })
+    );
+  };
+
   const deleteCountry = () => {
     if (!selectedCountry || countries.length <= 1) return;
     runAction(
@@ -798,6 +834,13 @@ export default function DataAdminPanel({
                 <RefreshCw className="h-4 w-4" />
                 Napraw / zsynchronizuj PR Madery
               </ActionButton>
+              <ActionButton
+                onClick={syncMadeiraWorkbookCategories}
+                disabled={loading || !selectedDestination}
+              >
+                <RefreshCw className="h-4 w-4" />
+                Zsynchronizuj kategorie Madery
+              </ActionButton>
             </div>
           }
         >
@@ -827,7 +870,7 @@ export default function DataAdminPanel({
               label="Kategoria"
               value={placeForm.category}
               onChange={(value) => setPlaceForm((prev) => ({ ...prev, category: value }))}
-              options={placeCategories}
+              options={PLACE_CATEGORY_OPTIONS}
             />
             <TextInput
               label="Latitude"

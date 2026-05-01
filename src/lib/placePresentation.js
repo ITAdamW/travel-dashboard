@@ -1,4 +1,5 @@
 import { getMadeiraPrSeedDetails } from "./madeiraPrCatalog";
+import { categoryImpliesTrail } from "./placeCategories";
 
 const MADEIRA_TRAIL_ESTIMATES = [
   {
@@ -166,7 +167,7 @@ function findMatchingEstimate(place) {
 export function isTrailPlace(place) {
   if (!place) return false;
 
-  if (place.category === "trail") {
+  if (categoryImpliesTrail(place.category)) {
     return true;
   }
 

@@ -53,12 +53,25 @@ const fallbackImage =
   "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80";
 
 const categoryMeta = {
-  beach: { label: "Plaze", icon: Waves, color: "#4A7A8C" },
-  viewpoint: { label: "Punkty widokowe", icon: Mountain, color: "#6B7A52" },
-  cafe: { label: "Kawiarnie / relax", icon: Coffee, color: "#9A6945" },
-  museum: { label: "Muzea / architektura", icon: Landmark, color: "#7A6250" },
-  city: { label: "Miasto / spacer", icon: Route, color: "#5D6274" },
+  "forest-park": { label: "Las, wawoz, park", icon: MapPin, color: "#5F7D55" },
   trail: { label: "Szlaki", icon: Footprints, color: "#7A8F61" },
+  cliff: { label: "Klif", icon: Mountain, color: "#7A6250" },
+  "forest-trail": { label: "Las, wawoz, park / Szlak", icon: Footprints, color: "#6A865A" },
+  waterfall: { label: "Wodospady", icon: Waves, color: "#4A7A8C" },
+  viewpoint: { label: "Punkty widokowe", icon: Mountain, color: "#6B7A52" },
+  "viewpoint-trail": { label: "Punkt widokowy / Szlak", icon: Footprints, color: "#718B4E" },
+  mountains: { label: "Gory", icon: Mountain, color: "#7F6A58" },
+  water: { label: "Woda, jezioro, morze", icon: Waves, color: "#3E7E96" },
+  beach: { label: "Plaze", icon: Waves, color: "#4A7A8C" },
+  cave: { label: "Jaskinie", icon: Landmark, color: "#6A6056" },
+  city: { label: "Miasto", icon: Route, color: "#5D6274" },
+  "city-water": { label: "Miasto / Woda", icon: Route, color: "#4B7388" },
+  heritage: { label: "Zabytki", icon: Landmark, color: "#8C6A50" },
+  "food-drink": { label: "Bar, restauracja", icon: Coffee, color: "#9A6945" },
+
+  // Legacy aliases kept for older records before category sync.
+  cafe: { label: "Bar, restauracja", icon: Coffee, color: "#9A6945" },
+  museum: { label: "Zabytki", icon: Landmark, color: "#8C6A50" },
 };
 
 function mapsUrl(place) {

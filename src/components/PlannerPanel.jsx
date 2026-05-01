@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   MapContainer,
@@ -36,11 +36,25 @@ import {
 import RichText from "./RichText";
 
 const categoryMeta = {
-  beach: { label: "Plaze", icon: Waves },
-  viewpoint: { label: "Punkty widokowe", icon: Mountain },
-  cafe: { label: "Kawiarnie / relax", icon: Coffee },
-  museum: { label: "Muzea / architektura", icon: Landmark },
-  city: { label: "Miasto / spacer", icon: Route },
+  "forest-park": { label: "Las, wawoz, park", icon: MapPin },
+  trail: { label: "Szlak", icon: Route },
+  cliff: { label: "Klif", icon: Mountain },
+  "forest-trail": { label: "Las, wawoz, park / Szlak", icon: Route },
+  waterfall: { label: "Wodospad", icon: Waves },
+  viewpoint: { label: "Punkt widokowy", icon: Mountain },
+  "viewpoint-trail": { label: "Punkt widokowy / Szlak", icon: Route },
+  mountains: { label: "Gory", icon: Mountain },
+  water: { label: "Woda, jezioro, morze", icon: Waves },
+  beach: { label: "Plaza", icon: Waves },
+  cave: { label: "Jaskinia", icon: Landmark },
+  city: { label: "Miasto", icon: Route },
+  "city-water": { label: "Miasto / Woda", icon: Waves },
+  heritage: { label: "Zabytki", icon: Landmark },
+  "food-drink": { label: "Bar, restauracja", icon: Coffee },
+
+  // Legacy aliases kept for older records before category sync.
+  cafe: { label: "Bar, restauracja", icon: Coffee },
+  museum: { label: "Zabytki", icon: Landmark },
 };
 
 const plannerDayPalette = [
@@ -873,7 +887,11 @@ export default function PlannerPanel({
   const [saving, setSaving] = useState(false);
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
+  const [placeSearchTerm, setPlaceSearchTerm] = useState("");
   const canUsePortal = typeof document !== "undefined";
+  const previousInitialCountryIdRef = useRef(initialCountryId);
+  const previousInitialDestinationIdRef = useRef(initialDestinationId);
+  const previousSelectedPlanKeyRef = useRef("");
 
   const selectedCountry = useMemo(
     () => countries.find((country) => country.id === selectedCountryId) || countries[0],
@@ -888,7 +906,18 @@ export default function PlannerPanel({
     plans.find((plan) => plan.id === selectedPlanId) || plans[0] || null;
 
   useEffect(() => {
-    setSelectedCountryId(initialCountryId || countries[0]?.id || "");
+    const initialCountryChanged = previousInitialCountryIdRef.current !== initialCountryId;
+    previousInitialCountryIdRef.current = initialCountryId;
+
+    setSelectedCountryId((current) => {
+      if (initialCountryChanged) {
+        return initialCountryId || countries[0]?.id || "";
+      }
+      if (current && countries.some((country) => country.id === current)) {
+        return current;
+      }
+      return initialCountryId || countries[0]?.id || "";
+    });
   }, [initialCountryId, countries]);
 
   useEffect(() => {
@@ -899,7 +928,22 @@ export default function PlannerPanel({
   }, [selectedCountry, selectedDestinationId]);
 
   useEffect(() => {
-    setSelectedDestinationId(initialDestinationId || selectedCountry?.destinations[0]?.id || "");
+    const initialDestinationChanged =
+      previousInitialDestinationIdRef.current !== initialDestinationId;
+    previousInitialDestinationIdRef.current = initialDestinationId;
+
+    setSelectedDestinationId((current) => {
+      if (initialDestinationChanged) {
+        return initialDestinationId || selectedCountry?.destinations[0]?.id || "";
+      }
+      if (
+        current &&
+        selectedCountry?.destinations.some((destination) => destination.id === current)
+      ) {
+        return current;
+      }
+      return initialDestinationId || selectedCountry?.destinations[0]?.id || "";
+    });
   }, [initialDestinationId, selectedCountry?.id]);
 
   const loadPlans = async (destinationId) => {
@@ -956,6 +1000,12 @@ export default function PlannerPanel({
   }, [viewMode, selectedDestinationId]);
 
   useEffect(() => {
+    const selectedPlanKey = `${selectedDestination?.id || ""}:${selectedPlanId || selectedPlan?.id || ""}`;
+    if (previousSelectedPlanKeyRef.current === selectedPlanKey) {
+      return;
+    }
+    previousSelectedPlanKeyRef.current = selectedPlanKey;
+
     if (!selectedPlan) {
       setDraftPlan(selectedDestination ? createEmptyPlan(selectedDestination.id) : null);
       return;
@@ -967,7 +1017,7 @@ export default function PlannerPanel({
       itinerary,
       daysCount: itinerary.length,
     });
-  }, [selectedPlan?.id, selectedDestination?.id]);
+  }, [selectedPlanId, selectedPlan?.id, selectedDestination?.id]);
 
   const plannedPlaceIds = new Set(
     normalizeItinerary(draftPlan?.itinerary || []).flatMap((section) =>
@@ -978,6 +1028,23 @@ export default function PlannerPanel({
   const availablePlaces = (selectedDestination?.places || []).filter(
     (place) => !plannedPlaceIds.has(place.id)
   );
+  const normalizedPlaceSearch = placeSearchTerm.trim().toLowerCase();
+  const filteredAvailablePlaces = availablePlaces.filter((place) => {
+    if (!normalizedPlaceSearch) return true;
+
+    const haystack = [
+      place.name,
+      place.note,
+      place.subtitle,
+      place.info,
+      categoryMeta[place.category]?.label,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(normalizedPlaceSearch);
+  });
 
   const createPlan = () => {
     if (!selectedDestination) return;
@@ -1425,13 +1492,25 @@ export default function PlannerPanel({
                     </p>
                   </div>
                   <span className="rounded-full border border-[#E3D9CA] bg-white px-3 py-1 text-xs text-[#6B6255]">
-                    {availablePlaces.length} dostepnych
+                    {filteredAvailablePlaces.length} / {availablePlaces.length} dostepnych
                   </span>
                 </div>
 
+                <label className="mb-4 block">
+                  <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                    Szukaj miejsc
+                  </span>
+                  <input
+                    value={placeSearchTerm}
+                    onChange={(e) => setPlaceSearchTerm(e.target.value)}
+                    placeholder="Wpisz nazwe, opis, kategorie..."
+                    className="w-full rounded-[1rem] border border-[#E5DCCF] bg-white px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                  />
+                </label>
+
                 <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
-                  {availablePlaces.length ? (
-                    availablePlaces.map((place) => (
+                  {filteredAvailablePlaces.length ? (
+                    filteredAvailablePlaces.map((place) => (
                       <PlannerPlaceCard
                         key={place.id}
                         place={place}
@@ -1444,7 +1523,9 @@ export default function PlannerPanel({
                     ))
                   ) : (
                     <div className="theme-planner-card rounded-[1.2rem] border border-dashed border-[#DDD2C3] bg-white/70 px-4 py-8 text-center text-sm text-[#7C7263]">
-                      Wszystkie miejscowki sa juz przypisane do planu.
+                      {availablePlaces.length
+                        ? "Brak wynikow dla wpisanej frazy."
+                        : "Wszystkie miejscowki sa juz przypisane do planu."}
                     </div>
                   )}
                 </div>
