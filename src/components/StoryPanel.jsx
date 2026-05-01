@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,
   Marker,
@@ -667,7 +667,7 @@ function FloatingPlanPicker({
             Wszystkie miejscowki albo wybrany plan podrozy.
           </p>
         </div>
-        <span className="rounded-full border border-[#E1D7C8] bg-white px-2.5 py-1 text-xs font-medium text-[#4D463D]">
+        <span className="inline-flex min-h-[2.5rem] min-w-[2.5rem] items-center justify-center rounded-full border border-[#E1D7C8] bg-white px-2.5 py-1 text-center text-xs font-medium leading-tight text-[#4D463D]">
           {loadingPlans ? "Ladowanie" : `${planOptions.length} opcji`}
         </span>
       </div>
@@ -1669,16 +1669,20 @@ export default function StoryPanel({
     () => (filteredDestination.places || []).filter((place) => isTrailPlace(place)),
     [filteredDestination.places]
   );
-  const planOptions = useMemo(
-    () => [
+  const planOptions = useMemo(() => {
+    const sortedPlans = [...plans].sort((a, b) => {
+      if (a.isFavorite === b.isFavorite) return 0;
+      return a.isFavorite ? -1 : 1;
+    });
+
+    return [
       { id: "all-places", label: "Wszystkie miejscowki" },
-      ...plans.map((plan) => ({
+      ...sortedPlans.map((plan) => ({
         id: plan.id,
-        label: `${plan.name} · ${normalizePlanItinerary(plan.itinerary).length} dni`,
+        label: `${plan.isFavorite ? "★ " : ""}${plan.name} · ${normalizePlanItinerary(plan.itinerary).length} dni`,
       })),
-    ],
-    [plans]
-  );
+    ];
+  }, [plans]);
   const effectiveSelectedCategory =
     availableCategories.find((item) => item.key === selectedCategory)?.key ||
     availableCategories[0]?.key ||
@@ -1925,6 +1929,12 @@ export default function StoryPanel({
               destination={filteredDestination}
               activePlaceId={activePlaceId}
             />
+            <FloatingPlanPicker
+              planOptions={planOptions}
+              selectedPlanId={selectedPlanId}
+              onSelectPlan={setSelectedPlanId}
+              loadingPlans={loadingPlans}
+            />
             <FloatingCategoryPicker
               availableCategories={availableCategories}
               selectedCategory={effectiveSelectedCategory}
@@ -1940,12 +1950,6 @@ export default function StoryPanel({
               activePlaceId={activePlaceId}
               selectedCategory={effectiveSelectedCategory}
               onSelectPlace={handleSelectPlace}
-            />
-            <FloatingPlanPicker
-              planOptions={planOptions}
-              selectedPlanId={selectedPlanId}
-              onSelectPlan={setSelectedPlanId}
-              loadingPlans={loadingPlans}
             />
           </div>
         }
@@ -1964,3 +1968,4 @@ export default function StoryPanel({
     </section>
   );
 }
+
