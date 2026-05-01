@@ -721,7 +721,7 @@ export default function RoutePanel({
                                 paragraphClassName="leading-6 text-[#5B544A]"
                                 listClassName="text-[#5B544A]"
                               />
-                              {(entry.place.distanceKm || entry.place.durationHours) && (
+                              {(entry.place.distanceKm > 0 || entry.place.durationHours > 0) && (
                                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#4D463D]">
                                   {entry.place.distanceKm ? (
                                     <span className="inline-flex items-center gap-1 rounded-full border border-[#E1D7C8] bg-white px-2.5 py-1">

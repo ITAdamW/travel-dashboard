@@ -35,6 +35,13 @@ import {
   fetchPlannerPlans,
   upsertPlannerPlan,
 } from "../lib/supabaseTravelData";
+import { replacePlannerPlanCover } from "../lib/storageMedia";
+import {
+  buildPlaceCoverCandidates,
+  buildPlannerPlanCoverCandidates,
+  filterSupabaseMediaUrls,
+  normalizeSupabaseMediaUrl,
+} from "../lib/mediaUrls";
 import RichText from "./RichText";
 
 const categoryMeta = {
@@ -75,6 +82,43 @@ function cn(...classes) {
 
 function findPlaceById(destination, id) {
   return destination?.places.find((place) => place.id === id) || null;
+}
+
+function uniqueImageUrls(urls = []) {
+  return [...new Set(urls.filter(Boolean))];
+}
+
+function getPlaceImageCandidates(place) {
+  if (!place) return [];
+
+  return uniqueImageUrls([
+    normalizeSupabaseMediaUrl(place.image),
+    ...filterSupabaseMediaUrls(place.gallery),
+    place.storageMedia?.cover?.url,
+    ...(Array.isArray(place.storageMedia?.gallery)
+      ? place.storageMedia.gallery.map((item) => item?.url)
+      : []),
+    ...buildPlaceCoverCandidates(place.countryId, place.destinationId, place.id),
+  ]);
+}
+
+function getPlacePrimaryImage(place) {
+  return getPlaceImageCandidates(place)[0] || "";
+}
+
+function getPlanCoverCandidates(plan, destination) {
+  const plannedPlaceIds = normalizeItinerary(plan?.itinerary || []).flatMap((day) =>
+    day.items.map((item) => normalizeItem(item).placeId)
+  );
+
+  return uniqueImageUrls([
+    normalizeSupabaseMediaUrl(plan?.coverImage),
+    ...buildPlannerPlanCoverCandidates(plan?.destinationId || destination?.id, plan?.id),
+    ...plannedPlaceIds.flatMap((placeId) =>
+      getPlaceImageCandidates(findPlaceById(destination, placeId))
+    ),
+    ...(destination?.places || []).flatMap((place) => getPlaceImageCandidates(place)),
+  ]);
 }
 
 function createEmptyDay(index) {
@@ -129,21 +173,58 @@ function createEmptyPlan(destinationId, index = 0) {
     destinationId,
     name: `Plan ${index + 1}`,
     daysCount: 1,
+    coverImage: "",
     notes: "",
     itinerary: [createEmptyDay(0)],
   };
 }
 
 function getPlanCover(plan, destination) {
-  const firstPlannedPlaceId = normalizeItinerary(plan?.itinerary || [])
-    .flatMap((day) => day.items.map((item) => normalizeItem(item).placeId))
-    .find(Boolean);
+  return getPlanCoverCandidates(plan, destination)[0] || "";
+}
+
+function PlannerImage({ place, alt, className, fallback }) {
+  return (
+    <PlannerImageUrls
+      urls={getPlaceImageCandidates(place)}
+      alt={alt}
+      className={className}
+      fallback={fallback}
+    />
+  );
+}
+
+function PlannerImageUrls({ urls, alt, className, fallback = null }) {
+  const candidates = uniqueImageUrls(urls);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const candidatesKey = candidates.join("|");
+
+  useEffect(() => {
+    setCurrentIndex(0);
+    setFailed(false);
+  }, [candidatesKey]);
+
+  if (!candidates.length || failed || !candidates[currentIndex]) {
+    return fallback;
+  }
 
   return (
-    findPlaceById(destination, firstPlannedPlaceId)?.image ||
-    destination?.places?.find((place) => place.image)?.image ||
-    destination?.places?.find((place) => place.gallery?.length)?.gallery?.[0] ||
-    ""
+    <img
+      src={candidates[currentIndex]}
+      alt={alt}
+      className={className}
+      onError={() => {
+        setCurrentIndex((prev) => {
+          if (prev + 1 < candidates.length) {
+            return prev + 1;
+          }
+
+          setFailed(true);
+          return prev;
+        });
+      }}
+    />
   );
 }
 
@@ -338,19 +419,28 @@ function PlannerEditRouteMap({ destination, plan }) {
           </MapContainer>
         </div>
 
-        <div className="pointer-events-none absolute bottom-3 left-3 z-[650] w-[250px] max-w-[calc(100%-1.5rem)]">
+        <div className="pointer-events-none absolute bottom-3 left-3 z-[650] w-[220px] max-w-[calc(100%-1.5rem)]">
           <div className="pointer-events-auto rounded-[1rem] border border-[#E6DED1] bg-[rgba(255,255,255,0.9)] p-2.5 shadow-[0_12px_28px_rgba(34,31,25,0.10)] backdrop-blur">
-            <p className="text-[9px] uppercase tracking-[0.22em] text-[#8A7F6C]">Day colors</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[9px] uppercase tracking-[0.22em] text-[#8A7F6C]">Day colors</p>
+              {planDays.length > 6 ? (
+                <span className="text-[9px] uppercase tracking-[0.18em] text-[#9A917F]">
+                  Przewin
+                </span>
+              ) : null}
+            </div>
+            <div className="mt-2 max-h-[168px] overflow-y-auto pr-1">
+              <div className="flex flex-col gap-1.5">
               {planDays.map((day, index) => (
                 <span
                   key={`planner-legend-${day.day}`}
-                  className="inline-flex items-center gap-2 rounded-full border border-[#E1D7C8] bg-white px-2.5 py-1 text-[11px] text-[#4D463D]"
+                  className="inline-flex w-full items-center gap-2 rounded-full border border-[#E1D7C8] bg-white px-2.5 py-1 text-[10px] text-[#4D463D]"
                 >
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: day.color }} />
                   {day.day || `Day ${index + 1}`}
                 </span>
               ))}
+              </div>
             </div>
           </div>
         </div>
@@ -380,6 +470,11 @@ function SelectInput({ label, value, onChange, options }) {
 
 function PlannerPlaceCard({ place, draggable = false, onDragStart, onRemove, compact = false }) {
   const Icon = categoryMeta[place.category]?.icon || MapPin;
+  const imageFallback = (
+    <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#EDE7DB] text-[#6B7A52]">
+      <Icon className="h-5 w-5" />
+    </span>
+  );
 
   return (
     <div
@@ -392,11 +487,12 @@ function PlannerPlaceCard({ place, draggable = false, onDragStart, onRemove, com
       )}
     >
       <div className="flex min-w-0 items-center gap-3">
-        {place.image ? (
-          <img
-            src={place.image}
+        {getPlacePrimaryImage(place) ? (
+          <PlannerImage
+            place={place}
             alt={place.name}
             className="h-14 w-14 shrink-0 rounded-xl object-cover"
+            fallback={imageFallback}
           />
         ) : (
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EDE7DB] text-[#6B7A52]">
@@ -446,6 +542,11 @@ function PlannerDayItem({
   isDragging = false,
 }) {
   const Icon = categoryMeta[place.category]?.icon || MapPin;
+  const imageFallback = (
+    <span className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-[1rem] bg-[#EDE7DB] text-[#6B7A52]">
+      <Icon className="h-5 w-5" />
+    </span>
+  );
 
   return (
     <div
@@ -461,11 +562,12 @@ function PlannerDayItem({
       )}
     >
       <div className="flex flex-col gap-3 md:flex-row">
-        {place.image ? (
-          <img
-            src={place.image}
+        {getPlacePrimaryImage(place) ? (
+          <PlannerImage
+            place={place}
             alt={place.name}
             className="h-[76px] w-[76px] shrink-0 rounded-[1rem] object-cover"
+            fallback={imageFallback}
           />
         ) : (
           <span className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-[1rem] bg-[#EDE7DB] text-[#6B7A52]">
@@ -523,16 +625,24 @@ function PlannerDayItem({
 }
 
 function PlannerPreviewItem({ place, note }) {
+  const Icon = categoryMeta[place.category]?.icon || MapPin;
+  const imageFallback = (
+    <span className="flex h-[84px] w-[84px] shrink-0 items-center justify-center rounded-[1rem] bg-[#EDE7DB] text-[#6B7A52]">
+      <Icon className="h-6 w-6" />
+    </span>
+  );
+
   return (
     <div className="theme-planner-card rounded-[1.25rem] border border-[#E8DFD2] bg-[#FBF8F2] p-3">
       <div className="flex flex-col gap-3 md:flex-row">
-        {place.image ? (
-          <img
-            src={place.image}
+        {getPlacePrimaryImage(place) ? (
+          <PlannerImage
+            place={place}
             alt={place.name}
             className="h-[84px] w-[84px] shrink-0 rounded-[1rem] object-cover"
+            fallback={imageFallback}
           />
-        ) : null}
+        ) : imageFallback}
 
         <div className="min-w-0 flex-1">
           <p className="text-lg font-semibold text-[#1F1D1A]">{place.name}</p>
@@ -803,7 +913,7 @@ function exportPlanToPdf(destination, country, plan) {
 
           return `
             <article class="card">
-              ${place.image ? `<img src="${place.image}" alt="${place.name}" />` : ""}
+              ${getPlacePrimaryImage(place) ? `<img src="${getPlacePrimaryImage(place)}" alt="${place.name}" />` : ""}
               <div class="body">
                 <h3>${place.name}</h3>
                 <p class="meta">${categoryMeta[place.category]?.label || place.category}</p>
@@ -891,7 +1001,8 @@ export default function PlannerPanel({
   const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
   const [placeSearchTerm, setPlaceSearchTerm] = useState("");
   const [globalFavoritePlans, setGlobalFavoritePlans] = useState([]);
-  const [pendingGlobalPreviewPlanId, setPendingGlobalPreviewPlanId] = useState("");
+  const [pendingGlobalPlanAction, setPendingGlobalPlanAction] = useState(null);
+  const [pendingPlanCoverFile, setPendingPlanCoverFile] = useState(null);
   const canUsePortal = typeof document !== "undefined";
   const previousInitialCountryIdRef = useRef(initialCountryId);
   const previousInitialDestinationIdRef = useRef(initialDestinationId);
@@ -1045,11 +1156,41 @@ export default function PlannerPanel({
   }, [viewMode, selectedDestinationId]);
 
   useEffect(() => {
-    if (!pendingGlobalPreviewPlanId) return;
-    if (selectedPlan?.id !== pendingGlobalPreviewPlanId) return;
-    setPlanPreviewOpen(true);
-    setPendingGlobalPreviewPlanId("");
-  }, [pendingGlobalPreviewPlanId, selectedPlan?.id]);
+    if (!pendingGlobalPlanAction) return;
+
+    if (selectedCountryId !== pendingGlobalPlanAction.countryId) {
+      setSelectedCountryId(pendingGlobalPlanAction.countryId);
+      return;
+    }
+
+    if (selectedDestinationId !== pendingGlobalPlanAction.destinationId) {
+      setSelectedDestinationId(pendingGlobalPlanAction.destinationId);
+      return;
+    }
+
+    if (selectedPlan?.id !== pendingGlobalPlanAction.planId) {
+      if (plans.some((plan) => plan.id === pendingGlobalPlanAction.planId)) {
+        setSelectedPlanId(pendingGlobalPlanAction.planId);
+      }
+      return;
+    }
+
+    if (pendingGlobalPlanAction.mode === "preview") {
+      setViewMode("preview");
+      setPlanPreviewOpen(true);
+    } else {
+      setPlanPreviewOpen(false);
+      setViewMode("edit");
+    }
+
+    setPendingGlobalPlanAction(null);
+  }, [
+    pendingGlobalPlanAction,
+    plans,
+    selectedCountryId,
+    selectedDestinationId,
+    selectedPlan?.id,
+  ]);
 
   useEffect(() => {
     const selectedPlanKey = `${selectedDestination?.id || ""}:${selectedPlanId || selectedPlan?.id || ""}`;
@@ -1060,6 +1201,7 @@ export default function PlannerPanel({
 
     if (!selectedPlan) {
       setDraftPlan(selectedDestination ? createEmptyPlan(selectedDestination.id) : null);
+      setPendingPlanCoverFile(null);
       return;
     }
 
@@ -1069,6 +1211,7 @@ export default function PlannerPanel({
       itinerary,
       daysCount: itinerary.length,
     });
+    setPendingPlanCoverFile(null);
   }, [selectedPlanId, selectedPlan?.id, selectedDestination?.id]);
 
   const plannedPlaceIds = new Set(
@@ -1305,6 +1448,15 @@ export default function PlannerPanel({
       };
       normalizedPlan.daysCount = normalizedPlan.itinerary.length;
 
+      if (pendingPlanCoverFile) {
+        const uploadedCover = await replacePlannerPlanCover(
+          selectedDestination.id,
+          normalizedPlan.id,
+          pendingPlanCoverFile
+        );
+        normalizedPlan.coverImage = uploadedCover.url;
+      }
+
       const savedIndex = plans.findIndex((plan) => plan.id === normalizedPlan.id);
       const nextIndex = savedIndex >= 0 ? savedIndex : plans.length;
       await upsertPlannerPlan(selectedDestination.id, normalizedPlan, nextIndex);
@@ -1312,6 +1464,7 @@ export default function PlannerPanel({
       await loadGlobalFavoritePlans();
       setSelectedPlanId(normalizedPlan.id);
       setDraftPlan(nextPlans.find((plan) => plan.id === normalizedPlan.id) || normalizedPlan);
+      setPendingPlanCoverFile(null);
       setStatus("Plan zostal zapisany do Supabase.");
     } catch (error) {
       setStatus(error.message || "Nie udalo sie zapisac planu.");
@@ -1412,19 +1565,20 @@ export default function PlannerPanel({
                 <button
                   type="button"
                   onClick={() => {
-                    setViewMode("preview");
                     setPlanPreviewOpen(false);
-                    setPendingGlobalPreviewPlanId(plan.id);
-                    setSelectedCountryId(plan.countryId);
-                    setSelectedDestinationId(plan.destinationId);
-                    setSelectedPlanId(plan.id);
+                    setPendingGlobalPlanAction({
+                      mode: "preview",
+                      countryId: plan.countryId,
+                      destinationId: plan.destinationId,
+                      planId: plan.id,
+                    });
                   }}
                   className="block w-full text-left"
                 >
                   <div className="relative h-36 w-full overflow-hidden bg-[#F4EEE3]">
                     {plan.coverImage ? (
-                      <img
-                        src={plan.coverImage}
+                      <PlannerImageUrls
+                        urls={getPlanCoverCandidates(plan, countries.find((entry) => entry.id === plan.countryId)?.destinations?.find((entry) => entry.id === plan.destinationId))}
                         alt={plan.name}
                         className="h-full w-full object-cover"
                       />
@@ -1449,11 +1603,13 @@ export default function PlannerPanel({
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedCountryId(plan.countryId);
-                      setSelectedDestinationId(plan.destinationId);
-                      setSelectedPlanId(plan.id);
                       setPlanPreviewOpen(false);
-                      setViewMode("edit");
+                      setPendingGlobalPlanAction({
+                        mode: "edit",
+                        countryId: plan.countryId,
+                        destinationId: plan.destinationId,
+                        planId: plan.id,
+                      });
                     }}
                     className="theme-planner-button inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#D8CCBB] bg-[#FBF8F2] px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
                   >
@@ -1549,8 +1705,8 @@ export default function PlannerPanel({
                       >
                         <div className="h-36 w-full overflow-hidden bg-[#F4EEE3]">
                           {coverImage ? (
-                            <img
-                              src={coverImage}
+                            <PlannerImageUrls
+                              urls={getPlanCoverCandidates(plan, selectedDestination)}
                               alt={plan.name}
                               className="h-full w-full object-cover"
                             />
@@ -1759,6 +1915,36 @@ export default function PlannerPanel({
                       />
                     </label>
                   )}
+
+                  {draftPlan ? (
+                    <div className="mt-4 rounded-[1.2rem] border border-[#E5DCCF] bg-white p-3">
+                      <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                        Zdjecie glowne planu
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setPendingPlanCoverFile(e.target.files?.[0] || null)}
+                        className="block w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition file:mr-4 file:rounded-full file:border-0 file:bg-[#1F1D1A] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[#2C2924]"
+                      />
+                      <p className="mt-2 text-xs leading-5 text-[#7A7164]">
+                        {pendingPlanCoverFile
+                          ? `Wybrany plik: ${pendingPlanCoverFile.name}. Zostanie zapisany po kliknieciu "Zapisz plan".`
+                          : draftPlan.coverImage
+                            ? "Aktualny cover planu jest juz zapisany w Supabase."
+                            : "Dodaj osobne zdjecie glowne planu niezalezne od miejscowek."}
+                      </p>
+                      {getPlanCover(draftPlan, selectedDestination) ? (
+                        <div className="mt-3 overflow-hidden rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2]">
+                          <PlannerImageUrls
+                            urls={getPlanCoverCandidates(draftPlan, selectedDestination)}
+                            alt={draftPlan.name}
+                            className="h-36 w-full object-cover"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {draftPlan && (

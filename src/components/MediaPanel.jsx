@@ -112,13 +112,35 @@ export default function MediaPanel({ countries, onMediaChanged }) {
     refreshMedia();
   }, [selectedCountry?.id, selectedDestination?.id, selectedPlace?.id]);
 
+  const persistPlaceMedia = async (nextMediaState) => {
+    if (!selectedDestination || !selectedPlace) return;
+
+    await upsertPlace(
+      selectedDestination.id,
+      {
+        ...selectedPlace,
+        coordinates: selectedPlace.coordinates,
+        image: nextMediaState.cover?.url || "",
+        gallery: nextMediaState.gallery.map((item) => item.url),
+        video: nextMediaState.videos[0]?.url || "",
+        videos: nextMediaState.videos.map((item) => item.url),
+      },
+      selectedDestination.places.findIndex((place) => place.id === selectedPlace.id)
+    );
+  };
+
   const runAction = async (action, successMessage) => {
     setLoading(true);
     setStatus({ type: "", message: "" });
 
     try {
-      await action();
-      await refreshMedia();
+      const nextMediaState = await action();
+      if (nextMediaState) {
+        setMedia(nextMediaState);
+        await persistPlaceMedia(nextMediaState);
+      } else {
+        await refreshMedia();
+      }
       await onMediaChanged?.();
       setStatus({ type: "success", message: successMessage });
     } catch (error) {
@@ -149,13 +171,17 @@ export default function MediaPanel({ countries, onMediaChanged }) {
         {
           ...selectedPlace,
           coordinates: selectedPlace.coordinates,
-          image: "",
-          gallery: [],
+          image: result.uploadedImages[0]?.url || "",
+          gallery: result.uploadedImages.slice(1).map((item) => item.url),
         },
         selectedDestination.places.findIndex((place) => place.id === selectedPlace.id)
       );
 
-      await refreshMedia();
+      setMedia({
+        cover: result.uploadedImages[0] || null,
+        gallery: result.uploadedImages.slice(1),
+        videos: [],
+      });
       await onMediaChanged?.();
 
       setStatus({
@@ -276,13 +302,15 @@ export default function MediaPanel({ countries, onMediaChanged }) {
                 const file = e.target.files?.[0];
                 if (!file || !selectedCountry || !selectedDestination || !selectedPlace) return;
                 runAction(
-                  () =>
-                    replaceCover(
+                  async () => {
+                    const cover = await replaceCover(
                       selectedCountry.id,
                       selectedDestination.id,
                       selectedPlace.id,
                       file
-                    ),
+                    );
+                    return { cover, gallery: media.gallery, videos: media.videos };
+                  },
                   "Cover został zaktualizowany."
                 );
                 e.target.value = "";
@@ -305,13 +333,19 @@ export default function MediaPanel({ countries, onMediaChanged }) {
                 if (!files.length || !selectedCountry || !selectedDestination || !selectedPlace)
                   return;
                 runAction(
-                  () =>
-                    uploadGalleryFiles(
+                  async () => {
+                    const uploaded = await uploadGalleryFiles(
                       selectedCountry.id,
                       selectedDestination.id,
                       selectedPlace.id,
                       files
-                    ),
+                    );
+                    return {
+                      cover: media.cover,
+                      gallery: [...media.gallery, ...uploaded],
+                      videos: media.videos,
+                    };
+                  },
                   "Zdjęcia galerii zostały dodane."
                 );
                 e.target.value = "";
@@ -334,13 +368,19 @@ export default function MediaPanel({ countries, onMediaChanged }) {
                 if (!files.length || !selectedCountry || !selectedDestination || !selectedPlace)
                   return;
                 runAction(
-                  () =>
-                    uploadVideoFiles(
+                  async () => {
+                    const uploaded = await uploadVideoFiles(
                       selectedCountry.id,
                       selectedDestination.id,
                       selectedPlace.id,
                       files
-                    ),
+                    );
+                    return {
+                      cover: media.cover,
+                      gallery: media.gallery,
+                      videos: [...media.videos, ...uploaded],
+                    };
+                  },
                   "Pliki wideo zostały dodane."
                 );
                 e.target.value = "";
@@ -380,7 +420,14 @@ export default function MediaPanel({ countries, onMediaChanged }) {
                 type="image"
                 onDelete={(item) =>
                   runAction(
-                    () => removeStorageObject(item.bucket, item.path),
+                    async () => {
+                      await removeStorageObject(item.bucket, item.path);
+                      return {
+                        cover: null,
+                        gallery: media.gallery,
+                        videos: media.videos,
+                      };
+                    },
                     "Cover został usunięty."
                   )
                 }
@@ -403,7 +450,14 @@ export default function MediaPanel({ countries, onMediaChanged }) {
                     type="image"
                     onDelete={(nextItem) =>
                       runAction(
-                        () => removeStorageObject(nextItem.bucket, nextItem.path),
+                        async () => {
+                          await removeStorageObject(nextItem.bucket, nextItem.path);
+                          return {
+                            cover: media.cover,
+                            gallery: media.gallery.filter((entry) => entry.path !== nextItem.path),
+                            videos: media.videos,
+                          };
+                        },
                         "Zdjęcie zostało usunięte."
                       )
                     }
@@ -428,7 +482,14 @@ export default function MediaPanel({ countries, onMediaChanged }) {
                     type="video"
                     onDelete={(nextItem) =>
                       runAction(
-                        () => removeStorageObject(nextItem.bucket, nextItem.path),
+                        async () => {
+                          await removeStorageObject(nextItem.bucket, nextItem.path);
+                          return {
+                            cover: media.cover,
+                            gallery: media.gallery,
+                            videos: media.videos.filter((entry) => entry.path !== nextItem.path),
+                          };
+                        },
                         "Wideo zostało usunięte."
                       )
                     }

@@ -21,7 +21,6 @@ import DataAdminPanel from "./components/DataAdminPanel";
 import UserSettingsPanel from "./components/UserSettingsPanel";
 import UsersPanel from "./components/UsersPanel";
 import { supabase } from "./lib/supabase";
-import { hydrateCountriesWithStorage } from "./lib/storageMedia";
 import { fetchTravelCountriesFromDb } from "./lib/supabaseTravelData";
 import { ensureCurrentUserProfile } from "./lib/userProfiles";
 
@@ -115,7 +114,6 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [baseCountries, setBaseCountries] = useState([]);
   const [travelCountries, setTravelCountries] = useState([]);
-  const [mediaLoading, setMediaLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataStatus, setDataStatus] = useState("");
   const [userSettingsOpen, setUserSettingsOpen] = useState(false);
@@ -182,22 +180,6 @@ export default function App() {
     }
   }, [travelCountries, selectedCountryId, selectedDestinationId]);
 
-  const refreshStorageMedia = useCallback(async (sourceCountries = []) => {
-    if (!sourceCountries?.length) {
-      setTravelCountries([]);
-      return [];
-    }
-
-    setMediaLoading(true);
-    try {
-      const nextCountries = await hydrateCountriesWithStorage(sourceCountries);
-      setTravelCountries(nextCountries);
-      return nextCountries;
-    } finally {
-      setMediaLoading(false);
-    }
-  }, []);
-
   const loadTravelData = useCallback(async () => {
     setDataLoading(true);
     setDataStatus("");
@@ -211,10 +193,9 @@ export default function App() {
         return [];
       }
 
-      // Update the admin-facing data immediately after the DB read so add/edit
-      // actions feel instant, then hydrate images/videos in the background.
+      // Main app panels use media URLs stored in the database.
+      // Storage scanning is handled only in the Media panel.
       setTravelCountries(dbCountries);
-      refreshStorageMedia(dbCountries).catch(() => {});
       return dbCountries;
     } catch (error) {
       setBaseCountries([]);
@@ -226,7 +207,7 @@ export default function App() {
     } finally {
       setDataLoading(false);
     }
-  }, [refreshStorageMedia]);
+  }, []);
 
   useEffect(() => {
     if (!session) return;
@@ -628,21 +609,16 @@ export default function App() {
             <EmptyPanelState message="Panel users jest dostepny tylko dla admina." />
           ))}
 
-        {(mediaLoading || dataLoading || dataStatus || profileLoading) && (
+        {(dataLoading || dataStatus || profileLoading) && (
           <div className="pointer-events-none fixed bottom-6 right-6 z-[1450] flex w-[min(380px,calc(100vw-2rem))] flex-col gap-3">
             {profileLoading && (
               <FloatingToast>
                 Synchronizuje profil i role uzytkownika...
               </FloatingToast>
             )}
-            {mediaLoading && (
-              <FloatingToast>
-                Synchronizuje zdjecia i filmy z Supabase Storage...
-              </FloatingToast>
-            )}
             {dataLoading && (
               <FloatingToast>
-                Synchronizuje kraje, miasta i miejscowki z Supabase Database...
+                Synchronizuje kraje, miasta, miejscowki i zdjecia z Supabase Database...
               </FloatingToast>
             )}
             {dataStatus && <FloatingToast tone="error">{dataStatus}</FloatingToast>}

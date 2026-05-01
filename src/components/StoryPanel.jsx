@@ -48,10 +48,83 @@ import {
   resolveTrailGeometryForPlace,
 } from "../lib/trailGeometry";
 import { getCachedTrailPath, setCachedTrailPath } from "../lib/trailCache";
+import {
+  buildPlaceCoverCandidates,
+  filterSupabaseMediaUrls,
+  normalizeSupabaseMediaUrl,
+} from "../lib/mediaUrls";
+import { listPlaceMedia } from "../lib/storageMedia";
 import RichText from "./RichText";
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80";
+
+function uniqueImageUrls(urls = []) {
+  return [...new Set(urls.filter(Boolean))];
+}
+
+function getPlaceImageCandidates(place, storageMedia = null) {
+  if (!place) return [];
+
+  return uniqueImageUrls([
+    normalizeSupabaseMediaUrl(place.image),
+    ...filterSupabaseMediaUrls(place.gallery),
+    storageMedia?.cover?.url,
+    ...(Array.isArray(storageMedia?.gallery)
+      ? storageMedia.gallery.map((item) => item?.url)
+      : []),
+    ...buildPlaceCoverCandidates(place.countryId, place.destinationId, place.id),
+  ]);
+}
+
+function getPlaceGalleryCandidates(place, storageMedia = null) {
+  if (!place) return [];
+
+  return uniqueImageUrls([
+    ...filterSupabaseMediaUrls(place.gallery),
+    ...(Array.isArray(storageMedia?.gallery)
+      ? storageMedia.gallery.map((item) => item?.url)
+      : []),
+  ]);
+}
+
+function getPlacePrimaryImage(place, storageMedia = null) {
+  return getPlaceImageCandidates(place, storageMedia)[0] || "";
+}
+
+function SmartImage({ urls, alt, className, fallback = fallbackImage }) {
+  const candidates = uniqueImageUrls(urls);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const candidatesKey = candidates.join("|");
+
+  useEffect(() => {
+    setCurrentIndex(0);
+    setFailed(false);
+  }, [candidatesKey]);
+
+  if (!candidates.length || failed || !candidates[currentIndex]) {
+    return <img src={fallback} alt={alt} className={className} />;
+  }
+
+  return (
+    <img
+      src={candidates[currentIndex]}
+      alt={alt}
+      className={className}
+      onError={() => {
+        setCurrentIndex((prev) => {
+          if (prev + 1 < candidates.length) {
+            return prev + 1;
+          }
+
+          setFailed(true);
+          return prev;
+        });
+      }}
+    />
+  );
+}
 
 const categoryMeta = {
   "forest-park": { label: "Las, wawoz, park", icon: MapPin, color: "#5F7D55" },
@@ -155,7 +228,7 @@ function getStorySlides(destination) {
       description:
         place.description ||
         "To miejsce mozesz pozniej uzupelnic wlasnym opisem, wspomnieniem albo praktyczna notatka do planowania wyjazdu.",
-      image: place.image || fallbackImage,
+      image: getPlacePrimaryImage(place) || fallbackImage,
     })),
   ];
 }
@@ -888,6 +961,7 @@ function StoryPanelBody({
   activeIndex,
   currentSlide,
   galleryImages,
+  activePlaceMedia,
   galleryStart,
   setGalleryStart,
   setLightboxIndex,
@@ -1051,8 +1125,12 @@ function StoryPanelBody({
             }}
             className="block w-full"
           >
-            <img
-              src={currentSlide.image || fallbackImage}
+            <SmartImage
+              urls={
+                currentSlide.place
+                  ? getPlaceImageCandidates(currentSlide.place, activePlaceMedia)
+                  : [currentSlide.image]
+              }
               alt={currentSlide.title}
               className={expanded ? "h-[320px] w-full object-cover" : "h-44 w-full object-cover"}
             />
@@ -1093,8 +1171,8 @@ function StoryPanelBody({
                       }}
                       className="overflow-hidden rounded-xl border border-[#E8DFD2]"
                     >
-                      <img
-                        src={img}
+                      <SmartImage
+                        urls={[img]}
                         alt={`${currentSlide.title} ${absoluteIndex + 1}`}
                         className={expanded ? "h-24 w-full object-cover" : "h-14 w-full object-cover"}
                       />
@@ -1142,8 +1220,8 @@ function StoryPanelBody({
                       }}
                       className="overflow-hidden rounded-xl border border-[#E8DFD2] bg-white"
                     >
-                      <img
-                        src={img}
+                      <SmartImage
+                        urls={[img]}
                         alt={`${currentSlide.title} ${absoluteIndex + 1}`}
                         className="h-20 w-full object-cover"
                       />
@@ -1194,6 +1272,11 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [storyPanelOpen, setStoryPanelOpen] = useState(false);
+  const [activePlaceMedia, setActivePlaceMedia] = useState({
+    cover: null,
+    gallery: [],
+    videos: [],
+  });
   const canUsePortal = typeof document !== "undefined";
 
   if (!slides.length) {
@@ -1209,28 +1292,74 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
     );
   }
 
-  const currentSlide = slides[activeIndex];
+  const safeActiveIndex = Math.min(Math.max(activeIndex, 0), slides.length - 1);
+  const currentSlide = slides[safeActiveIndex];
   const activePlace = findPlaceById(destination, currentSlide.placeId);
   const metaBadges = getPlaceMetaBadges(activePlace);
-  const galleryImages = activePlace?.gallery?.length
-    ? activePlace.gallery
-    : activePlace
-      ? [activePlace.image || fallbackImage]
-      : [];
+  const galleryImages = activePlace
+    ? uniqueImageUrls([
+        getPlacePrimaryImage(activePlace, activePlaceMedia),
+        ...getPlaceGalleryCandidates(activePlace, activePlaceMedia),
+      ])
+    : [];
   const placeVideos = activePlace?.videos?.length
     ? activePlace.videos
     : activePlace?.video
       ? [activePlace.video]
       : [];
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadActivePlaceMedia() {
+      if (!activePlace?.countryId || !activePlace?.destinationId || !activePlace?.id) {
+        setActivePlaceMedia({ cover: null, gallery: [], videos: [] });
+        return;
+      }
+
+      try {
+        const nextMedia = await listPlaceMedia(
+          activePlace.countryId,
+          activePlace.destinationId,
+          activePlace.id
+        );
+
+        if (!cancelled) {
+          setActivePlaceMedia(nextMedia);
+        }
+      } catch {
+        if (!cancelled) {
+          setActivePlaceMedia({ cover: null, gallery: [], videos: [] });
+        }
+      }
+    }
+
+    loadActivePlaceMedia();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePlace?.countryId, activePlace?.destinationId, activePlace?.id]);
+
+  useEffect(() => {
+    setGalleryStart(0);
+    setLightboxIndex(0);
+  }, [activePlace?.id]);
+
+  useEffect(() => {
+    setGalleryStart((prev) => Math.min(prev, Math.max(galleryImages.length - 4, 0)));
+    setLightboxIndex((prev) => Math.min(prev, Math.max(galleryImages.length - 1, 0)));
+  }, [galleryImages.length]);
+
   return (
     <>
       <div className="flex h-full min-h-[calc(100%-2rem)] flex-col rounded-[1.5rem] border border-[#E6DED1] bg-[rgba(255,255,255,0.92)] p-4 shadow-[0_18px_38px_rgba(34,31,25,0.12)] backdrop-blur">
         <StoryPanelBody
           slides={slides}
-          activeIndex={activeIndex}
+          activeIndex={safeActiveIndex}
           currentSlide={{ ...currentSlide, place: activePlace }}
           galleryImages={galleryImages}
+          activePlaceMedia={activePlaceMedia}
           galleryStart={galleryStart}
           setGalleryStart={setGalleryStart}
           setLightboxIndex={setLightboxIndex}
@@ -1278,8 +1407,8 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
-          <img
-            src={galleryImages[lightboxIndex]}
+          <SmartImage
+            urls={[galleryImages[lightboxIndex]]}
             alt={`${currentSlide.title} full`}
             className="max-h-[85vh] max-w-[85vw] rounded-2xl object-contain"
           />
@@ -1306,6 +1435,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
                   activeIndex={activeIndex}
                   currentSlide={{ ...currentSlide, place: activePlace }}
                   galleryImages={galleryImages}
+                  activePlaceMedia={activePlaceMedia}
                   galleryStart={galleryStart}
                   setGalleryStart={setGalleryStart}
                   setLightboxIndex={setLightboxIndex}
@@ -1318,7 +1448,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
                 />
                 <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#E8DFD2] pt-4 text-sm text-[#6B6255]">
                   <div className="whitespace-nowrap text-sm font-medium text-[#6B6255]">
-                    {activeIndex + 1} / {slides.length}
+                    {safeActiveIndex + 1} / {slides.length}
                   </div>
                   <div className="flex items-center gap-2">
                   <button
@@ -1707,6 +1837,20 @@ export default function StoryPanel({
     selectedCategory,
     slides,
   ]);
+
+  useEffect(() => {
+    if (!slides.length) {
+      if (activeStoryIndex !== 0) {
+        setActiveStoryIndex(0);
+      }
+      return;
+    }
+
+    const maxIndex = slides.length - 1;
+    if (activeStoryIndex > maxIndex) {
+      setActiveStoryIndex(maxIndex);
+    }
+  }, [activeStoryIndex, slides.length]);
 
   const syncToSlide = (index) => {
     setActiveStoryIndex(index);

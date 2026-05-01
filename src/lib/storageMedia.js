@@ -1,10 +1,18 @@
 import { supabase } from "./supabase";
+import {
+  buildPlannerPlanCoverCandidates,
+  buildPlaceCoverCandidates,
+  filterSupabaseMediaUrls,
+  normalizeSupabaseMediaUrl,
+} from "./mediaUrls";
 
 export const IMAGE_BUCKET = "travel-images";
 export const VIDEO_BUCKET = "travel-videos";
 
 const IMAGE_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "avif"];
 const VIDEO_EXTENSIONS = ["mp4", "webm", "mov", "m4v"];
+const bucketAvailability = new Map();
+const BUCKET_STATE_STORAGE_KEY = "travel-dashboard-storage-bucket-state";
 
 function sortByName(items) {
   return [...items].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
@@ -24,6 +32,50 @@ function publicUrl(bucket, path) {
   return data.publicUrl;
 }
 
+function versionedPublicUrl(bucket, path) {
+  const baseUrl = publicUrl(bucket, path);
+  if (!baseUrl) return "";
+  return `${baseUrl}?v=${Date.now()}`;
+}
+
+function uniqueUrls(urls = []) {
+  return [...new Set(urls.filter(Boolean))];
+}
+
+function readPersistedBucketAvailability() {
+  if (typeof window === "undefined") return;
+
+  try {
+    const raw = window.sessionStorage.getItem(BUCKET_STATE_STORAGE_KEY);
+    if (!raw) return;
+
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return;
+
+    Object.entries(parsed).forEach(([bucket, available]) => {
+      if (typeof available === "boolean") {
+        bucketAvailability.set(bucket, available);
+      }
+    });
+  } catch {
+    // Ignore corrupted session cache and re-detect bucket state.
+  }
+}
+
+function persistBucketAvailability() {
+  if (typeof window === "undefined") return;
+
+  try {
+    const payload = Object.fromEntries(bucketAvailability.entries());
+    window.sessionStorage.setItem(
+      BUCKET_STATE_STORAGE_KEY,
+      JSON.stringify(payload)
+    );
+  } catch {
+    // Ignore sessionStorage write failures.
+  }
+}
+
 function remoteExtension(url = "", fallback = "jpg") {
   try {
     const pathname = new URL(url).pathname || "";
@@ -34,8 +86,57 @@ function remoteExtension(url = "", fallback = "jpg") {
   }
 }
 
+function shouldDisableBucket(error) {
+  const statusCode = Number(error?.statusCode || error?.status || 0);
+  const message = String(error?.message || "").toLowerCase();
+
+  return (
+    statusCode === 400 ||
+    statusCode === 403 ||
+    statusCode === 404 ||
+    message.includes("not found") ||
+    message.includes("does not exist") ||
+    message.includes("bucket")
+  );
+}
+
+readPersistedBucketAvailability();
+
+async function safeListBucket(bucket, folder) {
+  if (!supabase) {
+    return [];
+  }
+
+  if (bucketAvailability.get(bucket) === false) {
+    return [];
+  }
+
+  const { data, error } = await supabase.storage.from(bucket).list(folder, {
+    limit: 100,
+    sortBy: { column: "name", order: "asc" },
+  });
+
+  if (error) {
+    if (shouldDisableBucket(error)) {
+      bucketAvailability.set(bucket, false);
+      persistBucketAvailability();
+      return [];
+    }
+
+    throw error;
+  }
+
+  bucketAvailability.set(bucket, true);
+  persistBucketAvailability();
+  return data || [];
+}
+
 export function placeFolder(countryId, destinationId, placeId) {
   return `${countryId}/${destinationId}/${placeId}`;
+}
+
+export function plannerPlanFolder(destinationId, planId) {
+  return `planner-plans/${destinationId}/${planId}`;
 }
 
 export async function listPlaceMedia(countryId, destinationId, placeId) {
@@ -49,20 +150,10 @@ export async function listPlaceMedia(countryId, destinationId, placeId) {
 
   const folder = placeFolder(countryId, destinationId, placeId);
 
-  const [{ data: imageFiles, error: imageError }, { data: videoFiles, error: videoError }] =
-    await Promise.all([
-      supabase.storage.from(IMAGE_BUCKET).list(folder, {
-        limit: 100,
-        sortBy: { column: "name", order: "asc" },
-      }),
-      supabase.storage.from(VIDEO_BUCKET).list(folder, {
-        limit: 100,
-        sortBy: { column: "name", order: "asc" },
-      }),
-    ]);
-
-  if (imageError) throw imageError;
-  if (videoError) throw videoError;
+  const [imageFiles, videoFiles] = await Promise.all([
+    safeListBucket(IMAGE_BUCKET, folder),
+    safeListBucket(VIDEO_BUCKET, folder),
+  ]);
 
   const validImages = sortByName(imageFiles || []).filter((file) =>
     IMAGE_EXTENSIONS.includes(fileExtension(file.name))
@@ -113,17 +204,24 @@ export async function hydrateCountriesWithStorage(countries) {
                 const media = await listPlaceMedia(country.id, destination.id, place.id);
                 const hasStorageImages = Boolean(media.cover || media.gallery.length);
                 const hasStorageVideos = media.videos.length > 0;
+                const mergedImages = uniqueUrls([
+                  normalizeSupabaseMediaUrl(place.image),
+                  ...filterSupabaseMediaUrls(place.gallery),
+                  media.cover?.url,
+                  ...media.gallery.map((item) => item.url),
+                ]);
+                const mergedVideos = uniqueUrls([
+                  place.video,
+                  ...(Array.isArray(place.videos) ? place.videos : []),
+                  ...media.videos.map((item) => item.url),
+                ]);
 
                 return {
                   ...place,
-                  image: media.cover?.url || media.gallery[0]?.url || place.image,
-                  gallery: hasStorageImages
-                    ? [media.cover?.url, ...media.gallery.map((item) => item.url)].filter(Boolean)
-                    : place.gallery,
-                  video: hasStorageVideos ? media.videos[0].url : place.video || null,
-                  videos: hasStorageVideos
-                    ? media.videos.map((item) => item.url)
-                    : place.videos || [],
+                  image: mergedImages[0] || "",
+                  gallery: mergedImages,
+                  video: mergedVideos[0] || null,
+                  videos: mergedVideos,
                   storageMedia: media,
                 };
               } catch {
@@ -148,16 +246,10 @@ export async function hydrateCountriesWithStorage(countries) {
 
 export async function replaceCover(countryId, destinationId, placeId, file) {
   const folder = placeFolder(countryId, destinationId, placeId);
-  const { cover, gallery } = await listPlaceMedia(countryId, destinationId, placeId);
   const extension = fileExtension(file.name) || "jpg";
   const path = `${folder}/cover.${extension}`;
 
-  const coverPaths = [
-    cover?.path,
-    ...gallery
-      .filter((item) => stripExtension(item.name) === "cover")
-      .map((item) => item.path),
-  ].filter(Boolean);
+  const coverPaths = IMAGE_EXTENSIONS.map((ext) => `${folder}/cover.${ext}`);
 
   if (coverPaths.length) {
     await supabase.storage.from(IMAGE_BUCKET).remove([...new Set(coverPaths)]);
@@ -169,10 +261,42 @@ export async function replaceCover(countryId, destinationId, placeId, file) {
   });
 
   if (error) throw error;
+
+  return {
+    bucket: IMAGE_BUCKET,
+    path,
+    url: versionedPublicUrl(IMAGE_BUCKET, path),
+  };
+}
+
+export async function replacePlannerPlanCover(destinationId, planId, file) {
+  const folder = plannerPlanFolder(destinationId, planId);
+  const extension = fileExtension(file.name) || "jpg";
+  const path = `${folder}/cover.${extension}`;
+
+  const coverPaths = IMAGE_EXTENSIONS.map((ext) => `${folder}/cover.${ext}`);
+
+  if (coverPaths.length) {
+    await supabase.storage.from(IMAGE_BUCKET).remove([...new Set(coverPaths)]);
+  }
+
+  const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, {
+    upsert: true,
+    contentType: file.type || `image/${extension}`,
+  });
+
+  if (error) throw error;
+
+  return {
+    bucket: IMAGE_BUCKET,
+    path,
+    url: versionedPublicUrl(IMAGE_BUCKET, path),
+  };
 }
 
 export async function uploadGalleryFiles(countryId, destinationId, placeId, files) {
   const folder = placeFolder(countryId, destinationId, placeId);
+  const uploaded = [];
 
   for (const file of files) {
     const extension = fileExtension(file.name) || "jpg";
@@ -188,11 +312,20 @@ export async function uploadGalleryFiles(countryId, destinationId, placeId, file
     });
 
     if (error) throw error;
+
+    uploaded.push({
+      bucket: IMAGE_BUCKET,
+      path,
+      url: publicUrl(IMAGE_BUCKET, path),
+    });
   }
+
+  return uploaded;
 }
 
 export async function uploadVideoFiles(countryId, destinationId, placeId, files) {
   const folder = placeFolder(countryId, destinationId, placeId);
+  const uploaded = [];
 
   for (const file of files) {
     const extension = fileExtension(file.name) || "mp4";
@@ -208,7 +341,15 @@ export async function uploadVideoFiles(countryId, destinationId, placeId, files)
     });
 
     if (error) throw error;
+
+    uploaded.push({
+      bucket: VIDEO_BUCKET,
+      path,
+      url: publicUrl(VIDEO_BUCKET, path),
+    });
   }
+
+  return uploaded;
 }
 
 export async function removeStorageObject(bucket, path) {
@@ -244,6 +385,7 @@ export async function migrateRemoteImagesToStorage(
   }
 
   let uploadedCount = 0;
+  const uploadedImages = [];
   const failedUrls = [];
 
   for (const [index, imageUrl] of sourceUrls.entries()) {
@@ -272,10 +414,49 @@ export async function migrateRemoteImagesToStorage(
       }
 
       uploadedCount += 1;
+      uploadedImages.push({
+        bucket: IMAGE_BUCKET,
+        path,
+        url: publicUrl(IMAGE_BUCKET, path),
+      });
     } catch {
       failedUrls.push(imageUrl);
     }
   }
 
-  return { uploadedCount, failedUrls };
+  return { uploadedCount, failedUrls, uploadedImages };
+}
+
+export async function resolvePlaceCoverFromStorage(countryId, destinationId, placeId) {
+  const candidates = buildPlaceCoverCandidates(countryId, destinationId, placeId);
+
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url, { method: "HEAD" });
+      if (response.ok) {
+        return url;
+      }
+    } catch {
+      // Ignore and continue with the next candidate.
+    }
+  }
+
+  return "";
+}
+
+export async function resolvePlannerPlanCoverFromStorage(destinationId, planId) {
+  const candidates = buildPlannerPlanCoverCandidates(destinationId, planId);
+
+  for (const url of candidates) {
+    try {
+      const response = await fetch(url, { method: "HEAD" });
+      if (response.ok) {
+        return url;
+      }
+    } catch {
+      // Ignore and continue with the next candidate.
+    }
+  }
+
+  return "";
 }

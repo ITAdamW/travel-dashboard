@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useEffect, useMemo, useState } from "react";
 import { Plus, RefreshCw, Save, Trash2 } from "lucide-react";
 import {
   deleteCountryById,
@@ -9,6 +9,7 @@ import {
   upsertPlace,
 } from "../lib/supabaseTravelData";
 import { replaceCover } from "../lib/storageMedia";
+import { filterSupabaseMediaUrls } from "../lib/mediaUrls";
 import { buildMadeiraPrPlaceTemplates } from "../lib/madeiraPrCatalog";
 import {
   MADEIRA_WORKBOOK_CATEGORY_ASSIGNMENTS,
@@ -198,7 +199,14 @@ function FileInput({ label, onChange, accept = "", helperText = "", fileName = "
   );
 }
 
-function ActionButton({ children, onClick, variant = "default", type = "button", disabled }) {
+function ActionButton({
+  children,
+  onClick,
+  variant = "default",
+  type = "button",
+  disabled,
+  className = "",
+}) {
   return (
     <button
       type={type}
@@ -210,7 +218,8 @@ function ActionButton({ children, onClick, variant = "default", type = "button",
           ? "theme-admin-danger border-[#E5CBC5] bg-[#FFF5F2] text-[#8E4E45] hover:bg-[#FDEBE6]"
           : variant === "primary"
           ? "border-[#D8CCBB] bg-[#1F1D1A] text-white hover:bg-[#2C2924]"
-          : "border-[#D8CCBB] bg-white text-[#1F1D1A] hover:bg-[#F8F2E9]"
+          : "border-[#D8CCBB] bg-white text-[#1F1D1A] hover:bg-[#F8F2E9]",
+        className
       )}
     >
       {children}
@@ -396,34 +405,53 @@ export default function DataAdminPanel({
     runAction(
       async () => {
         const nextPlaceId = slugify(placeForm.id) || placeForm.id;
+        const nextPlacePayload = {
+          ...selectedPlace,
+          ...placeForm,
+          id: nextPlaceId,
+          coordinates: [Number(placeForm.latitude) || 0, Number(placeForm.longitude) || 0],
+          startCoordinates:
+            Number(placeForm.startLatitude) || Number(placeForm.startLongitude)
+              ? [
+                  Number(placeForm.startLatitude) || 0,
+                  Number(placeForm.startLongitude) || 0,
+                ]
+              : [],
+          endCoordinates:
+            Number(placeForm.endLatitude) || Number(placeForm.endLongitude)
+              ? [
+                  Number(placeForm.endLatitude) || 0,
+                  Number(placeForm.endLongitude) || 0,
+                ]
+              : [],
+        };
 
         await upsertPlace(
           selectedDestinationId,
-          {
-            ...selectedPlace,
-            ...placeForm,
-            id: nextPlaceId,
-            coordinates: [Number(placeForm.latitude) || 0, Number(placeForm.longitude) || 0],
-            startCoordinates:
-              Number(placeForm.startLatitude) || Number(placeForm.startLongitude)
-                ? [
-                    Number(placeForm.startLatitude) || 0,
-                    Number(placeForm.startLongitude) || 0,
-                  ]
-                : [],
-            endCoordinates:
-              Number(placeForm.endLatitude) || Number(placeForm.endLongitude)
-                ? [
-                    Number(placeForm.endLatitude) || 0,
-                    Number(placeForm.endLongitude) || 0,
-                  ]
-                : [],
-          },
+          nextPlacePayload,
           selectedDestination?.places.findIndex((place) => place.id === selectedPlaceId) || 0
         );
 
         if (placeCoverFile && selectedCountryId && selectedDestinationId && nextPlaceId) {
-          await replaceCover(selectedCountryId, selectedDestinationId, nextPlaceId, placeCoverFile);
+          const cover = await replaceCover(
+            selectedCountryId,
+            selectedDestinationId,
+            nextPlaceId,
+            placeCoverFile
+          );
+
+          await upsertPlace(
+            selectedDestinationId,
+            {
+              ...nextPlacePayload,
+              image: cover.url,
+              gallery: [
+                cover.url,
+                ...filterSupabaseMediaUrls(selectedPlace?.gallery || []),
+              ].filter((value, index, array) => array.indexOf(value) === index),
+            },
+            selectedDestination?.places.findIndex((place) => place.id === selectedPlaceId) || 0
+          );
         }
       },
       placeCoverFile
@@ -833,12 +861,22 @@ export default function DataAdminPanel({
               onChange={(value) => setCountryForm((prev) => ({ ...prev, summary: value }))}
               placeholder="Krótki opis kraju"
             />
-            <div className="flex flex-wrap gap-3">
-              <ActionButton onClick={handleSaveCountry} variant="primary" disabled={loading}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <ActionButton
+                onClick={handleSaveCountry}
+                variant="primary"
+                disabled={loading}
+                className="w-full"
+              >
                 <Save className="h-4 w-4" />
                 Zapisz kraj
               </ActionButton>
-              <ActionButton onClick={deleteCountry} variant="danger" disabled={loading}>
+              <ActionButton
+                onClick={deleteCountry}
+                variant="danger"
+                disabled={loading}
+                className="w-full"
+              >
                 <Trash2 className="h-4 w-4" />
                 Usuń kraj
               </ActionButton>
@@ -890,11 +928,12 @@ export default function DataAdminPanel({
               onChange={(value) => setDestinationForm((prev) => ({ ...prev, summary: value }))}
               placeholder="Opis destynacji"
             />
-            <div className="flex flex-wrap gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <ActionButton
                 onClick={handleSaveDestination}
                 variant="primary"
                 disabled={loading || !selectedCountry}
+                className="w-full"
               >
                 <Save className="h-4 w-4" />
                 Zapisz miasto
@@ -903,6 +942,7 @@ export default function DataAdminPanel({
                 onClick={deleteDestination}
                 variant="danger"
                 disabled={loading || !selectedDestination}
+                className="w-full"
               >
                 <Trash2 className="h-4 w-4" />
                 Usuń miasto
@@ -913,33 +953,12 @@ export default function DataAdminPanel({
 
         <SectionCard
           title="Place"
-          subtitle="Dodawaj i edytuj konkretne miejscówki wraz z koordynatami i opisami."
+          subtitle="Dodawaj, edytuj i porządkuj miejscówki."
           action={
-            <div className="flex flex-wrap gap-2">
+            <div className="flex w-full flex-col gap-2 xl:w-[280px]">
               <ActionButton onClick={addPlace} disabled={loading || !selectedDestination}>
                 <Plus className="h-4 w-4" />
                 Dodaj miejscówkę
-              </ActionButton>
-              <ActionButton
-                onClick={addMadeiraPrPlaces}
-                disabled={loading || !selectedDestination}
-              >
-                <Plus className="h-4 w-4" />
-                Dodaj wszystkie PR Madery
-              </ActionButton>
-              <ActionButton
-                onClick={syncMadeiraPrPlaces}
-                disabled={loading || !selectedDestination}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Napraw / zsynchronizuj PR Madery
-              </ActionButton>
-              <ActionButton
-                onClick={syncMadeiraWorkbookCategories}
-                disabled={loading || !selectedDestination}
-              >
-                <RefreshCw className="h-4 w-4" />
-                Zsynchronizuj kategorie Madery
               </ActionButton>
             </div>
           }
@@ -973,6 +992,7 @@ export default function DataAdminPanel({
               onChange={(value) => setPlaceForm((prev) => ({ ...prev, category: value }))}
               options={PLACE_CATEGORY_OPTIONS}
             />
+            <div className="grid gap-4 md:grid-cols-2">
             <TextInput
               label="Latitude"
               value={String(placeForm.latitude)}
@@ -1038,24 +1058,28 @@ export default function DataAdminPanel({
               onChange={(value) => setPlaceForm((prev) => ({ ...prev, subtitle: value }))}
               placeholder="Krótki podtytuł"
             />
+            <div className="md:col-span-2">
             <TextArea
               label="Notka"
               value={placeForm.note}
               onChange={(value) => setPlaceForm((prev) => ({ ...prev, note: value }))}
               placeholder="Krótka notka o miejscu"
             />
+            </div>
+            <div className="md:col-span-2">
             <TextArea
               label="Opis"
               value={placeForm.description}
               onChange={(value) => setPlaceForm((prev) => ({ ...prev, description: value }))}
               placeholder="Dłuższy opis miejsca"
             />
+            </div>
             <FileInput
               label="Cover miejsca"
               accept="image/*"
               fileName={placeCoverFile?.name || ""}
               onChange={setPlaceCoverFile}
-              helperText="Mozesz od razu dodac nowy cover. Zostanie zapisany przy kliknieciu 'Zapisz miejscowke'."
+              helperText="Możesz od razu dodać nowy cover. Zostanie zapisany przy kliknięciu 'Zapisz miejscówkę'."
             />
             <TextInput
               label="Info"
@@ -1104,11 +1128,13 @@ export default function DataAdminPanel({
               placeholder="np. 4.5"
               type="number"
             />
-            <div className="flex flex-wrap gap-3">
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
               <ActionButton
                 onClick={handleSavePlace}
                 variant="primary"
                 disabled={loading || !selectedDestination}
+                className="w-full"
               >
                 <Save className="h-4 w-4" />
                 Zapisz miejscówkę
@@ -1117,6 +1143,7 @@ export default function DataAdminPanel({
                 onClick={deletePlace}
                 variant="danger"
                 disabled={loading || !selectedPlace}
+                className="w-full"
               >
                 <Trash2 className="h-4 w-4" />
                 Usuń miejscówkę
@@ -1134,3 +1161,4 @@ export default function DataAdminPanel({
     </section>
   );
 }
+

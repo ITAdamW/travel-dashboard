@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { getPlaceMetadataMap, setPlaceMetadata } from "./placeMetadataStore";
+import { filterSupabaseMediaUrls, normalizeSupabaseMediaUrl } from "./mediaUrls";
 
 function sortByOrder(items) {
   return [...items].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
@@ -7,6 +8,10 @@ function sortByOrder(items) {
 
 function ensureArray(value, fallback = []) {
   return Array.isArray(value) ? value : fallback;
+}
+
+function normalizeMediaArray(value, fallback = []) {
+  return filterSupabaseMediaUrls(ensureArray(value, fallback));
 }
 
 function isMissingColumnError(error, columnName) {
@@ -55,8 +60,8 @@ export function toPlaceRow(destinationId, place, index = 0) {
     status: place.status || "planned",
     subtitle: place.subtitle || "",
     description: place.description || "",
-    image: place.image || "",
-    gallery: ensureArray(place.gallery, []),
+    image: normalizeSupabaseMediaUrl(place.image || ""),
+    gallery: normalizeMediaArray(place.gallery, []),
     video: place.video || "",
     videos: ensureArray(place.videos, []),
     rating: Number(place.rating ?? 0),
@@ -95,8 +100,11 @@ export function mapDbToCountries(countryRows, destinationRows, placeRows) {
           status: place.status,
           subtitle: place.subtitle,
           description: place.description,
-          image: place.image,
-          gallery: ensureArray(place.gallery, place.image ? [place.image] : []),
+          image: normalizeSupabaseMediaUrl(place.image),
+          gallery: normalizeMediaArray(
+            place.gallery,
+            place.image ? [normalizeSupabaseMediaUrl(place.image)] : []
+          ),
           video: place.video || null,
           videos: ensureArray(place.videos, place.video ? [place.video] : []),
           rating: place.rating ?? 0,
@@ -137,12 +145,17 @@ export function mapDbToCountries(countryRows, destinationRows, placeRows) {
         destinationRows.filter((destination) => destination.country_id === country.id)
       ).map((destination) => ({
         id: destination.id,
+        countryId: country.id,
         name: destination.name,
         area: destination.area,
         video: destination.video,
         summary: destination.summary,
         itinerary: ensureArray(destination.itinerary, []),
-        places: placesByDestination.get(destination.id) || [],
+        places: (placesByDestination.get(destination.id) || []).map((place) => ({
+          ...place,
+          countryId: country.id,
+          destinationId: destination.id,
+        })),
       }))
     );
   }
@@ -253,6 +266,7 @@ export function toPlannerPlanRow(destinationId, plan, index = 0) {
     name: plan.name,
     days_count: Number(plan.daysCount ?? plan.itinerary?.length ?? 1),
     is_favorite: Boolean(plan.isFavorite ?? plan.is_favorite ?? false),
+    cover_image: normalizeSupabaseMediaUrl(plan.coverImage || plan.cover_image || ""),
     itinerary: ensureArray(plan.itinerary, []),
     notes: plan.notes || "",
     sort_order: index,
@@ -276,6 +290,7 @@ export async function fetchPlannerPlans(destinationId) {
     name: plan.name,
     daysCount: plan.days_count,
     isFavorite: Boolean(plan.is_favorite),
+    coverImage: normalizeSupabaseMediaUrl(plan.cover_image),
     notes: plan.notes || "",
     itinerary: ensureArray(plan.itinerary, []),
   }));
@@ -298,15 +313,23 @@ export async function fetchFavoritePlannerPlans() {
     name: plan.name,
     daysCount: plan.days_count,
     isFavorite: Boolean(plan.is_favorite),
+    coverImage: normalizeSupabaseMediaUrl(plan.cover_image),
     notes: plan.notes || "",
     itinerary: ensureArray(plan.itinerary, []),
   }));
 }
 
 export async function upsertPlannerPlan(destinationId, plan, index = 0) {
-  const { error } = await supabase
+  const fullRow = toPlannerPlanRow(destinationId, plan, index);
+  let { error } = await supabase
     .from("planner_plans")
-    .upsert(toPlannerPlanRow(destinationId, plan, index));
+    .upsert(fullRow);
+
+  if (error && isMissingColumnError(error, "cover_image")) {
+    const { cover_image, ...legacyRow } = fullRow;
+    ({ error } = await supabase.from("planner_plans").upsert(legacyRow));
+  }
+
   if (error) throw error;
 }
 
