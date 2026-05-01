@@ -38,6 +38,87 @@ function FileCard({ item, type, onDelete }) {
   );
 }
 
+function cn(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
+
+function SearchableSelectInput({ label, value, onChange, options, placeholder = "Szukaj..." }) {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value) || null;
+  const [inputState, setInputState] = useState({
+    ownerValue: value,
+    query: selectedOption?.label || "",
+  });
+  const query =
+    inputState.ownerValue === value ? inputState.query : selectedOption?.label || "";
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredOptions = options.filter((option) =>
+    !normalizedQuery ? true : option.label.toLowerCase().includes(normalizedQuery)
+  );
+
+  return (
+    <label className="block">
+      <span className="mb-2 block text-sm font-medium text-[#4D463D]">{label}</span>
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setInputState({ ownerValue: value, query: e.target.value });
+            setOpen(true);
+          }}
+          onBlur={() => {
+            window.setTimeout(() => {
+              setOpen(false);
+              setInputState({
+                ownerValue: value,
+                query: selectedOption?.label || "",
+              });
+            }, 120);
+          }}
+          placeholder={placeholder}
+          className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+        />
+
+        {open ? (
+          <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-20 max-h-72 overflow-y-auto rounded-[1rem] border border-[#E5DCCF] bg-white p-2 shadow-[0_18px_40px_rgba(34,31,25,0.12)]">
+            {filteredOptions.length ? (
+              <div className="space-y-1">
+                {filteredOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      onChange(option.value);
+                      setInputState({ ownerValue: option.value, query: option.label });
+                      setOpen(false);
+                    }}
+                    className={cn(
+                      "w-full rounded-[0.9rem] px-3 py-2.5 text-left text-sm transition",
+                      option.value === value
+                        ? "bg-[#FBF8F2] text-[#1F1D1A]"
+                        : "text-[#4D463D] hover:bg-[#F8F2E9]"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-[0.9rem] bg-[#FBF8F2] px-3 py-3 text-sm text-[#6B6255]">
+                Brak pasujacych miejsc.
+              </div>
+            )}
+          </div>
+        ) : null}
+      </div>
+    </label>
+  );
+}
+
 function isStorageImageUrl(url) {
   return typeof url === "string" && url.includes(`/storage/v1/object/public/${IMAGE_BUCKET}/`);
 }
@@ -244,20 +325,16 @@ export default function MediaPanel({ countries, onMediaChanged }) {
             </select>
           </label>
 
-          <label className="block">
-            <span className="mb-2 block text-sm font-medium text-[#4D463D]">Miejsce</span>
-            <select
-              value={selectedPlaceId}
-              onChange={(e) => setSelectedPlaceId(e.target.value)}
-              className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm"
-            >
-              {selectedDestination?.places.map((place) => (
-                <option key={place.id} value={place.id}>
-                  {place.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SearchableSelectInput
+            label="Miejsce"
+            value={selectedPlaceId}
+            onChange={setSelectedPlaceId}
+            options={(selectedDestination?.places || []).map((place) => ({
+              value: place.id,
+              label: place.name,
+            }))}
+            placeholder="Wyszukaj miejscowke po nazwie..."
+          />
         </div>
 
         <div className="theme-media-card mt-6 rounded-[1.4rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">

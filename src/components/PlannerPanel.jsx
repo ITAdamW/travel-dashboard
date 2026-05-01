@@ -1897,30 +1897,68 @@ export default function PlannerPanel({
             </div>
 
             <div className="theme-planner-card rounded-[1.75rem] border border-[#EEE6DA] bg-[#FBF8F2] p-5">
-            <div className="mb-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
-              <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-                <div>
-                  <h4 className="font-medium">Edycja planu</h4>
-                  <p className="mt-1 text-sm text-[#7A7164]">
-                    Dodawaj dni, ustawiaj kolejnosc i dopisuj notatki do punktow.
-                  </p>
+            <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+              <div>
+                <h4 className="font-medium">Edycja planu</h4>
+                <p className="mt-1 text-sm text-[#7A7164]">
+                  Dodawaj dni, ustawiaj kolejnosc i dopisuj notatki do punktow.
+                </p>
+              </div>
 
-                  {draftPlan && (
-                    <label className="mt-4 block">
-                      <span className="mb-2 block text-sm font-medium text-[#4D463D]">Nazwa planu</span>
-                      <input
-                        value={draftPlan.name}
-                        onChange={(e) => updateDraft((prev) => ({ ...prev, name: e.target.value }))}
-                        className="w-full rounded-[1rem] border border-[#E5DCCF] bg-white px-4 py-3 text-sm text-[#1F1D1A] outline-none"
-                      />
-                    </label>
-                  )}
+              <div className="flex flex-wrap gap-3 xl:justify-end">
+                <button
+                  onClick={savePlan}
+                  disabled={saving || !selectedDestination || !draftPlan}
+                  className="theme-planner-button inline-flex items-center justify-center gap-2 rounded-full border border-[#D8CCBB] bg-[#1F1D1A] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#2C2924] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <Save className="h-4 w-4" />
+                  {saving ? "Zapisywanie..." : "Zapisz plan"}
+                </button>
+                <button
+                  onClick={addDay}
+                  className="theme-planner-button inline-flex items-center justify-center gap-2 rounded-full border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Dodaj dzien
+                </button>
+              </div>
+            </div>
 
-                  {draftPlan ? (
-                    <div className="mt-4 rounded-[1.2rem] border border-[#E5DCCF] bg-white p-3">
-                      <span className="mb-2 block text-sm font-medium text-[#4D463D]">
-                        Zdjecie glowne planu
-                      </span>
+            {draftPlan && (
+              <div className="mb-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.85fr)]">
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-[#4D463D]">Nazwa planu</span>
+                    <input
+                      value={draftPlan.name}
+                      onChange={(e) => updateDraft((prev) => ({ ...prev, name: e.target.value }))}
+                      className="w-full rounded-[1rem] border border-[#E5DCCF] bg-white px-4 py-3 text-sm text-[#1F1D1A] outline-none"
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-medium text-[#4D463D]">Notatki do planu</span>
+                    <textarea
+                      rows={4}
+                      value={draftPlan.notes || ""}
+                      onChange={(e) => updateDraft((prev) => ({ ...prev, notes: e.target.value }))}
+                      className="w-full rounded-[1rem] border border-[#E5DCCF] bg-white px-4 py-3 text-sm text-[#1F1D1A] outline-none"
+                    />
+                  </label>
+                </div>
+
+                <div className="rounded-[1.2rem] border border-[#E5DCCF] bg-white p-3">
+                  <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                    Zdjecie glowne planu
+                  </span>
+                  <div
+                    className={`grid gap-3 lg:items-start ${
+                      getPlanCover(draftPlan, selectedDestination)
+                        ? "sm:grid-cols-[minmax(0,1fr)_150px]"
+                        : ""
+                    }`}
+                  >
+                    <div>
                       <input
                         type="file"
                         accept="image/*"
@@ -1934,51 +1972,20 @@ export default function PlannerPanel({
                             ? "Aktualny cover planu jest juz zapisany w Supabase."
                             : "Dodaj osobne zdjecie glowne planu niezalezne od miejscowek."}
                       </p>
-                      {getPlanCover(draftPlan, selectedDestination) ? (
-                        <div className="mt-3 overflow-hidden rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2]">
-                          <PlannerImageUrls
-                            urls={getPlanCoverCandidates(draftPlan, selectedDestination)}
-                            alt={draftPlan.name}
-                            className="h-36 w-full object-cover"
-                          />
-                        </div>
-                      ) : null}
                     </div>
-                  ) : null}
+                    {getPlanCover(draftPlan, selectedDestination) ? (
+                      <div className="overflow-hidden rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2]">
+                        <PlannerImageUrls
+                          urls={getPlanCoverCandidates(draftPlan, selectedDestination)}
+                          alt={draftPlan.name}
+                          className="h-32 w-full object-cover"
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
-
-                {draftPlan && (
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-[#4D463D]">Notatki do planu</span>
-                    <textarea
-                      rows={4}
-                      value={draftPlan.notes || ""}
-                      onChange={(e) => updateDraft((prev) => ({ ...prev, notes: e.target.value }))}
-                      className="w-full rounded-[1rem] border border-[#E5DCCF] bg-white px-4 py-3 text-sm text-[#1F1D1A] outline-none"
-                    />
-                  </label>
-                )}
               </div>
-
-              <div className="flex flex-wrap gap-3 xl:justify-end">
-                <button
-                  onClick={addDay}
-                  className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
-                >
-                  <Plus className="h-4 w-4" />
-                  Dodaj dzien
-                </button>
-
-                <button
-                  onClick={savePlan}
-                  disabled={saving || !selectedDestination || !draftPlan}
-                  className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#D8CCBB] bg-[#1F1D1A] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#2C2924] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <Save className="h-4 w-4" />
-                  {saving ? "Zapisywanie..." : "Zapisz plan"}
-                </button>
-              </div>
-            </div>
+            )}
 
             <div className="max-h-[980px] space-y-4 overflow-y-auto pr-1">
               {normalizeItinerary(draftPlan?.itinerary || []).map((section, index, allDays) => (
