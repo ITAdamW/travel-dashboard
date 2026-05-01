@@ -33,6 +33,7 @@ import {
   fetchPlannerPlans,
   upsertPlannerPlan,
 } from "../lib/supabaseTravelData";
+import RichText from "./RichText";
 
 const categoryMeta = {
   beach: { label: "Plaze", icon: Waves },
@@ -63,6 +64,7 @@ function findPlaceById(destination, id) {
 function createEmptyDay(index) {
   return {
     day: `Day ${index + 1}`,
+    date: "",
     items: [],
   };
 }
@@ -85,10 +87,24 @@ function normalizeItinerary(itinerary) {
 
   return itinerary.map((day, index) => ({
     day: day?.day || `Day ${index + 1}`,
+    date: day?.date || "",
     items: Array.isArray(day?.items)
       ? day.items.map(normalizeItem).filter((item) => item.placeId)
       : [],
   }));
+}
+
+function formatPlannerDate(value) {
+  if (!value) return "";
+
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat("pl-PL", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
 }
 
 function createEmptyPlan(destinationId, index = 0) {
@@ -283,9 +299,12 @@ function PlannerEditRouteMap({ destination, plan }) {
                           {day.day} · stop {index + 1}
                         </p>
                         <p className="mt-2 font-semibold text-[#1F1D1A]">{entry.place.name}</p>
-                        <p className="mt-2 text-sm text-[#5B544A]">
-                          {entry.place.note || entry.place.subtitle || entry.place.info}
-                        </p>
+                        <RichText
+                          text={entry.place.note || entry.place.subtitle || entry.place.info}
+                          className="mt-2 space-y-1 text-sm text-[#5B544A]"
+                          paragraphClassName="leading-6 text-[#5B544A]"
+                          listClassName="text-[#5B544A]"
+                        />
                         <button
                           onClick={() =>
                             window.open(mapsUrl(entry.place), "_blank", "noopener,noreferrer")
@@ -374,7 +393,14 @@ function PlannerPlaceCard({ place, draggable = false, onDragStart, onRemove, com
           <p className="truncate text-sm text-[#7A7164]">
             {categoryMeta[place.category]?.label || place.category}
           </p>
-          {!compact && <p className="mt-1 text-sm text-[#5B544A]">{place.note}</p>}
+          {!compact && (
+            <RichText
+              text={place.note}
+              className="mt-1 space-y-1 text-sm text-[#5B544A]"
+              paragraphClassName="leading-6 text-[#5B544A]"
+              listClassName="text-[#5B544A]"
+            />
+          )}
         </div>
       </div>
 
@@ -438,7 +464,14 @@ function PlannerDayItem({
               <p className="mt-1 text-sm text-[#7A7164]">
                 {categoryMeta[place.category]?.label || place.category}
               </p>
-              {place.note ? <p className="mt-2 text-sm text-[#5B544A]">{place.note}</p> : null}
+              {place.note ? (
+                <RichText
+                  text={place.note}
+                  className="mt-2 space-y-1 text-sm text-[#5B544A]"
+                  paragraphClassName="leading-6 text-[#5B544A]"
+                  listClassName="text-[#5B544A]"
+                />
+              ) : null}
             </div>
           </div>
 
@@ -490,11 +523,22 @@ function PlannerPreviewItem({ place, note }) {
           <p className="mt-1 text-sm text-[#6B6255]">
             {categoryMeta[place.category]?.label || place.category}
           </p>
-          {place.note ? <p className="mt-2 text-sm leading-6 text-[#5B544A]">{place.note}</p> : null}
+          {place.note ? (
+            <RichText
+              text={place.note}
+              className="mt-2 space-y-1 text-sm text-[#5B544A]"
+              paragraphClassName="leading-6 text-[#5B544A]"
+              listClassName="text-[#5B544A]"
+            />
+          ) : null}
         </div>
         {note ? (
           <div className="rounded-[1rem] border border-[#E5DCCF] bg-white px-3 py-3 text-sm text-[#4F493F] md:w-[280px] md:min-w-[280px]">
-            {note}
+            <RichText
+              text={note}
+              paragraphClassName="leading-6 text-[#4F493F]"
+              listClassName="text-[#4F493F]"
+            />
           </div>
         ) : null}
       </div>
@@ -511,6 +555,7 @@ function DayColumn({
   onRemovePlace,
   onDeleteDay,
   onRenameDay,
+  onDateChange,
   onMoveDayUp,
   onMoveDayDown,
   onItemNoteChange,
@@ -608,11 +653,20 @@ function DayColumn({
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex-1">
           <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">Day</p>
-          <input
-            value={day.day}
-            onChange={(e) => onRenameDay(e.target.value)}
-            className="mt-1 w-full rounded-xl border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-base font-medium text-[#1F1D1A] outline-none"
-          />
+          <div className="mt-1 grid gap-2 md:grid-cols-[minmax(0,1fr)_190px]">
+            <input
+              value={day.day}
+              onChange={(e) => onRenameDay(e.target.value)}
+              className="w-full rounded-xl border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-base font-medium text-[#1F1D1A] outline-none"
+            />
+            <input
+              type="date"
+              value={day.date || ""}
+              onChange={(e) => onDateChange(e.target.value)}
+              className="w-full rounded-xl border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-sm text-[#1F1D1A] outline-none"
+              aria-label={`Data dla ${day.day || `Day ${dayIndex + 1}`}`}
+            />
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -691,6 +745,11 @@ function PlannerPreview({ destination, plan }) {
           <div className="theme-planner-dayhead border-b border-[#EEE6DA] bg-[#FBF8F2] px-5 py-4">
             <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">Day</p>
             <h4 className="mt-1 text-xl font-semibold text-[#1F1D1A]">{section.day}</h4>
+            {section.date ? (
+              <p className="mt-2 text-sm normal-case tracking-normal text-[#6B6255]">
+                {formatPlannerDate(section.date)}
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-3 p-4">
@@ -746,6 +805,7 @@ function exportPlanToPdf(destination, country, plan) {
           <div class="day-head">
             <p>DAY</p>
             <h2>${section.day}</h2>
+            ${section.date ? `<div class="date">${formatPlannerDate(section.date)}</div>` : ""}
           </div>
           <div class="list">${cards}</div>
         </section>
@@ -767,6 +827,7 @@ function exportPlanToPdf(destination, country, plan) {
           .day-head { padding: 18px 20px; background: #fbf8f2; border-bottom: 1px solid #eee6da; }
           .day-head p { margin: 0; font-size: 10px; letter-spacing: 0.24em; color: #8a7f6c; text-transform: uppercase; }
           .day-head h2 { margin: 8px 0 0; font-size: 24px; }
+          .day-head .date { margin-top: 10px; color: #5e564b; font-size: 14px; }
           .list { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
           .card { display: flex; gap: 16px; border: 1px solid #e8dfd2; border-radius: 18px; overflow: hidden; background: #fbf8f2; padding: 12px; align-items: flex-start; }
           .card img { width: 124px; height: 124px; object-fit: cover; display: block; border-radius: 14px; flex-shrink: 0; }
@@ -1035,6 +1096,15 @@ export default function PlannerPanel({
       ...prev,
       itinerary: normalizeItinerary(prev.itinerary).map((section, index) =>
         index === dayIndex ? { ...section, day: value } : section
+      ),
+    }));
+  };
+
+  const updateDayDate = (dayIndex, value) => {
+    updateDraft((prev) => ({
+      ...prev,
+      itinerary: normalizeItinerary(prev.itinerary).map((section, index) =>
+        index === dayIndex ? { ...section, date: value } : section
       ),
     }));
   };
@@ -1447,6 +1517,7 @@ export default function PlannerPanel({
                   onRemovePlace={(placeId) => removePlaceFromDay(index, placeId)}
                   onDeleteDay={() => deleteDay(index)}
                   onRenameDay={(value) => renameDay(index, value)}
+                  onDateChange={(value) => updateDayDate(index, value)}
                   onMoveDayUp={() => moveDay(index, -1)}
                   onMoveDayDown={() => moveDay(index, 1)}
                   onItemNoteChange={(itemIndex, value) => updateItemNote(index, itemIndex, value)}

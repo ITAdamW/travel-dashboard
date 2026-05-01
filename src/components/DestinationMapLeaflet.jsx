@@ -21,6 +21,7 @@ import {
   resolveTrailGeometryForPlace,
 } from "../lib/trailGeometry";
 import { getCachedTrailPath, setCachedTrailPath } from "../lib/trailCache";
+import RichText from "./RichText";
 
 function FitBounds({ points }) {
   const map = useMap();
@@ -261,7 +262,12 @@ export default function DestinationMapLeaflet({ destination, activePlaceId, onSe
                     <div className="min-w-[180px]">
                       <p className="font-semibold text-[#1F1D1A]">{place.name}</p>
                       <div className="mt-2 flex items-center gap-2 text-sm text-[#6B6255]"><Star className="h-4 w-4 fill-current text-[#6B7A52]" /><span>{place.rating.toFixed(1)}</span></div>
-                      <p className="mt-2 text-sm text-[#5B544A]">{place.info}</p>
+                      <RichText
+                        text={place.info}
+                        className="mt-2 space-y-1 text-sm text-[#5B544A]"
+                        paragraphClassName="leading-6 text-[#5B544A]"
+                        listClassName="text-[#5B544A]"
+                      />
                       <button onClick={() => window.open(mapsUrl(place), "_blank", "noopener,noreferrer")} className="mt-3 inline-flex items-center gap-2 rounded-full border border-[#DCD1C0] bg-[#F8F4ED] px-3 py-1.5 text-xs text-[#3E382F]">
                         Nawiguj <ExternalLink className="h-3.5 w-3.5" />
                       </button>
@@ -299,8 +305,13 @@ export default function DestinationMapLeaflet({ destination, activePlaceId, onSe
               <p className="text-lg font-semibold text-[#1F1D1A]">{activePlace.name}</p>
               <div className="mt-2 flex items-center gap-3 text-sm text-[#6B6255]">
                 <span className="inline-flex items-center gap-1"><Star className="h-4 w-4 fill-current text-[#6B7A52]" /> {activePlace.rating.toFixed(1)}</span>
-                <span>{activePlace.info}</span>
               </div>
+              <RichText
+                text={activePlace.info}
+                className="mt-2 space-y-1 text-sm text-[#6B6255]"
+                paragraphClassName="leading-6 text-[#6B6255]"
+                listClassName="text-[#6B6255]"
+              />
             </div>
           </div>
           <button onClick={() => window.open(mapsUrl(activePlace), "_blank", "noopener,noreferrer")} className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#DCD1C0] bg-[#F8F4ED] px-3 py-1.5 text-xs text-[#3E382F] transition hover:bg-[#F2ECE2]">

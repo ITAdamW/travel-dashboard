@@ -62,7 +62,13 @@ function TextInput({ label, value, onChange, placeholder, type = "text" }) {
   );
 }
 
-function TextArea({ label, value, onChange, placeholder, rows = 4 }) {
+function TextArea({ label, value, onChange, placeholder, rows = 4, helperText = "" }) {
+  const resolvedHelperText =
+    helperText ||
+    (label === "Notka" || label === "Opis"
+      ? "Obslugiwane: **pogrubienie**, *kursywa*, listy z '-' oraz linki https://... i [tekst](https://...)."
+      : "");
+
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-medium text-[#4D463D]">{label}</span>
@@ -73,6 +79,9 @@ function TextArea({ label, value, onChange, placeholder, rows = 4 }) {
         placeholder={placeholder}
         className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
       />
+      {resolvedHelperText ? (
+        <span className="mt-2 block text-xs leading-5 text-[#7A7164]">{resolvedHelperText}</span>
+      ) : null}
     </label>
   );
 }

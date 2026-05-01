@@ -47,6 +47,7 @@ import {
   resolveTrailGeometryForPlace,
 } from "../lib/trailGeometry";
 import { getCachedTrailPath, setCachedTrailPath } from "../lib/trailCache";
+import RichText from "./RichText";
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80";
@@ -419,7 +420,7 @@ function StoryDescription({ text, expanded = false, onExpand }) {
   if (expanded) {
     return (
       <div className="mt-3 rounded-[1rem] border border-[#E8DFD2] bg-[#FBF8F2] px-4 py-4 text-sm leading-7 text-[#4D463D]">
-        <p className="whitespace-pre-line break-words">{text}</p>
+        <RichText text={text} paragraphClassName="leading-7 text-[#4D463D]" />
       </div>
     );
   }
@@ -442,7 +443,9 @@ function StoryDescription({ text, expanded = false, onExpand }) {
         className="group mt-3 cursor-help outline-none"
       >
         <div className="theme-story-description relative rounded-[1rem] border border-[#E8DFD2] bg-[#FBF8F2] px-3 py-3 text-sm leading-7 text-[#4D463D]">
-          <p className="max-h-[84px] overflow-hidden">{text}</p>
+          <div className="max-h-[84px] overflow-hidden">
+            <RichText text={text} paragraphClassName="leading-7 text-[#4D463D]" />
+          </div>
           <div className="theme-story-description-fade pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-[#FBF8F2] via-[#FBF8F2]/90 to-transparent" />
           {onExpand && (
             <div className="relative z-[1] mt-3 flex justify-center pt-2">
@@ -477,7 +480,7 @@ function StoryDescription({ text, expanded = false, onExpand }) {
               )}px`,
             }}
           >
-            {text}
+            <RichText text={text} paragraphClassName="leading-7 text-[#3A352E]" />
           </div>,
           document.body
         )}

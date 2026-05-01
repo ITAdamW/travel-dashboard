@@ -6,7 +6,7 @@ import { buildFallbackTrailGeometry } from "../src/lib/trailGeometry.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const OUTPUT_PATH = path.resolve(
+const DEFAULT_OUTPUT_PATH = path.resolve(
   __dirname,
   "../supabase/seeds/madeira_pr_route_paths.sql"
 );
@@ -1091,7 +1091,18 @@ function toCoordinatePair(value) {
 }
 
 async function main() {
-  const trails = getMadeiraPrSeedDetails();
+  const requestedRefs = String(process.env.TRAIL_REFS || "")
+    .split(",")
+    .map((entry) => entry.trim().toUpperCase())
+    .filter(Boolean);
+  const outputPath = process.env.OUTPUT_PATH_OVERRIDE
+    ? path.resolve(process.cwd(), process.env.OUTPUT_PATH_OVERRIDE)
+    : DEFAULT_OUTPUT_PATH;
+  const trails = getMadeiraPrSeedDetails().filter(
+    (trail) =>
+      !requestedRefs.length ||
+      requestedRefs.includes(String(trail.ref || "").toUpperCase())
+  );
   let officialTrails = [];
   try {
     officialTrails = await fetchJson(OFFICIAL_TRAILS_ENDPOINT);
@@ -1231,7 +1242,7 @@ async function main() {
     "",
   ].join("\n");
 
-  await fs.writeFile(OUTPUT_PATH, sql, "utf8");
+  await fs.writeFile(outputPath, sql, "utf8");
 
   const withGeometryCount = results.filter((entry) => entry.geometry.length > 1).length;
   const officialCount = results.filter((entry) => entry.source === "official-gpx").length;
@@ -1249,7 +1260,7 @@ async function main() {
   const missingCount = results.filter((entry) => entry.geometry.length < 2).length;
 
   console.log("");
-  console.log(`Saved SQL patch to ${OUTPUT_PATH}`);
+  console.log(`Saved SQL patch to ${outputPath}`);
   console.log(
     `Trails with route_path: ${withGeometryCount}/${results.length} (official GPX: ${officialCount}, OSM inferred: ${inferredCount}, fallback lines: ${fallbackCount}, missing: ${missingCount})`
   );

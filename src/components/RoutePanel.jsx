@@ -30,6 +30,7 @@ import {
   resolveTrailGeometryForPlace,
 } from "../lib/trailGeometry";
 import { getCachedTrailPath, setCachedTrailPath } from "../lib/trailCache";
+import RichText from "./RichText";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -628,9 +629,19 @@ export default function RoutePanel({
                         </span>
                         <div className="min-w-0">
                           <p className="font-medium text-[#1F1D1A]">{entry.place.name}</p>
-                          <p className="mt-1 text-sm text-[#6B6255]">{entry.place.note || entry.place.subtitle}</p>
+                          <RichText
+                            text={entry.place.note || entry.place.subtitle}
+                            className="mt-1 space-y-1 text-sm text-[#6B6255]"
+                            paragraphClassName="leading-6 text-[#6B6255]"
+                            listClassName="text-[#6B6255]"
+                          />
                           {entry.note ? (
-                            <p className="mt-2 text-sm leading-6 text-[#4F493F]">{entry.note}</p>
+                            <RichText
+                              text={entry.note}
+                              className="mt-2 space-y-1 text-sm text-[#4F493F]"
+                              paragraphClassName="leading-6 text-[#4F493F]"
+                              listClassName="text-[#4F493F]"
+                            />
                           ) : null}
                         </div>
                       </button>
@@ -704,9 +715,12 @@ export default function RoutePanel({
                                 />
                               ) : null}
                               <p className="mt-2 font-semibold text-[#1F1D1A]">{entry.place.name}</p>
-                              <p className="mt-2 text-sm text-[#5B544A]">
-                                {entry.place.note || entry.place.subtitle || entry.place.info}
-                              </p>
+                              <RichText
+                                text={entry.place.note || entry.place.subtitle || entry.place.info}
+                                className="mt-2 space-y-1 text-sm text-[#5B544A]"
+                                paragraphClassName="leading-6 text-[#5B544A]"
+                                listClassName="text-[#5B544A]"
+                              />
                               {(entry.place.distanceKm || entry.place.durationHours) && (
                                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-[#4D463D]">
                                   {entry.place.distanceKm ? (

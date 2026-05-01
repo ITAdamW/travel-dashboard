@@ -148,12 +148,19 @@ export async function hydrateCountriesWithStorage(countries) {
 
 export async function replaceCover(countryId, destinationId, placeId, file) {
   const folder = placeFolder(countryId, destinationId, placeId);
-  const { cover } = await listPlaceMedia(countryId, destinationId, placeId);
+  const { cover, gallery } = await listPlaceMedia(countryId, destinationId, placeId);
   const extension = fileExtension(file.name) || "jpg";
   const path = `${folder}/cover.${extension}`;
 
-  if (cover) {
-    await supabase.storage.from(IMAGE_BUCKET).remove([cover.path]);
+  const coverPaths = [
+    cover?.path,
+    ...gallery
+      .filter((item) => stripExtension(item.name) === "cover")
+      .map((item) => item.path),
+  ].filter(Boolean);
+
+  if (coverPaths.length) {
+    await supabase.storage.from(IMAGE_BUCKET).remove([...new Set(coverPaths)]);
   }
 
   const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, {
