@@ -135,6 +135,7 @@ function SideNavbar({
   onOpenSettings,
   userGreeting,
   session,
+  isAdmin,
 }) {
   const avatarUrl = session?.user?.user_metadata?.avatar_url;
   const initials = (userGreeting || "U").slice(0, 1).toUpperCase();
@@ -143,8 +144,14 @@ function SideNavbar({
     { key: "story", label: "Mapa destynacji", icon: Compass },
     { key: "planner", label: "Plany i trasa", icon: CalendarDays },
   ];
+  const adminItems = isAdmin
+    ? [
+        { key: "admin", label: "Dodaj miejsce", icon: Database, onClick: () => onChangePanel("admin") },
+        { key: "media", label: "Media", icon: Images, onClick: () => onChangePanel("media") },
+        { key: "users", label: "Uzytkownicy", icon: UsersIcon, onClick: () => onChangePanel("users") },
+      ]
+    : [];
   const secondaryItems = [
-    { key: "add", label: "Dodaj miejscowke", icon: Plus, onClick: () => onChangePanel("media") },
     { key: "favorites", label: "Ulubione", icon: Heart, onClick: () => onChangePanel("atlas") },
     { key: "stats", label: "Statystyki", icon: BarChart3, onClick: () => onChangePanel("atlas") },
     { key: "settings", label: "Ustawienia", icon: Settings2, onClick: onOpenSettings },
@@ -166,16 +173,19 @@ function SideNavbar({
               onClick={() => onChangePanel(item.key)}
             />
           ))}
-          <SideNavItem
-            active={false}
-            icon={secondaryItems[0].icon}
-            label={secondaryItems[0].label}
-            onClick={secondaryItems[0].onClick}
-          />
+          {adminItems.map((item) => (
+            <SideNavItem
+              key={item.key}
+              active={activePanel === item.key}
+              icon={item.icon}
+              label={item.label}
+              onClick={item.onClick}
+            />
+          ))}
         </div>
 
         <div className="w-full">
-          {secondaryItems.slice(1).map((item) => (
+          {secondaryItems.map((item) => (
             <SideNavItem
               key={item.key}
               active={false}
@@ -385,8 +395,8 @@ export default function App() {
     { key: "planner", label: "Planner", panelLabel: "Panel 3", number: "3", icon: BookImage, visible: true },
     { key: "route", label: "Route", panelLabel: "Panel 4", number: "4", icon: RouteIcon, visible: false },
     { key: "media", label: "Media", panelLabel: "Panel 5", number: "5", icon: Images, visible: isAdmin },
-    { key: "admin", label: "Data admin", panelLabel: "Panel 6", number: "6", icon: Database, visible: isAdmin },
-    { key: "users", label: "Users", panelLabel: "Panel 7", number: "7", icon: UsersIcon, visible: isAdmin },
+    { key: "admin", label: "Dodaj miejsce", panelLabel: "Panel 6", number: "6", icon: Database, visible: isAdmin },
+    { key: "users", label: "Uzytkownicy", panelLabel: "Panel 7", number: "7", icon: UsersIcon, visible: isAdmin },
   ].filter((item) => item.visible);
 
   if (authLoading) {
@@ -422,6 +432,7 @@ export default function App() {
         onOpenSettings={() => setUserSettingsOpen(true)}
         userGreeting={userGreeting}
         session={session}
+        isAdmin={isAdmin}
       />
       <header
         className={[

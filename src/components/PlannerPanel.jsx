@@ -70,13 +70,14 @@ const categoryMeta = {
 };
 
 const plannerDayPalette = [
-  "#111827",
   "#008EA1",
-  "#52616D",
   "#19B8C8",
-  "#243B53",
   "#5FD4DE",
+  "#0EA5B7",
   "#0F5964",
+  "#52616D",
+  "#243B53",
+  "#111827",
 ];
 
 function cn(...classes) {
@@ -266,6 +267,7 @@ function PlannerRouteMap({
   onEditPlan,
   onExportPlan,
   canExport = true,
+  planLabel = "",
 }) {
   const [activeStopKey, setActiveStopKey] = useState("");
   const [routeGeometries, setRouteGeometries] = useState({});
@@ -423,13 +425,22 @@ function PlannerRouteMap({
             </button>
           </div>
         ) : null}
-        <div className="absolute inset-0 z-0 [filter:grayscale(1)_saturate(0.08)_contrast(0.92)_brightness(1.03)]">
+        {compact && planLabel ? (
+          <div className="absolute left-20 top-4 z-[650] max-w-[min(360px,calc(100%-6rem))] rounded-[1rem] border border-[#DDEDF0] bg-white/94 px-4 py-3 shadow-[0_16px_36px_rgba(15,58,66,0.16)] backdrop-blur">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#008EA1]">
+              Aktualnie wyswietlany plan
+            </p>
+            <h4 className="mt-1 truncate text-lg font-bold text-[#111827]">{planLabel}</h4>
+          </div>
+        ) : null}
+
+        <div className="absolute inset-0 z-0">
           <MapContainer
             center={routePoints[0]}
             zoom={11}
             zoomControl={true}
             attributionControl={false}
-            className="h-full w-full"
+            className="planner-route-map-gray h-full w-full"
             scrollWheelZoom={true}
           >
             <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
@@ -483,7 +494,7 @@ function PlannerRouteMap({
         </div>
 
         {compact ? (
-          <div className="absolute bottom-4 left-1/2 z-[650] flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-[1rem] border border-[#DDEDF0] bg-white/94 p-2 shadow-[0_16px_36px_rgba(15,58,66,0.16)] backdrop-blur">
+          <div className="absolute bottom-4 left-4 right-4 z-[650] flex items-center gap-2 rounded-[1rem] border border-[#DDEDF0] bg-white/94 p-2 shadow-[0_16px_36px_rgba(15,58,66,0.16)] backdrop-blur">
             {planDays.length > 5 ? (
               <button
                 type="button"
@@ -498,7 +509,7 @@ function PlannerRouteMap({
               type="button"
               onClick={() => onActiveDayChange?.(null)}
               className={cn(
-                "inline-flex h-10 flex-none items-center gap-2 rounded-[0.8rem] px-3 text-sm font-bold transition",
+                "inline-flex h-10 flex-[1.1] items-center justify-center gap-2 rounded-[0.8rem] px-3 text-sm font-bold transition",
                 activeDayIndex == null
                   ? "bg-[#111827] text-white"
                   : "border border-[#DDEDF0] bg-white text-[#52616D] hover:bg-[#F3FBFC]"
@@ -514,15 +525,16 @@ function PlannerRouteMap({
                   key={`map-day-control-${realIndex}`}
                   type="button"
                   onClick={() => onActiveDayChange?.(realIndex)}
+                  style={activeDayIndex === realIndex ? { backgroundColor: day.color } : undefined}
                   className={cn(
-                    "inline-flex h-10 flex-none items-center gap-2 rounded-[0.8rem] px-3 text-sm font-bold transition",
+                    "inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[0.8rem] px-3 text-sm font-bold transition",
                     activeDayIndex === realIndex
-                      ? "bg-[#008EA1] text-white"
+                      ? "text-white"
                       : "border border-[#DDEDF0] bg-white text-[#52616D] hover:bg-[#F3FBFC]"
                   )}
                 >
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: day.color }} />
-                  {day.day || `Dzien ${realIndex + 1}`}
+                  <span className="truncate">{day.day || `Dzien ${realIndex + 1}`}</span>
                 </button>
               );
             })}
@@ -970,13 +982,15 @@ function PlannerPreview({ destination, plan, activeDayIndex = null }) {
           key={`preview-day-${index}`}
           className="overflow-hidden rounded-[1.25rem] border border-[#DDEDF0] bg-white shadow-[0_10px_28px_rgba(15,58,66,0.05)]"
         >
-          <div className="border-b border-[#E4F1F3] bg-[#FBFEFF] px-5 py-4">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#008EA1]">Dzien</p>
-            <h4 className="mt-1 text-xl font-bold text-[#111827]">{section.day}</h4>
+          <div className="flex items-center justify-between gap-3 border-b border-[#E4F1F3] bg-[#FBFEFF] px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#008EA1]">Dzien</p>
+              <h4 className="mt-0.5 truncate text-base font-bold text-[#111827]">{section.day}</h4>
+            </div>
             {section.date ? (
-              <p className="mt-2 text-sm normal-case tracking-normal text-[#61717D]">
+              <span className="shrink-0 rounded-full bg-[#EAFBFD] px-3 py-1 text-xs font-semibold text-[#008EA1]">
                 {formatPlannerDate(section.date)}
-              </p>
+              </span>
             ) : null}
           </div>
 
@@ -2110,19 +2124,15 @@ export default function PlannerPanel({
         <div className="min-w-0 space-y-5">
           {viewMode === "preview" ? (
             <div className="theme-planner-card overflow-hidden rounded-[1.55rem] border border-[#DDEDF0] bg-white shadow-[0_16px_42px_rgba(15,58,66,0.06)]">
-              <div className="border-b border-[#E4F1F3] px-5 py-4">
-                <p className="text-xs font-semibold uppercase text-[#008EA1]">Aktualnie wyswietlany plan</p>
-                <h4 className="mt-1 text-xl font-bold text-[#111827]">{activePlanLabel}</h4>
-              </div>
-
               {activePlanForPreview ? (
                 <>
-                  <div className="p-4 pb-0">
+                  <div className="p-4">
                     <PlannerRouteMap
                       destination={selectedDestination}
                       plan={activePlanForPreview}
                       compact
                       activeDayIndex={activeDayIndex}
+                      planLabel={activePlanLabel}
                       onActiveDayChange={setActiveDayIndex}
                       onCreatePlan={createPlan}
                       onEditPlan={() => setViewMode("edit")}

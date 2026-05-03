@@ -1247,6 +1247,14 @@ body[data-theme="dark"] .theme-story-modal [class*="text-\\#132334"] {
   color: #e9fbfe !important;
 }
 
+.planner-route-map-gray .leaflet-tile-pane {
+  filter: grayscale(1) saturate(0.05) contrast(0.92) brightness(1.04);
+}
+
+body[data-theme="dark"] .planner-route-map-gray .leaflet-tile-pane {
+  filter: grayscale(1) invert(1) brightness(0.44) contrast(1.18);
+}
+
 @media print {
   body.print-story-map * {
     visibility: hidden !important;
