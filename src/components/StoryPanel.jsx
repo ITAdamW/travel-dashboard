@@ -20,13 +20,18 @@ import {
   ChevronUp,
   Coffee,
   CreditCard,
+  Download,
   ExternalLink,
+  Filter,
   Footprints,
+  Globe2,
+  Info,
   Landmark,
   MapPin,
   Mountain,
   Route,
   Ruler,
+  Search,
   Star,
   Ticket,
   Waves,
@@ -216,6 +221,24 @@ function findPlaceById(destination, id) {
   );
 }
 
+function hasValidCoordinates(place) {
+  return (
+    Array.isArray(place?.coordinates) &&
+    place.coordinates.length >= 2 &&
+    Number.isFinite(Number(place.coordinates[0])) &&
+    Number.isFinite(Number(place.coordinates[1]))
+  );
+}
+
+function normalizePlaceCoordinates(place) {
+  if (!hasValidCoordinates(place)) return null;
+
+  return {
+    ...place,
+    coordinates: [Number(place.coordinates[0]), Number(place.coordinates[1])],
+  };
+}
+
 function getStorySlides(destination) {
   const places = destination?.places || [];
   return [
@@ -329,9 +352,9 @@ function createPlaceMarkerIcon(place, isActive, isCategorySelected) {
   const meta = categoryMeta[place.category] || categoryMeta.city;
   const Icon = meta.icon;
   const emphasized = isActive || isCategorySelected;
-  const bgColor = isActive ? "#1F1D1A" : emphasized ? meta.color : "#FFFFFF";
-  const borderColor = isActive ? meta.color : "#FFFFFF";
-  const iconColor = emphasized ? "#FFFFFF" : meta.color;
+  const bgColor = isActive ? "#008EA1" : emphasized ? meta.color : "#FFFFFF";
+  const borderColor = isActive ? "#BDECF1" : "#FFFFFF";
+  const iconColor = emphasized ? "#FFFFFF" : "#008EA1";
   const iconMarkup = renderToStaticMarkup(
     <Icon
       size={18}
@@ -1271,6 +1294,7 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
   const [galleryStart, setGalleryStart] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [mapDetailsOpen, setMapDetailsOpen] = useState(false);
   const [storyPanelOpen, setStoryPanelOpen] = useState(false);
   const [activePlaceMedia, setActivePlaceMedia] = useState({
     cover: null,
@@ -1620,6 +1644,687 @@ function DestinationMapSurface({
   );
 }
 
+function getPlaceDescription(place) {
+  return (
+    place?.description ||
+    place?.note ||
+    place?.info ||
+    "To miejsce mozesz pozniej uzupelnic opisem, praktyczna notatka albo wspomnieniem z podrozy."
+  );
+}
+
+function PracticalInfo({ icon: Icon, label, value }) {
+  const [open, setOpen] = useState(false);
+  if (!value) return null;
+
+  return (
+    <div className="relative flex justify-center">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        className="theme-story-info-icon inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#E6FAFC] text-[#008EA1] transition hover:bg-[#D7F5F8] hover:text-[#006E7D]"
+        aria-label={`${label}: ${value}`}
+        title={value}
+      >
+        <Icon className="h-5 w-5" />
+      </button>
+      {open ? (
+        <div className="absolute left-1/2 top-[calc(100%+0.5rem)] z-[1200] w-72 -translate-x-1/2 rounded-xl border border-[#DCECF0] bg-white px-3 py-3 text-sm leading-6 text-[#132334] shadow-[0_18px_42px_rgba(15,58,66,0.16)]">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-xs font-semibold text-[#008EA1]">{label}</p>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-full text-[#647782] transition hover:bg-[#E6FAFC] hover:text-[#008EA1]"
+              aria-label="Zamknij informacje"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <p className="mt-1 select-text whitespace-pre-wrap">{value}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function FullPlaceInfoModal({
+  place,
+  description,
+  coverUrls = [],
+  galleryImages = [],
+  activePlaceMedia = null,
+  onClose,
+}) {
+  if (!place) return null;
+  const category = categoryMeta[place.category] || categoryMeta.city;
+  const CategoryIcon = category.icon;
+  const subtitle = place.subtitle || place.note || category.label;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/55 p-4 md:p-6">
+      <div className="theme-story-modal max-h-[88vh] w-full max-w-[780px] overflow-hidden rounded-[1.6rem] border border-[#DCECF0] bg-white shadow-[0_30px_90px_rgba(0,0,0,0.24)]">
+        <div className="flex items-start justify-between gap-4 border-b border-[#DCECF0] px-5 py-4">
+          <div>
+            <p className="text-sm font-semibold text-[#008EA1]">Pelny opis</p>
+            <h2 className="mt-1 text-2xl font-semibold text-[#132334]">
+              {place.name}
+            </h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#DCECF0] bg-white text-[#132334] transition hover:border-[#008EA1] hover:text-[#008EA1]"
+            aria-label="Zamknij opis"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="story-details-scroll max-h-[calc(88vh-96px)] overflow-y-auto px-5 py-5">
+          <div className="relative overflow-hidden rounded-xl border border-[#DCECF0] bg-[#EAF4F7]">
+            <SmartImage
+              urls={coverUrls.length ? coverUrls : getPlaceImageCandidates(place, activePlaceMedia)}
+              alt={place.name}
+              className="h-[320px] w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.02)_0%,rgba(0,0,0,0.16)_48%,rgba(0,0,0,0.70)_100%)]" />
+            <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-black/35 px-3 py-1 text-xs backdrop-blur">
+                <CategoryIcon className="h-3.5 w-3.5" />
+                {category.label}
+              </div>
+              <h3 className="text-3xl font-semibold leading-tight">{place.name}</h3>
+            </div>
+          </div>
+          {subtitle ? (
+            <div className="mt-5 text-sm font-semibold leading-6 text-[#647782]">
+              <RichText
+                text={subtitle}
+                paragraphClassName="leading-6 text-[#647782]"
+                listClassName="text-[#647782]"
+              />
+            </div>
+          ) : null}
+          <RichText
+            text={description}
+            className="mt-5"
+            paragraphClassName="leading-7 text-[#647782]"
+            listClassName="text-[#647782]"
+          />
+          <div className="mt-6 flex items-center gap-4">
+            <PracticalInfo icon={Ticket} label="Bilety" value={place.ticket} />
+            <PracticalInfo
+              icon={CalendarCheck2}
+              label="Rezerwacja"
+              value={place.reservation}
+            />
+            <PracticalInfo icon={Info} label="Informacje" value={place.info} />
+            <PracticalInfo
+              icon={Clock3}
+              label="Czas"
+              value={formatDuration(place.durationHours)}
+            />
+            <PracticalInfo
+              icon={Ruler}
+              label="Dystans"
+              value={formatDistance(place.distanceKm)}
+            />
+          </div>
+          {galleryImages.length > 0 ? (
+            <div className="mt-6">
+              <h3 className="text-base font-semibold text-[#132334]">
+                Galeria zdjec
+              </h3>
+              <div className="mt-3 grid grid-cols-4 gap-3">
+                {galleryImages.slice(0, 8).map((img, index) => (
+                  <SmartImage
+                    key={`${img}-${index}`}
+                    urls={[img]}
+                    alt={`${place.name} ${index + 1}`}
+                    className="h-24 w-full rounded-lg border border-[#DCECF0] object-cover"
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function MapPlacePopup({ place, onSelectPlace, onOpenDetails }) {
+  const image = getPlacePrimaryImage(place);
+  const meta = categoryMeta[place.category] || categoryMeta.city;
+
+  return (
+    <div className="w-[310px] rounded-[1.1rem] bg-white p-3 text-[#132334]">
+      <div className="flex items-start gap-3">
+        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#EAF4F7]">
+          <SmartImage
+            urls={[image]}
+            alt={place.name}
+            className="h-full w-full object-cover"
+          />
+        </div>
+        <div className="min-w-0 pt-0.5">
+          <p className="truncate text-lg font-semibold leading-tight">{place.name}</p>
+          <p className="mt-1 text-sm leading-tight text-[#647782]">{meta.label}</p>
+          <div className="mt-2 inline-flex items-center gap-2 text-sm font-semibold leading-tight text-[#008EA1]">
+            <Star className="h-4 w-4 fill-[#008EA1]" />
+            {(place.rating || 4.5).toFixed(1)}
+          </div>
+        </div>
+      </div>
+      <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#647782]">
+        {getPlaceDescription(place)}
+      </p>
+      <button
+        type="button"
+        onClick={() => {
+          onSelectPlace(place.id);
+          onOpenDetails(place.id);
+        }}
+        className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#DCECF0] bg-white px-4 text-sm font-semibold text-[#008EA1] transition hover:border-[#008EA1] hover:bg-[#E6FAFC]"
+      >
+        Zobacz szczegoly
+      </button>
+      <button
+        type="button"
+        onClick={() => window.open(mapsUrl(place), "_blank", "noopener,noreferrer")}
+        className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#008EA1] px-4 text-sm font-semibold text-white transition hover:bg-[#007786]"
+      >
+        <MapPin className="h-4 w-4" />
+        Nawiguj w Google Maps
+      </button>
+    </div>
+  );
+}
+
+function OldPracticalInfo({ icon: Icon, label, value }) {
+  if (!value) return null;
+
+  return (
+    <div className="theme-story-info flex min-h-[68px] items-start gap-3 rounded-xl border border-[#DCECF0] bg-white px-3 py-3">
+      <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E6FAFC] text-[#008EA1]">
+        <Icon className="h-5 w-5" />
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs text-[#647782]">{label}</p>
+        <p className="mt-1 break-words text-sm font-semibold text-[#132334]">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function PlaceDetailsPanel({
+  place,
+  galleryImages,
+  activePlaceMedia,
+  placeVideos,
+  galleryStart,
+  setGalleryStart,
+  setLightboxIndex,
+  setLightboxOpen,
+  currentIndex,
+  total,
+  onPrev,
+  onNext,
+}) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const coverUrls = place
+    ? getPlaceImageCandidates(place, activePlaceMedia)
+    : [fallbackImage];
+  const visibleThumbs = galleryImages.slice(galleryStart, galleryStart + 4);
+  const description = getPlaceDescription(place);
+  const category = categoryMeta[place?.category] || categoryMeta.city;
+  const CategoryIcon = category.icon;
+  const subtitle = place?.subtitle || place?.note || category.label;
+
+  useEffect(() => {
+    setDetailsOpen(false);
+  }, [place?.id]);
+
+  if (!place) {
+    return (
+      <aside className="theme-story-side flex min-h-0 flex-col rounded-[1.4rem] border border-[#DCECF0] bg-white p-5">
+        <p className="text-sm text-[#647782]">Brak wybranej miejscowki.</p>
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="theme-story-side flex min-h-0 flex-col rounded-[1.4rem] border border-[#DCECF0] bg-white p-4 shadow-[0_22px_70px_rgba(15,58,66,0.08)]">
+      <div className="relative overflow-hidden rounded-xl border border-[#DCECF0] bg-[#EAF4F7]">
+        <button
+          type="button"
+          onClick={() => {
+            setLightboxIndex(0);
+            setLightboxOpen(true);
+          }}
+          className="block w-full"
+        >
+          <SmartImage
+            urls={coverUrls}
+            alt={place.name}
+            className="h-[310px] w-full object-cover"
+          />
+        </button>
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.02)_0%,rgba(0,0,0,0.18)_50%,rgba(0,0,0,0.72)_100%)]" />
+        <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+          <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-black/35 px-3 py-1 text-xs backdrop-blur">
+            <CategoryIcon className="h-3.5 w-3.5" />
+            {category.label}
+          </div>
+          <h2 className="text-3xl font-semibold leading-tight">{place.name}</h2>
+          <div className="mt-2 inline-flex items-center gap-2 text-sm text-white/90">
+            <Star className="h-4 w-4 fill-[#25D9E8] text-[#25D9E8]" />
+            {(place.rating || 4.5).toFixed(1)}
+            <span className="text-white/60">({currentIndex + 1}/{total})</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="story-details-scroll mt-5 min-h-0 flex-1 overflow-y-auto pr-1">
+        {subtitle ? (
+          <section className="text-sm font-semibold leading-6 text-[#647782]">
+            <RichText
+              text={subtitle}
+              paragraphClassName="leading-6 text-[#647782]"
+              listClassName="text-[#647782]"
+            />
+          </section>
+        ) : null}
+
+        <section className="mt-5">
+          <h3 className="text-base font-semibold text-[#132334]">
+            Wazne informacje
+          </h3>
+          <div className="mt-3 flex items-center gap-4">
+            <PracticalInfo icon={Ticket} label="Bilety" value={place.ticket} />
+            <PracticalInfo
+              icon={CalendarCheck2}
+              label="Rezerwacja"
+              value={place.reservation}
+            />
+            <PracticalInfo icon={Info} label="Informacje" value={place.info} />
+            <PracticalInfo
+              icon={Clock3}
+              label="Czas"
+              value={formatDuration(place.durationHours)}
+            />
+            <PracticalInfo
+              icon={Ruler}
+              label="Dystans"
+              value={formatDistance(place.distanceKm)}
+            />
+          </div>
+        </section>
+
+        <section className="mt-6">
+          <h3 className="text-base font-semibold text-[#132334]">Opis</h3>
+          <div className="mt-3 line-clamp-3 text-sm leading-6 text-[#647782]">
+            <RichText
+              text={description}
+              paragraphClassName="leading-6 text-[#647782]"
+              listClassName="text-[#647782]"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setDetailsOpen(true)}
+            className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-lg bg-[#008EA1] px-4 text-sm font-semibold text-white transition hover:bg-[#007786]"
+          >
+            Czytaj wiecej
+          </button>
+        </section>
+
+        {galleryImages.length > 0 ? (
+          <section className="mt-6">
+            <h3 className="text-base font-semibold text-[#132334]">
+              Galeria zdjec
+            </h3>
+            <div className="mt-3 grid grid-cols-[auto_1fr_auto] items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setGalleryStart((prev) => Math.max(prev - 1, 0))}
+                className="theme-story-nav-button p-1 text-[#132334] transition hover:text-[#008EA1] disabled:opacity-30"
+                disabled={galleryStart === 0}
+                aria-label="Poprzednie zdjecia"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <div className="grid grid-cols-4 gap-2">
+                {visibleThumbs.map((img, idx) => {
+                  const absoluteIndex = galleryStart + idx;
+                  return (
+                    <button
+                      key={`${img}-${absoluteIndex}`}
+                      type="button"
+                      onClick={() => {
+                        setLightboxIndex(absoluteIndex);
+                        setLightboxOpen(true);
+                      }}
+                      className="overflow-hidden rounded-lg border border-[#DCECF0] bg-white"
+                    >
+                      <SmartImage
+                        urls={[img]}
+                        alt={`${place.name} ${absoluteIndex + 1}`}
+                        className="h-20 w-full object-cover"
+                      />
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setGalleryStart((prev) =>
+                    Math.min(prev + 1, Math.max(galleryImages.length - 4, 0))
+                  )
+                }
+                className="theme-story-nav-button p-1 text-[#132334] transition hover:text-[#008EA1] disabled:opacity-30"
+                disabled={galleryStart >= Math.max(galleryImages.length - 4, 0)}
+                aria-label="Nastepne zdjecia"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        {placeVideos.length > 0 ? (
+          <section className="mt-6">
+            <h3 className="text-base font-semibold text-[#132334]">Video</h3>
+            <div className="mt-3 space-y-3">
+              {placeVideos.map((videoUrl, index) => (
+                <video
+                  key={`${videoUrl}-${index}`}
+                  src={videoUrl}
+                  controls
+                  className="aspect-video w-full rounded-xl bg-black"
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#DCECF0] pt-4">
+        <button
+          type="button"
+          onClick={onPrev}
+          className="theme-story-nav-button inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#DCECF0] bg-white text-[#132334] transition hover:border-[#008EA1] hover:text-[#008EA1]"
+          aria-label="Poprzednia miejscowka"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <p className="text-sm font-medium text-[#647782]">
+          {currentIndex + 1} / {total}
+        </p>
+        <button
+          type="button"
+          onClick={onNext}
+          className="theme-story-nav-button inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#DCECF0] bg-white text-[#132334] transition hover:border-[#008EA1] hover:text-[#008EA1]"
+          aria-label="Nastepna miejscowka"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
+      </div>
+      {detailsOpen ? (
+        <FullPlaceInfoModal
+          place={place}
+          description={description}
+          coverUrls={coverUrls}
+          galleryImages={galleryImages}
+          activePlaceMedia={activePlaceMedia}
+          onClose={() => setDetailsOpen(false)}
+        />
+      ) : null}
+    </aside>
+  );
+}
+
+function StoryMapCanvas({
+  destination,
+  activePlaceId,
+  selectedCategory,
+  showTrailLayer,
+  trailGeometries,
+  onSelectPlace,
+  onOpenDetails,
+  topOverlay,
+}) {
+  const safePlaces = (destination.places || [])
+    .map((place) => normalizePlaceCoordinates(place))
+    .filter(Boolean);
+  const trailPlaces = safePlaces.filter((place) => isTrailPlace(place));
+
+  return (
+    <div
+      id="story-map-print-area"
+      className="theme-story-map relative h-full min-h-0 flex-1 overflow-hidden rounded-[1.4rem] border border-[#DCECF0] bg-[#EAF4F7]"
+    >
+      {topOverlay ? (
+        <div className="absolute left-4 right-4 top-4 z-[700]">{topOverlay}</div>
+      ) : null}
+      <div className="absolute inset-0 [filter:saturate(0.42)_contrast(0.98)_brightness(1.05)]">
+        <MapContainer
+          center={safePlaces[0]?.coordinates || [0, 0]}
+          zoom={10}
+          zoomControl={true}
+          attributionControl={false}
+          className="h-full w-full"
+          scrollWheelZoom={true}
+        >
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+          <SyncMapSize />
+          <FitBounds points={safePlaces} />
+          {showTrailLayer &&
+            trailPlaces.map((place) => {
+              const { geometry, kind } = resolveDisplayedTrailGeometry(
+                place,
+                trailPlaces,
+                trailGeometries
+              );
+
+              if (geometry.length < 2) return null;
+
+              return (
+                <Polyline
+                  key={`story-trail-${place.id}`}
+                  positions={geometry}
+                  pathOptions={{
+                    color: kind === "exact" ? "#008EA1" : "#65C9D4",
+                    weight: kind === "exact" ? 5 : 3,
+                    opacity: kind === "exact" ? 0.82 : 0.58,
+                    dashArray: kind === "exact" ? undefined : "8 10",
+                  }}
+                />
+              );
+            })}
+          {safePlaces.map((place) => {
+            const isActive = place.id === activePlaceId;
+            const isCategorySelected = place.category === selectedCategory;
+            return (
+              <Marker
+                key={place.id}
+                position={place.coordinates}
+                icon={createPlaceMarkerIcon(place, isActive, isCategorySelected)}
+                eventHandlers={{ click: () => onSelectPlace(place.id) }}
+              >
+                <LeafletPopup>
+                  <MapPlacePopup
+                    place={place}
+                    onSelectPlace={onSelectPlace}
+                    onOpenDetails={onOpenDetails}
+                  />
+                </LeafletPopup>
+              </Marker>
+            );
+          })}
+        </MapContainer>
+      </div>
+    </div>
+  );
+}
+
+function StoryFilterDrawer({
+  open,
+  onClose,
+  availableCategories,
+  selectedCategory,
+  onSelectCategory,
+  places,
+  activePlaceId,
+  onSelectPlace,
+  planOptions,
+  selectedPlanId,
+  onSelectPlan,
+  loadingPlans,
+}) {
+  const [query, setQuery] = useState("");
+  const filteredPlaces = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return places;
+    return places.filter((place) =>
+      [place.name, place.subtitle, place.note, place.category]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(normalized))
+    );
+  }, [places, query]);
+
+  useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
+
+  return (
+    <>
+      <div
+        className={[
+          "theme-story-filter fixed bottom-4 left-[136px] top-4 z-[1420] w-[360px] max-w-[calc(100vw-2rem)] rounded-[1.4rem] border border-[#DCECF0] bg-white p-5 shadow-[0_28px_80px_rgba(15,58,66,0.18)] transition duration-200",
+          open ? "translate-x-0 opacity-100" : "-translate-x-[calc(100%+2rem)] opacity-0 pointer-events-none",
+        ].join(" ")}
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-[#132334]">
+              Filtry miejscowek
+            </h3>
+            <p className="mt-1 text-sm text-[#647782]">
+              Zawez widok mapy i liste miejsc.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#DCECF0] bg-white text-[#132334]"
+            aria-label="Zamknij filtry"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-5">
+          <p className="text-xs font-semibold text-[#647782]">Rodzaj miejscowki</p>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {availableCategories.map((item) => {
+              const meta =
+                item.key === "all"
+                  ? { label: "Wszystkie", icon: Globe2, color: "#008EA1" }
+                  : categoryMeta[item.key] || categoryMeta.city;
+              const Icon = meta.icon;
+              const active = item.key === selectedCategory;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => onSelectCategory(item.key)}
+                  className={[
+                    "relative flex min-h-[78px] flex-col items-center justify-center gap-1 rounded-xl border px-2 py-2 text-center text-[11px] font-semibold transition",
+                    active
+                      ? "border-[#008EA1] bg-[#E6FAFC] text-[#008EA1]"
+                      : "border-[#DCECF0] bg-white text-[#132334] hover:border-[#8DDAE4]",
+                  ].join(" ")}
+                >
+                  <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#E6FAFC] text-[#008EA1]">
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[#132334] px-1 text-[9px] font-bold text-white">
+                      {item.count}
+                    </span>
+                  </span>
+                  <span className="line-clamp-2 min-w-0">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-5">
+          <p className="text-xs font-semibold text-[#647782]">Plan podrozy</p>
+          <select
+            value={selectedPlanId}
+            onChange={(event) => onSelectPlan(event.target.value)}
+            className="theme-story-field mt-2 h-11 w-full rounded-xl border border-[#DCECF0] bg-white px-3 text-sm text-[#132334] outline-none focus:border-[#008EA1]"
+          >
+            {planOptions.map((plan) => (
+              <option key={plan.id} value={plan.id}>
+                {loadingPlans ? "Ladowanie planow..." : plan.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mt-5">
+          <p className="text-xs font-semibold text-[#647782]">Wyszukaj miejscowke</p>
+          <div className="theme-story-field mt-2 flex h-11 items-center gap-2 rounded-xl border border-[#DCECF0] bg-white px-3">
+            <Search className="h-4 w-4 text-[#647782]" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Szukaj miejscowki..."
+              className="min-w-0 flex-1 bg-transparent text-sm text-[#132334] outline-none placeholder:text-[#647782]"
+            />
+          </div>
+          <div className="atlas-scroll mt-3 max-h-[320px] space-y-2 overflow-y-auto pr-1">
+            {filteredPlaces.map((place) => (
+              <button
+                key={place.id}
+                type="button"
+                onClick={() => {
+                  onSelectPlace(place.id);
+                  onClose();
+                }}
+                className={[
+                  "flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-3 text-left text-sm transition",
+                  place.id === activePlaceId
+                    ? "border-[#008EA1] bg-[#E6FAFC] text-[#008EA1]"
+                    : "border-[#DCECF0] bg-white text-[#132334] hover:border-[#8DDAE4]",
+                ].join(" ")}
+              >
+                <span className="min-w-0 flex-1 truncate font-semibold">
+                  {place.name}
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0" />
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      {open ? (
+        <button
+          type="button"
+          onClick={onClose}
+          className="fixed inset-0 z-[1410] bg-black/10 xl:hidden"
+          aria-label="Zamknij filtry"
+        />
+      ) : null}
+    </>
+  );
+}
+
 export default function StoryPanel({
   countries,
   selectedCountryId,
@@ -1637,10 +2342,20 @@ export default function StoryPanel({
   const [selectedPlanId, setSelectedPlanId] = useState("all-places");
   const [activeStoryIndex, setActiveStoryIndex] = useState(0);
   const [activePlaceId, setActivePlaceId] = useState(safeDestination.places?.[0]?.id || "");
-  const [selectedCategory, setSelectedCategory] = useState("beach");
+  const [selectedCategory, setSelectedCategory] = useState("all");
   const [showTrailLayer, setShowTrailLayer] = useState(false);
   const [trailGeometries, setTrailGeometries] = useState({});
   const [destinationDialogOpen, setDestinationDialogOpen] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [galleryStart, setGalleryStart] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [mapDetailsOpen, setMapDetailsOpen] = useState(false);
+  const [activePlaceMedia, setActivePlaceMedia] = useState({
+    cover: null,
+    gallery: [],
+    videos: [],
+  });
   const [pendingCountryId, setPendingCountryId] = useState(selectedCountryId);
   const [pendingDestinationId, setPendingDestinationId] =
     useState(selectedDestinationId);
@@ -1649,24 +2364,40 @@ export default function StoryPanel({
     plans.find((plan) => plan.id === selectedPlanId) || null;
   const visiblePlaceIds =
     selectedPlanId === "all-places" ? null : getPlanPlaceIds(selectedPlan);
-  const filteredPlaces = useMemo(() => {
+  const planFilteredPlaces = useMemo(() => {
     if (!visiblePlaceIds) return safeDestination.places || [];
     return (safeDestination.places || []).filter((place) =>
       visiblePlaceIds.has(place.id)
     );
   }, [safeDestination.places, visiblePlaceIds]);
+  const availableCategories = useMemo(() => {
+    const categoryItems = countByCategory(planFilteredPlaces).filter(
+      (item) => item.count > 0
+    );
+    return [
+      {
+        key: "all",
+        label: "Wszystkie",
+        count: planFilteredPlaces.length,
+        places: planFilteredPlaces,
+      },
+      ...categoryItems,
+    ];
+  }, [planFilteredPlaces]);
+  const filteredPlaces = useMemo(() => {
+    if (selectedCategory === "all") return planFilteredPlaces;
+    return planFilteredPlaces.filter((place) => place.category === selectedCategory);
+  }, [planFilteredPlaces, selectedCategory]);
   const filteredDestination = useMemo(
     () => ({
       ...safeDestination,
-      places: filteredPlaces.map((place) => enrichPlaceForDisplay(place)),
+      places: filteredPlaces
+        .map((place) => normalizePlaceCoordinates(enrichPlaceForDisplay(place)))
+        .filter(Boolean),
     }),
     [safeDestination, filteredPlaces]
   );
   const slides = useMemo(() => getStorySlides(filteredDestination), [filteredDestination]);
-  const availableCategories = useMemo(
-    () => countByCategory(filteredDestination.places || []).filter((item) => item.count > 0),
-    [filteredDestination]
-  );
   const trailPlaces = useMemo(
     () => (filteredDestination.places || []).filter((place) => isTrailPlace(place)),
     [filteredDestination.places]
@@ -1687,8 +2418,25 @@ export default function StoryPanel({
   }, [plans]);
   const effectiveSelectedCategory =
     availableCategories.find((item) => item.key === selectedCategory)?.key ||
-    availableCategories[0]?.key ||
-    "beach";
+    "all";
+  const activePlace = filteredDestination.places.find(
+    (place) => place.id === activePlaceId
+  ) || filteredDestination.places[0];
+  const activePlaceIndex = Math.max(
+    filteredDestination.places.findIndex((place) => place.id === activePlace?.id),
+    0
+  );
+  const galleryImages = activePlace
+    ? uniqueImageUrls([
+        getPlacePrimaryImage(activePlace, activePlaceMedia),
+        ...getPlaceGalleryCandidates(activePlace, activePlaceMedia),
+      ])
+    : [];
+  const placeVideos = activePlace?.videos?.length
+    ? activePlace.videos
+    : activePlace?.video
+      ? [activePlace.video]
+      : [];
 
   useEffect(() => {
     if (!showTrailLayer || !trailPlaces.length) return;
@@ -1824,11 +2572,8 @@ export default function StoryPanel({
     const nextPlace = filteredDestination.places.find(
       (place) => place.id === nextPlaceId
     );
-    if (
-      nextPlace?.category &&
-      !availableCategories.some((item) => item.key === selectedCategory)
-    ) {
-      setSelectedCategory(nextPlace.category);
+    if (!availableCategories.some((item) => item.key === selectedCategory)) {
+      setSelectedCategory("all");
     }
 
     const nextSlideIndex = slides.findIndex((slide) => slide.placeId === nextPlaceId);
@@ -1858,18 +2603,83 @@ export default function StoryPanel({
     }
   }, [activeStoryIndex, slides.length]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadActivePlaceMedia() {
+      if (!activePlace?.countryId || !activePlace?.destinationId || !activePlace?.id) {
+        setActivePlaceMedia({ cover: null, gallery: [], videos: [] });
+        return;
+      }
+
+      try {
+        const nextMedia = await listPlaceMedia(
+          activePlace.countryId,
+          activePlace.destinationId,
+          activePlace.id
+        );
+
+        if (!cancelled) {
+          setActivePlaceMedia(nextMedia);
+        }
+      } catch {
+        if (!cancelled) {
+          setActivePlaceMedia({ cover: null, gallery: [], videos: [] });
+        }
+      }
+    }
+
+    loadActivePlaceMedia();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activePlace?.countryId, activePlace?.destinationId, activePlace?.id]);
+
+  useEffect(() => {
+    setGalleryStart(0);
+    setLightboxIndex(0);
+  }, [activePlace?.id]);
+
+  useEffect(() => {
+    setGalleryStart((prev) => Math.min(prev, Math.max(galleryImages.length - 4, 0)));
+    setLightboxIndex((prev) => Math.min(prev, Math.max(galleryImages.length - 1, 0)));
+  }, [galleryImages.length]);
+
   const syncToSlide = (index) => {
     setActiveStoryIndex(index);
     const slide = slides[index];
     if (slide?.type === "place") setActivePlaceId(slide.placeId);
   };
 
+  const selectPlaceByOffset = (offset) => {
+    if (!filteredDestination.places.length) return;
+    const nextIndex =
+      (activePlaceIndex + offset + filteredDestination.places.length) %
+      filteredDestination.places.length;
+    handleSelectPlace(filteredDestination.places[nextIndex].id);
+  };
+
+  const exportMapToPdf = () => {
+    if (typeof document === "undefined" || typeof window === "undefined") return;
+    document.body.classList.add("print-story-map");
+    window.requestAnimationFrame(() => {
+      window.print();
+      window.setTimeout(() => {
+        document.body.classList.remove("print-story-map");
+      }, 500);
+    });
+  };
+
   const handleSelectPlace = (placeId) => {
     setActivePlaceId(placeId);
-    const place = findPlaceById(filteredDestination, placeId);
-    if (place?.category) setSelectedCategory(place.category);
     const idx = slides.findIndex((slide) => slide.placeId === placeId);
     if (idx >= 0) setActiveStoryIndex(idx);
+  };
+
+  const handleOpenPlaceDetails = (placeId) => {
+    handleSelectPlace(placeId);
+    setMapDetailsOpen(true);
   };
 
   const openDestinationDialog = () => {
@@ -1902,60 +2712,190 @@ export default function StoryPanel({
   }
 
   return (
-    <section className="theme-story-shell">
-      <DestinationMapSurface
-        countries={countries}
-        selectedCountryId={selectedCountryId}
-        selectedDestinationId={selectedDestinationId}
-        onOpenChangeDestination={openDestinationDialog}
-        destination={filteredDestination}
-        activePlaceId={activePlaceId}
-        selectedCategory={effectiveSelectedCategory}
-        showTrailLayer={showTrailLayer}
-        trailGeometries={trailGeometries}
-        onSelectPlace={handleSelectPlace}
-        storyOverlay={
-          <DestinationTabs
-            destination={filteredDestination}
-            activeIndex={activeStoryIndex}
-            onPrev={() =>
-              syncToSlide((activeStoryIndex - 1 + slides.length) % slides.length)
-            }
-            onNext={() => syncToSlide((activeStoryIndex + 1) % slides.length)}
-            onGoTo={syncToSlide}
-          />
-        }
-        detailsOverlay={
-          <div className="space-y-3">
-            <FloatingActivePlace
-              destination={filteredDestination}
-              activePlaceId={activePlaceId}
-            />
-            <FloatingPlanPicker
-              planOptions={planOptions}
-              selectedPlanId={selectedPlanId}
-              onSelectPlan={setSelectedPlanId}
-              loadingPlans={loadingPlans}
-            />
-            <FloatingCategoryPicker
-              availableCategories={availableCategories}
-              selectedCategory={effectiveSelectedCategory}
-              onSelectCategory={setSelectedCategory}
-            />
-            <FloatingTrailLayerToggle
-              trailCount={trailPlaces.length}
-              showTrailLayer={showTrailLayer}
-              onToggle={() => setShowTrailLayer((current) => !current)}
-            />
-            <FloatingCategoryPlaces
-              destination={filteredDestination}
-              activePlaceId={activePlaceId}
-              selectedCategory={effectiveSelectedCategory}
-              onSelectPlace={handleSelectPlace}
-            />
+    <section className="theme-story-shell theme-story-v2 flex h-[calc(100dvh-2rem)] min-h-[720px] flex-col overflow-hidden rounded-[1.6rem] border border-[#DCECF0] bg-white p-4 shadow-[0_26px_90px_rgba(15,58,66,0.08)]">
+      <div className="mb-4 flex shrink-0 flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex items-center gap-4">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#E6FAFC] text-[#008EA1]">
+            <MapPin className="h-7 w-7" />
+          </span>
+          <div>
+            <h1 className="text-2xl font-semibold text-[#132334]">
+              Mapa destynacji
+            </h1>
+            <p className="mt-1 text-sm text-[#647782]">
+              Odkrywaj wyjatkowe miejsca
+            </p>
           </div>
-        }
+        </div>
+      </div>
+
+      {filteredDestination.places.length ? (
+        <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,1fr)_430px] 2xl:grid-cols-[minmax(0,1fr)_470px]">
+          <StoryMapCanvas
+            destination={filteredDestination}
+            activePlaceId={activePlace?.id || ""}
+            selectedCategory={effectiveSelectedCategory}
+            showTrailLayer={showTrailLayer}
+            trailGeometries={trailGeometries}
+            onSelectPlace={handleSelectPlace}
+            onOpenDetails={handleOpenPlaceDetails}
+            topOverlay={
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div className="flex flex-wrap items-end gap-3">
+                  <label className="theme-story-floating-control min-w-[210px] rounded-xl border border-[#DCECF0] bg-white/95 px-3 py-2 shadow-[0_14px_34px_rgba(15,58,66,0.10)] backdrop-blur">
+                    <span className="text-[11px] font-semibold text-[#647782]">Kraj</span>
+                    <select
+                      value={selectedCountryId}
+                      onChange={(event) => {
+                        const nextCountryId = event.target.value;
+                        const nextCountry =
+                          countries.find((country) => country.id === nextCountryId) ||
+                          countries[0];
+                        onSelectCountry(nextCountryId);
+                        onSelectDestination(nextCountry.destinations[0]?.id || "");
+                      }}
+                      className="mt-1 w-full bg-transparent text-sm font-semibold text-[#132334] outline-none"
+                    >
+                      {countries.map((country) => (
+                        <option key={country.id} value={country.id}>
+                          {country.countryName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="theme-story-floating-control min-w-[230px] rounded-xl border border-[#DCECF0] bg-white/95 px-3 py-2 shadow-[0_14px_34px_rgba(15,58,66,0.10)] backdrop-blur">
+                    <span className="text-[11px] font-semibold text-[#647782]">Destynacja</span>
+                    <select
+                      value={selectedDestinationId}
+                      onChange={(event) => onSelectDestination(event.target.value)}
+                      className="mt-1 w-full bg-transparent text-sm font-semibold text-[#132334] outline-none"
+                    >
+                      {(countries.find((country) => country.id === selectedCountryId)?.destinations || []).map(
+                        (item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        )
+                      )}
+                    </select>
+                  </label>
+                  </div>
+                  <div className="ml-auto flex flex-wrap items-end justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFilterOpen(true)}
+                    className="theme-story-toolbar-button inline-flex h-[54px] items-center gap-2 rounded-xl border border-[#DCECF0] bg-white/95 px-4 text-sm font-semibold text-[#132334] shadow-[0_14px_34px_rgba(15,58,66,0.10)] backdrop-blur transition hover:border-[#008EA1] hover:text-[#008EA1]"
+                  >
+                    <Filter className="h-4 w-4" />
+                    Filtry
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportMapToPdf}
+                    className="theme-story-toolbar-button inline-flex h-[54px] items-center gap-2 rounded-xl border border-[#DCECF0] bg-white/95 px-4 text-sm font-semibold text-[#132334] shadow-[0_14px_34px_rgba(15,58,66,0.10)] backdrop-blur transition hover:border-[#008EA1] hover:text-[#008EA1]"
+                  >
+                    <Download className="h-4 w-4" />
+                    Eksportuj mape
+                  </button>
+                  <span className="inline-flex h-[54px] items-center rounded-xl border border-[#DCECF0] bg-[#F5FCFD]/95 px-4 text-sm font-semibold text-[#008EA1] shadow-[0_14px_34px_rgba(15,58,66,0.10)] backdrop-blur">
+                    {filteredDestination.places.length} miejsc na mapie
+                  </span>
+                  </div>
+                </div>
+              </div>
+            }
+          />
+          <PlaceDetailsPanel
+            place={activePlace}
+            galleryImages={galleryImages}
+            activePlaceMedia={activePlaceMedia}
+            placeVideos={placeVideos}
+            galleryStart={galleryStart}
+            setGalleryStart={setGalleryStart}
+            setLightboxIndex={setLightboxIndex}
+            setLightboxOpen={setLightboxOpen}
+            currentIndex={activePlaceIndex}
+            total={filteredDestination.places.length}
+            onPrev={() => selectPlaceByOffset(-1)}
+            onNext={() => selectPlaceByOffset(1)}
+          />
+        </div>
+      ) : (
+        <div className="flex min-h-0 flex-1 items-center justify-center rounded-[1.4rem] border border-[#DCECF0] bg-[#F5FCFD] px-6 py-12 text-center text-[#647782]">
+          <div>
+            <p className="text-lg font-semibold text-[#132334]">
+              Brak miejscowek do wyswietlenia na mapie.
+            </p>
+            <p className="mt-2 text-sm leading-6">
+              Sprawdz filtry albo uzupelnij wspolrzedne miejscowek w tej destynacji.
+            </p>
+          </div>
+        </div>
+      )}
+
+      <StoryFilterDrawer
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        availableCategories={availableCategories}
+        selectedCategory={effectiveSelectedCategory}
+        onSelectCategory={setSelectedCategory}
+        places={planFilteredPlaces
+          .map((place) => normalizePlaceCoordinates(enrichPlaceForDisplay(place)))
+          .filter(Boolean)}
+        activePlaceId={activePlace?.id || ""}
+        onSelectPlace={handleSelectPlace}
+        planOptions={planOptions}
+        selectedPlanId={selectedPlanId}
+        onSelectPlan={setSelectedPlanId}
+        loadingPlans={loadingPlans}
       />
+
+      {lightboxOpen && galleryImages.length > 0 &&
+        createPortal(
+          <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/80 p-6">
+            <button
+              onClick={() => setLightboxOpen(false)}
+              className="absolute right-6 top-6 rounded-full border border-white/20 bg-white/10 p-2 text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() =>
+                setLightboxIndex(
+                  (prev) => (prev - 1 + galleryImages.length) % galleryImages.length
+                )
+              }
+              className="absolute left-6 rounded-full border border-white/20 bg-white/10 p-2 text-white"
+            >
+              <ChevronLeft className="h-6 w-6" />
+            </button>
+            <SmartImage
+              urls={[galleryImages[lightboxIndex]]}
+              alt={`${activePlace?.name || "Zdjecie"} full`}
+              className="max-h-[85vh] max-w-[85vw] rounded-2xl object-contain"
+            />
+            <button
+              onClick={() =>
+                setLightboxIndex((prev) => (prev + 1) % galleryImages.length)
+              }
+              className="absolute right-6 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-white/10 p-2 text-white"
+            >
+              <ChevronRight className="h-6 w-6" />
+            </button>
+          </div>,
+          document.body
+        )}
+      {mapDetailsOpen && activePlace ? (
+        <FullPlaceInfoModal
+          place={activePlace}
+          description={getPlaceDescription(activePlace)}
+          coverUrls={getPlaceImageCandidates(activePlace, activePlaceMedia)}
+          galleryImages={galleryImages}
+          activePlaceMedia={activePlaceMedia}
+          onClose={() => setMapDetailsOpen(false)}
+        />
+      ) : null}
       {destinationDialogOpen && (
         <DestinationChangeModal
           countries={countries}

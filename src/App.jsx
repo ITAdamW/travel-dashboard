@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  BarChart3,
   BookImage,
+  CalendarDays,
+  Compass,
   Database,
   Globe2,
+  Heart,
   Images,
   Map,
-  Route as RouteIcon,
   Moon,
+  Navigation,
+  Plus,
+  Route as RouteIcon,
   Settings2,
   Sun,
   Users as UsersIcon,
@@ -99,6 +105,105 @@ function navbarButtonClass({ active, style }) {
       ? "border-[#D8CCBB] bg-white text-[#1F1D1A] shadow-[0_10px_24px_rgba(36,32,26,0.07)]"
       : "border-transparent bg-[#F8F4EC] text-[#6B6255] hover:border-[#E7DDD0] hover:bg-white/80 hover:text-[#1F1D1A]",
   ].join(" ");
+}
+
+function SideNavItem({ active, icon: Icon, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "theme-side-nav-item relative flex w-full flex-col items-center gap-2 px-2 py-4 text-center text-xs font-semibold transition",
+        active ? "text-[#008EA1]" : "text-[#4D5A68] hover:text-[#008EA1]",
+      ].join(" ")}
+      title={label}
+    >
+      {active ? (
+        <span className="absolute left-0 top-1/2 h-12 w-1 -translate-y-1/2 rounded-r-full bg-[#008EA1]" />
+      ) : null}
+      <Icon className="h-6 w-6" />
+      <span className="leading-tight">{label}</span>
+    </button>
+  );
+}
+
+function SideNavbar({
+  activePanel,
+  onChangePanel,
+  theme,
+  onToggleTheme,
+  onOpenSettings,
+  userGreeting,
+  session,
+}) {
+  const avatarUrl = session?.user?.user_metadata?.avatar_url;
+  const initials = (userGreeting || "U").slice(0, 1).toUpperCase();
+  const primaryItems = [
+    { key: "atlas", label: "Mapa swiata", icon: Globe2 },
+    { key: "story", label: "Mapa destynacji", icon: Compass },
+    { key: "planner", label: "Plany i trasa", icon: CalendarDays },
+  ];
+  const secondaryItems = [
+    { key: "add", label: "Dodaj miejscowke", icon: Plus, onClick: () => onChangePanel("media") },
+    { key: "favorites", label: "Ulubione", icon: Heart, onClick: () => onChangePanel("atlas") },
+    { key: "stats", label: "Statystyki", icon: BarChart3, onClick: () => onChangePanel("atlas") },
+    { key: "settings", label: "Ustawienia", icon: Settings2, onClick: onOpenSettings },
+  ];
+
+  return (
+    <aside className="theme-side-nav fixed bottom-4 left-4 top-4 z-[1400] hidden w-[104px] flex-col overflow-hidden rounded-[1.4rem] border border-[#DCECF0] bg-white shadow-[0_24px_70px_rgba(15,58,66,0.12)] xl:flex">
+      <div className="flex h-20 items-center justify-center bg-[#008EA1] text-white">
+        <Navigation className="h-9 w-9 fill-white/95 stroke-white" />
+      </div>
+      <nav className="flex flex-1 flex-col items-center justify-between py-4">
+        <div className="w-full">
+          {primaryItems.map((item) => (
+            <SideNavItem
+              key={item.key}
+              active={activePanel === item.key}
+              icon={item.icon}
+              label={item.label}
+              onClick={() => onChangePanel(item.key)}
+            />
+          ))}
+          <SideNavItem
+            active={false}
+            icon={secondaryItems[0].icon}
+            label={secondaryItems[0].label}
+            onClick={secondaryItems[0].onClick}
+          />
+        </div>
+
+        <div className="w-full">
+          {secondaryItems.slice(1).map((item) => (
+            <SideNavItem
+              key={item.key}
+              active={false}
+              icon={item.icon}
+              label={item.label}
+              onClick={item.onClick}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className="theme-side-nav-toggle mx-auto mt-3 flex h-11 w-14 items-center justify-center rounded-xl border border-[#DCECF0] bg-white text-[#4D5A68] transition hover:text-[#008EA1]"
+            aria-label={theme === "light" ? "Wlacz tryb ciemny" : "Wlacz tryb jasny"}
+            title={theme === "light" ? "Wlacz tryb ciemny" : "Wlacz tryb jasny"}
+          >
+            {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          </button>
+          <div className="mx-auto mt-4 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[#DCECF0] bg-[#E6FAFC] text-sm font-bold text-[#008EA1]">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt={userGreeting} className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
+          </div>
+        </div>
+      </nav>
+    </aside>
+  );
 }
 
 export default function App() {
@@ -278,7 +383,7 @@ export default function App() {
     { key: "atlas", label: "Atlas", panelLabel: "Panel 1", number: "1", icon: Globe2, visible: true },
     { key: "story", label: "Destination", panelLabel: "Panel 2", number: "2", icon: Map, visible: true },
     { key: "planner", label: "Planner", panelLabel: "Panel 3", number: "3", icon: BookImage, visible: true },
-    { key: "route", label: "Route", panelLabel: "Panel 4", number: "4", icon: RouteIcon, visible: true },
+    { key: "route", label: "Route", panelLabel: "Panel 4", number: "4", icon: RouteIcon, visible: false },
     { key: "media", label: "Media", panelLabel: "Panel 5", number: "5", icon: Images, visible: isAdmin },
     { key: "admin", label: "Data admin", panelLabel: "Panel 6", number: "6", icon: Database, visible: isAdmin },
     { key: "users", label: "Users", panelLabel: "Panel 7", number: "7", icon: UsersIcon, visible: isAdmin },
@@ -307,9 +412,20 @@ export default function App() {
 
   return (
     <div className="app-shell min-h-screen text-[#1F1D1A]">
+      <SideNavbar
+        activePanel={activePanel}
+        onChangePanel={setActivePanel}
+        theme={theme}
+        onToggleTheme={() =>
+          setTheme((prev) => (prev === "light" ? "dark" : "light"))
+        }
+        onOpenSettings={() => setUserSettingsOpen(true)}
+        userGreeting={userGreeting}
+        session={session}
+      />
       <header
         className={[
-          "theme-navbar sticky top-0 z-[1300] w-full backdrop-blur",
+          "theme-navbar sticky top-0 z-[1300] w-full backdrop-blur xl:hidden",
           navbarStyle === "old"
             ? "px-3 py-4 sm:px-4 md:px-6 xl:px-8"
             : "border-b border-[#E7DED2] bg-[linear-gradient(180deg,rgba(252,250,246,0.97)_0%,rgba(246,240,229,0.95)_100%)] shadow-[0_10px_24px_rgba(36,32,26,0.06)]",
@@ -499,7 +615,7 @@ export default function App() {
         )}
       </header>
 
-      <div className="w-full px-3 pb-4 pt-2 sm:px-4 md:px-6 md:pb-6 md:pt-3 xl:px-8">
+      <div className="w-full px-3 pb-4 pt-2 sm:px-4 md:px-6 md:pb-6 md:pt-3 xl:pl-[136px] xl:pr-5">
 
         {activePanel === "atlas" &&
           (travelCountries.length > 0 ? (
@@ -562,7 +678,7 @@ export default function App() {
                 setSelectedCountryId(countryId);
                 setSelectedDestinationId(destinationId);
                 setSelectedPlannerPlanId(planId);
-                setActivePanel("route");
+                setActivePanel("planner");
               }}
               onPlannerSaved={loadTravelData}
             />

@@ -12,10 +12,14 @@ import { divIcon } from "leaflet";
 import {
   ArrowDown,
   ArrowUp,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Coffee,
   Eye,
   ExternalLink,
   FileDown,
+  Heart,
   Landmark,
   MapPin,
   Mountain,
@@ -23,7 +27,6 @@ import {
   Plus,
   Route,
   Save,
-  Share2,
   Star,
   Trash2,
   Waves,
@@ -67,13 +70,13 @@ const categoryMeta = {
 };
 
 const plannerDayPalette = [
-  "#6B7A52",
-  "#A25F4B",
-  "#4A7A8C",
-  "#8D6A9F",
-  "#C58A3D",
-  "#5D6274",
-  "#9A6945",
+  "#111827",
+  "#008EA1",
+  "#52616D",
+  "#19B8C8",
+  "#243B53",
+  "#5FD4DE",
+  "#0F5964",
 ];
 
 function cn(...classes) {
@@ -246,16 +249,27 @@ function FitPlannerRouteBounds({ points }) {
 function createPlannerStopIcon(color, label, isActive) {
   return divIcon({
     className: "planner-route-stop-marker",
-    html: `<div style="width:${isActive ? 32 : 28}px;height:${isActive ? 32 : 28}px;border-radius:9999px;display:flex;align-items:center;justify-content:center;background:${color};border:3px solid #ffffff;box-shadow:0 10px 22px rgba(34,31,25,0.18);color:#ffffff;font-size:${isActive ? 13 : 12}px;font-weight:700;">${label}</div>`,
+    html: `<div style="width:${isActive ? 34 : 30}px;height:${isActive ? 34 : 30}px;border-radius:9999px;display:flex;align-items:center;justify-content:center;background:${color};border:3px solid #ffffff;box-shadow:0 12px 26px rgba(0,142,161,0.24);color:#ffffff;font-size:${isActive ? 13 : 12}px;font-weight:800;">${label}</div>`,
     iconSize: [isActive ? 32 : 28, isActive ? 32 : 28],
     iconAnchor: [isActive ? 16 : 14, isActive ? 16 : 14],
     popupAnchor: [0, -(isActive ? 15 : 13)],
   });
 }
 
-function PlannerEditRouteMap({ destination, plan }) {
+function PlannerRouteMap({
+  destination,
+  plan,
+  compact = false,
+  activeDayIndex = null,
+  onActiveDayChange,
+  onCreatePlan,
+  onEditPlan,
+  onExportPlan,
+  canExport = true,
+}) {
   const [activeStopKey, setActiveStopKey] = useState("");
   const [routeGeometries, setRouteGeometries] = useState({});
+  const [dayOffset, setDayOffset] = useState(0);
 
   const planDays = useMemo(() => {
     if (!destination || !plan) return [];
@@ -279,10 +293,19 @@ function PlannerEditRouteMap({ destination, plan }) {
     }));
   }, [destination, plan]);
 
-  const routePoints = useMemo(
-    () => planDays.flatMap((day) => day.places.map((entry) => entry.place.coordinates)),
-    [planDays]
+  const visiblePlanDays = useMemo(
+    () =>
+      activeDayIndex == null
+        ? planDays
+        : planDays.filter((_, index) => index === activeDayIndex),
+    [activeDayIndex, planDays]
   );
+
+  const routePoints = useMemo(
+    () => visiblePlanDays.flatMap((day) => day.places.map((entry) => entry.place.coordinates)),
+    [visiblePlanDays]
+  );
+  const visibleDayButtons = planDays.slice(dayOffset, dayOffset + 5);
 
   useEffect(() => {
     let cancelled = false;
@@ -341,38 +364,78 @@ function PlannerEditRouteMap({ destination, plan }) {
 
   if (!routePoints.length) {
     return (
-      <div className="mb-4 rounded-[1.3rem] border border-dashed border-[#DDD2C3] bg-white px-5 py-8 text-center text-sm text-[#7C7263]">
-        Dodaj atrakcje do dni planu, aby zobaczyc trase na mapie.
-      </div>
-    );
+    <div className="mb-4 rounded-[1.3rem] border border-dashed border-[#DDD2C3] bg-white px-5 py-8 text-center text-sm text-[#7C7263]">
+      Dodaj atrakcje do dni planu, aby zobaczyc trase na mapie.
+    </div>
+  );
   }
 
   return (
-    <div className="mb-4 rounded-[1.4rem] border border-[#E8DFD2] bg-white p-3 shadow-[0_8px_22px_rgba(34,31,25,0.04)]">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">Live route map</p>
-          <p className="mt-2 text-lg font-semibold text-[#1F1D1A]">Trasa aktualizuje sie na biezaco</p>
+    <div
+      className={cn(
+        "rounded-[1.4rem] border bg-white shadow-[0_8px_22px_rgba(34,31,25,0.04)]",
+        compact
+          ? "mb-0 overflow-hidden border-[#DDEDF0] p-0"
+          : "mb-4 border-[#E8DFD2] p-3"
+      )}
+    >
+      {!compact ? (
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">Mapa trasy</p>
+            <p className="mt-2 text-lg font-semibold text-[#1F1D1A]">
+              Trasa aktualizuje sie na biezaco
+            </p>
+          </div>
+          <span className="rounded-full border border-[#E1D7C8] bg-[#FBF8F2] px-3 py-1 text-xs text-[#6B6255]">
+            {planDays.length} dni
+          </span>
         </div>
-        <span className="rounded-full border border-[#E1D7C8] bg-[#FBF8F2] px-3 py-1 text-xs text-[#6B6255]">
-          {planDays.length} dni
-        </span>
-      </div>
+      ) : null}
 
-      <div className="relative h-[360px] overflow-hidden rounded-[1.25rem] border border-[#E8E0D3] bg-[radial-gradient(circle_at_top_left,rgba(107,122,82,0.08),transparent_35%),linear-gradient(180deg,#F3EEE5_0%,#ECE5D8_100%)]">
-        <div className="absolute inset-0 z-0 [filter:saturate(0.35)_sepia(0.15)_contrast(0.95)]">
+      <div className={`relative overflow-hidden rounded-[1.25rem] border border-[#DDEDF0] bg-[#E8EEF1] ${compact ? "h-[520px]" : "h-[360px]"}`}>
+        {compact ? (
+          <div className="absolute right-4 top-4 z-[650] flex flex-wrap justify-end gap-2">
+            <button
+              type="button"
+              onClick={onCreatePlan}
+              className="inline-flex items-center gap-2 rounded-[0.85rem] bg-white/95 px-4 py-2.5 text-sm font-bold text-[#008EA1] shadow-[0_12px_28px_rgba(15,58,66,0.14)] backdrop-blur transition hover:bg-[#EAFBFD]"
+            >
+              <Plus className="h-4 w-4" />
+              Nowy plan
+            </button>
+            <button
+              type="button"
+              onClick={onEditPlan}
+              className="inline-flex items-center gap-2 rounded-[0.85rem] bg-white/95 px-4 py-2.5 text-sm font-bold text-[#52616D] shadow-[0_12px_28px_rgba(15,58,66,0.14)] backdrop-blur transition hover:bg-[#F3FBFC]"
+            >
+              <PencilLine className="h-4 w-4" />
+              Edytuj plan
+            </button>
+            <button
+              type="button"
+              onClick={onExportPlan}
+              disabled={!canExport}
+              className="inline-flex items-center gap-2 rounded-[0.85rem] bg-[#008EA1] px-4 py-2.5 text-sm font-bold text-white shadow-[0_12px_28px_rgba(0,142,161,0.24)] transition hover:bg-[#007485] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FileDown className="h-4 w-4" />
+              Eksportuj plan
+            </button>
+          </div>
+        ) : null}
+        <div className="absolute inset-0 z-0 [filter:grayscale(1)_saturate(0.08)_contrast(0.92)_brightness(1.03)]">
           <MapContainer
             center={routePoints[0]}
             zoom={11}
             zoomControl={true}
             attributionControl={false}
-            className="h-[360px] w-full"
+            className="h-full w-full"
             scrollWheelZoom={true}
           >
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
             <FitPlannerRouteBounds points={routePoints} />
 
-            {planDays.map((day) => (
+            {visiblePlanDays.map((day) => (
               <Polyline
                 key={`planner-route-${day.day}`}
                 positions={routeGeometries[day.day] || day.places.map((entry) => entry.place.coordinates)}
@@ -380,7 +443,7 @@ function PlannerEditRouteMap({ destination, plan }) {
               />
             ))}
 
-            {planDays.flatMap((day) =>
+            {visiblePlanDays.flatMap((day) =>
               day.places.map((entry, index) => {
                 const isActive = activeStopKey === entry.key;
                 return (
@@ -419,31 +482,64 @@ function PlannerEditRouteMap({ destination, plan }) {
           </MapContainer>
         </div>
 
-        <div className="pointer-events-none absolute bottom-3 left-3 z-[650] w-[220px] max-w-[calc(100%-1.5rem)]">
-          <div className="pointer-events-auto rounded-[1rem] border border-[#E6DED1] bg-[rgba(255,255,255,0.9)] p-2.5 shadow-[0_12px_28px_rgba(34,31,25,0.10)] backdrop-blur">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[9px] uppercase tracking-[0.22em] text-[#8A7F6C]">Day colors</p>
-              {planDays.length > 6 ? (
-                <span className="text-[9px] uppercase tracking-[0.18em] text-[#9A917F]">
-                  Przewin
-                </span>
-              ) : null}
-            </div>
-            <div className="mt-2 max-h-[168px] overflow-y-auto pr-1">
-              <div className="flex flex-col gap-1.5">
-              {planDays.map((day, index) => (
-                <span
-                  key={`planner-legend-${day.day}`}
-                  className="inline-flex w-full items-center gap-2 rounded-full border border-[#E1D7C8] bg-white px-2.5 py-1 text-[10px] text-[#4D463D]"
+        {compact ? (
+          <div className="absolute bottom-4 left-1/2 z-[650] flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-[1rem] border border-[#DDEDF0] bg-white/94 p-2 shadow-[0_16px_36px_rgba(15,58,66,0.16)] backdrop-blur">
+            {planDays.length > 5 ? (
+              <button
+                type="button"
+                onClick={() => setDayOffset((prev) => Math.max(0, prev - 1))}
+                className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#008EA1] transition hover:bg-[#EAFBFD]"
+                aria-label="Poprzednie dni"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => onActiveDayChange?.(null)}
+              className={cn(
+                "inline-flex h-10 flex-none items-center gap-2 rounded-[0.8rem] px-3 text-sm font-bold transition",
+                activeDayIndex == null
+                  ? "bg-[#111827] text-white"
+                  : "border border-[#DDEDF0] bg-white text-[#52616D] hover:bg-[#F3FBFC]"
+              )}
+            >
+              <span className="h-2.5 w-2.5 rounded-full bg-[#111827]" />
+              Cala trasa
+            </button>
+            {visibleDayButtons.map((day, index) => {
+              const realIndex = dayOffset + index;
+              return (
+                <button
+                  key={`map-day-control-${realIndex}`}
+                  type="button"
+                  onClick={() => onActiveDayChange?.(realIndex)}
+                  className={cn(
+                    "inline-flex h-10 flex-none items-center gap-2 rounded-[0.8rem] px-3 text-sm font-bold transition",
+                    activeDayIndex === realIndex
+                      ? "bg-[#008EA1] text-white"
+                      : "border border-[#DDEDF0] bg-white text-[#52616D] hover:bg-[#F3FBFC]"
+                  )}
                 >
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: day.color }} />
-                  {day.day || `Day ${index + 1}`}
-                </span>
-              ))}
-              </div>
-            </div>
+                  {day.day || `Dzien ${realIndex + 1}`}
+                </button>
+              );
+            })}
+            {planDays.length > 5 ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setDayOffset((prev) => Math.min(Math.max(planDays.length - 5, 0), prev + 1))
+                }
+                className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#008EA1] transition hover:bg-[#EAFBFD]"
+                aria-label="Kolejne dni"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            ) : null}
           </div>
-        </div>
+        ) : null}
       </div>
     </div>
   );
@@ -452,11 +548,11 @@ function PlannerEditRouteMap({ destination, plan }) {
 function SelectInput({ label, value, onChange, options }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-[#4D463D]">{label}</span>
+      <span className="mb-2 block text-xs font-semibold text-[#61717D]">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+        className="h-12 w-full rounded-[0.9rem] border border-[#DDEDF0] bg-white px-4 text-sm font-semibold text-[#111827] outline-none transition focus:border-[#008EA1] focus:ring-4 focus:ring-[#EAFBFD]"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -627,47 +723,49 @@ function PlannerDayItem({
 function PlannerPreviewItem({ place, note }) {
   const Icon = categoryMeta[place.category]?.icon || MapPin;
   const imageFallback = (
-    <span className="flex h-[84px] w-[84px] shrink-0 items-center justify-center rounded-[1rem] bg-[#EDE7DB] text-[#6B7A52]">
+    <span className="flex h-16 w-20 shrink-0 items-center justify-center rounded-[0.85rem] bg-[#EAFBFD] text-[#008EA1]">
       <Icon className="h-6 w-6" />
     </span>
   );
 
   return (
-    <div className="theme-planner-card rounded-[1.25rem] border border-[#E8DFD2] bg-[#FBF8F2] p-3">
-      <div className="flex flex-col gap-3 md:flex-row">
-        {getPlacePrimaryImage(place) ? (
-          <PlannerImage
-            place={place}
-            alt={place.name}
-            className="h-[84px] w-[84px] shrink-0 rounded-[1rem] object-cover"
-            fallback={imageFallback}
-          />
-        ) : imageFallback}
-
+    <div className="rounded-[1rem] border border-[#DDEDF0] bg-white p-3 shadow-[0_8px_22px_rgba(15,58,66,0.04)]">
+      <div className="flex items-center gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAFBFD] text-[#008EA1]">
+          <Icon className="h-4 w-4" />
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="text-lg font-semibold text-[#1F1D1A]">{place.name}</p>
-          <p className="mt-1 text-sm text-[#6B6255]">
+          <p className="truncate text-base font-bold text-[#111827]">{place.name}</p>
+          <p className="mt-0.5 truncate text-sm text-[#61717D]">
             {categoryMeta[place.category]?.label || place.category}
           </p>
           {place.note ? (
             <RichText
               text={place.note}
-              className="mt-2 space-y-1 text-sm text-[#5B544A]"
-              paragraphClassName="leading-6 text-[#5B544A]"
-              listClassName="text-[#5B544A]"
+              className="mt-1 line-clamp-2 text-sm text-[#61717D]"
+              paragraphClassName="leading-6 text-[#61717D]"
+              listClassName="text-[#61717D]"
             />
           ) : null}
         </div>
-        {note ? (
-          <div className="rounded-[1rem] border border-[#E5DCCF] bg-white px-3 py-3 text-sm text-[#4F493F] md:w-[280px] md:min-w-[280px]">
-            <RichText
-              text={note}
-              paragraphClassName="leading-6 text-[#4F493F]"
-              listClassName="text-[#4F493F]"
-            />
-          </div>
-        ) : null}
+        {getPlacePrimaryImage(place) ? (
+          <PlannerImage
+            place={place}
+            alt={place.name}
+            className="h-16 w-20 shrink-0 rounded-[0.85rem] object-cover"
+            fallback={imageFallback}
+          />
+        ) : imageFallback}
       </div>
+      {note ? (
+        <div className="mt-3 rounded-[0.85rem] border border-[#DDEDF0] bg-[#FBFEFF] px-3 py-2 text-sm text-[#52616D]">
+          <RichText
+            text={note}
+            paragraphClassName="leading-6 text-[#52616D]"
+            listClassName="text-[#52616D]"
+          />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -860,19 +958,23 @@ function DayColumn({
   );
 }
 
-function PlannerPreview({ destination, plan }) {
+function PlannerPreview({ destination, plan, activeDayIndex = null }) {
+  const visibleDays = normalizeItinerary(plan.itinerary).filter(
+    (_, index) => activeDayIndex == null || index === activeDayIndex
+  );
+
   return (
     <div className="space-y-4">
-      {normalizeItinerary(plan.itinerary).map((section, index) => (
+      {visibleDays.map((section, index) => (
         <div
           key={`preview-day-${index}`}
-          className="theme-planner-card overflow-hidden rounded-[1.5rem] border border-[#E8DFD2] bg-white"
+          className="overflow-hidden rounded-[1.25rem] border border-[#DDEDF0] bg-white shadow-[0_10px_28px_rgba(15,58,66,0.05)]"
         >
-          <div className="theme-planner-dayhead border-b border-[#EEE6DA] bg-[#FBF8F2] px-5 py-4">
-            <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">Day</p>
-            <h4 className="mt-1 text-xl font-semibold text-[#1F1D1A]">{section.day}</h4>
+          <div className="border-b border-[#E4F1F3] bg-[#FBFEFF] px-5 py-4">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#008EA1]">Dzien</p>
+            <h4 className="mt-1 text-xl font-bold text-[#111827]">{section.day}</h4>
             {section.date ? (
-              <p className="mt-2 text-sm normal-case tracking-normal text-[#6B6255]">
+              <p className="mt-2 text-sm normal-case tracking-normal text-[#61717D]">
                 {formatPlannerDate(section.date)}
               </p>
             ) : null}
@@ -899,9 +1001,26 @@ function PlannerPreview({ destination, plan }) {
   );
 }
 
+const PlannerEditRouteMap = PlannerRouteMap;
+
 function exportPlanToPdf(destination, country, plan) {
   const printable = window.open("", "_blank", "width=1200,height=900");
   if (!printable) return;
+
+  const routePoints = normalizeItinerary(plan.itinerary).flatMap((section) =>
+    section.items
+      .map((item) => findPlaceById(destination, normalizeItem(item).placeId))
+      .filter(Boolean)
+      .map((place) => place.coordinates)
+  );
+  const mapCenter = routePoints[0] || destination?.places?.[0]?.coordinates || [0, 0];
+  const markers = routePoints
+    .map(([lat, lng], index) => {
+      const x = Math.min(Math.max(((lng - mapCenter[1]) * 7 + 50), 8), 92);
+      const y = Math.min(Math.max((50 - (lat - mapCenter[0]) * 7), 8), 92);
+      return `<span class="map-marker" style="left:${x}%;top:${y}%;">${index + 1}</span>`;
+    })
+    .join("");
 
   const daysMarkup = normalizeItinerary(plan.itinerary)
     .map((section) => {
@@ -946,6 +1065,9 @@ function exportPlanToPdf(destination, country, plan) {
         <style>
           body { font-family: Arial, sans-serif; margin: 40px; color: #1f1d1a; background: #f7f3ec; }
           .hero { margin-bottom: 32px; }
+          .map { position: relative; height: 320px; border: 1px solid #dcecf0; border-radius: 24px; margin: 24px 0 32px; overflow: hidden; background: linear-gradient(135deg,#e5f6f8 0%,#cfeaf0 44%,#f7fbfc 100%); }
+          .map::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 20% 25%, rgba(0,142,161,.18), transparent 18%), radial-gradient(circle at 65% 55%, rgba(0,142,161,.12), transparent 22%); }
+          .map-marker { position: absolute; transform: translate(-50%,-50%); display: inline-flex; width: 28px; height: 28px; align-items:center; justify-content:center; border-radius:999px; background:#008ea1; color:white; border:3px solid white; font-size:12px; font-weight:700; box-shadow:0 8px 18px rgba(15,58,66,.2); }
           .eyebrow { font-size: 11px; letter-spacing: 0.32em; text-transform: uppercase; color: #8a7f6c; }
           h1 { margin: 12px 0 8px; font-size: 34px; }
           .sub { color: #5e564b; font-size: 15px; }
@@ -971,6 +1093,7 @@ function exportPlanToPdf(destination, country, plan) {
           <h1>${plan.name}</h1>
           <p class="sub">${country.countryName} · ${destination.name} · ${plan.daysCount} dni</p>
         </header>
+        <section class="map">${markers}</section>
         ${daysMarkup}
       </body>
     </html>
@@ -1000,6 +1123,13 @@ export default function PlannerPanel({
   const [loadingPlans, setLoadingPlans] = useState(false);
   const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
   const [placeSearchTerm, setPlaceSearchTerm] = useState("");
+  const [planSearchTerm, setPlanSearchTerm] = useState("");
+  const [activeDayIndex, setActiveDayIndex] = useState(null);
+  const [favoritePlanOffset, setFavoritePlanOffset] = useState(0);
+  const [expandedCountryIds, setExpandedCountryIds] = useState(() =>
+    countries[0]?.id ? [countries[0].id] : []
+  );
+  const [allPlannerPlanEntries, setAllPlannerPlanEntries] = useState([]);
   const [globalFavoritePlans, setGlobalFavoritePlans] = useState([]);
   const [pendingGlobalPlanAction, setPendingGlobalPlanAction] = useState(null);
   const [pendingPlanCoverFile, setPendingPlanCoverFile] = useState(null);
@@ -1135,12 +1265,57 @@ export default function PlannerPanel({
     }
   };
 
+  const loadAllPlannerPlans = async () => {
+    try {
+      const entries = (
+        await Promise.all(
+          countries.flatMap((country) =>
+            (country.destinations || []).map(async (destination) => {
+              const destinationPlans = await fetchPlannerPlans(destination.id);
+              return destinationPlans.map((plan, planIndex) => {
+                const itinerary = normalizeItinerary(plan.itinerary);
+                return {
+                  ...plan,
+                  itinerary,
+                  daysCount: itinerary.length,
+                  countryId: country.id,
+                  countryName: country.countryName,
+                  destinationId: destination.id,
+                  destinationName: destination.name,
+                  destination,
+                  planIndex,
+                };
+              });
+            })
+          )
+        )
+      ).flat();
+
+      setAllPlannerPlanEntries(entries);
+    } catch (error) {
+      setStatus(error.message || "Nie udalo sie pobrac wszystkich planow.");
+      setAllPlannerPlanEntries([]);
+    }
+  };
+
   useEffect(() => {
     if (!selectedDestination?.id) return;
     loadPlans(selectedDestination.id);
     loadGlobalFavoritePlans();
+    loadAllPlannerPlans();
     setStatus("");
   }, [selectedDestination?.id, initialPlanId]);
+
+  useEffect(() => {
+    setActiveDayIndex(null);
+  }, [selectedPlanId, selectedDestinationId]);
+
+  useEffect(() => {
+    if (!selectedCountryId) return;
+    setExpandedCountryIds((prev) =>
+      prev.includes(selectedCountryId) ? prev : [selectedCountryId, ...prev]
+    );
+  }, [selectedCountryId]);
 
   useEffect(() => {
     if (!initialPlanId) return;
@@ -1270,12 +1445,36 @@ export default function PlannerPanel({
       );
       await loadPlans(selectedDestination.id);
       await loadGlobalFavoritePlans();
+      await loadAllPlannerPlans();
       setSelectedPlanId(plan.id);
       setStatus(
         nextPlan.isFavorite
           ? "Plan dodano do ulubionych."
           : "Plan usunieto z ulubionych."
       );
+    } catch (error) {
+      setStatus(error.message || "Nie udalo sie zmienic statusu ulubionego planu.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleDirectoryPlanFavorite = async (entry) => {
+    if (!entry) return;
+    setSaving(true);
+    setStatus("");
+
+    try {
+      const nextPlan = {
+        ...entry,
+        isFavorite: !entry.isFavorite,
+        itinerary: normalizeItinerary(entry.itinerary),
+      };
+      await upsertPlannerPlan(entry.destinationId, nextPlan, entry.planIndex || 0);
+      await loadPlans(selectedDestination?.id);
+      await loadGlobalFavoritePlans();
+      await loadAllPlannerPlans();
+      setStatus(nextPlan.isFavorite ? "Plan dodano do ulubionych." : "Plan usunieto z ulubionych.");
     } catch (error) {
       setStatus(error.message || "Nie udalo sie zmienic statusu ulubionego planu.");
     } finally {
@@ -1462,6 +1661,7 @@ export default function PlannerPanel({
       await upsertPlannerPlan(selectedDestination.id, normalizedPlan, nextIndex);
       const nextPlans = await loadPlans(selectedDestination.id);
       await loadGlobalFavoritePlans();
+      await loadAllPlannerPlans();
       setSelectedPlanId(normalizedPlan.id);
       setDraftPlan(nextPlans.find((plan) => plan.id === normalizedPlan.id) || normalizedPlan);
       setPendingPlanCoverFile(null);
@@ -1482,6 +1682,7 @@ export default function PlannerPanel({
       await deletePlannerPlan(selectedPlan.id);
       const nextPlans = await loadPlans(selectedDestination.id);
       await loadGlobalFavoritePlans();
+      await loadAllPlannerPlans();
       setDraftPlan(
         nextPlans[0]
           ? {
@@ -1499,24 +1700,136 @@ export default function PlannerPanel({
   };
 
   const activePlanForPreview = selectedPlan || draftPlan;
+  const activePlanLabel = activePlanForPreview
+    ? `${activePlanForPreview.name} · ${activePlanForPreview.daysCount || normalizeItinerary(activePlanForPreview.itinerary).length} dni`
+    : "Brak wybranego planu";
+  const activePlanDays = normalizeItinerary(activePlanForPreview?.itinerary || []);
+  const activePlanPlacesCount = activePlanDays.reduce(
+    (sum, section) => sum + section.items.length,
+    0
+  );
+  const activePlanCitiesCount = new Set(
+    activePlanDays
+      .flatMap((section) =>
+        section.items
+          .map((item) => findPlaceById(selectedDestination, normalizeItem(item).placeId))
+          .filter(Boolean)
+          .map((place) => place.subtitle || place.category || place.name)
+      )
+  ).size;
+  const filteredPlans = plans.filter((plan) => {
+    const query = planSearchTerm.trim().toLowerCase();
+    if (!query) return true;
+    return [plan.name, selectedDestination?.name, selectedCountry?.countryName]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(query);
+  });
+  const normalizedPlanQuery = planSearchTerm.trim().toLowerCase();
+  const countryPlanGroups = countries
+    .map((country) => {
+      const countryEntries = allPlannerPlanEntries.filter((entry) => {
+        if (entry.countryId !== country.id) return false;
+        if (!normalizedPlanQuery) return true;
+        return [entry.name, entry.destinationName, entry.countryName]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedPlanQuery);
+      });
+
+      return {
+        country,
+        entries: countryEntries,
+      };
+    })
+    .filter((group) => group.entries.length || !normalizedPlanQuery);
+  const favoritePlanTiles = allPlannerPlanEntries.filter((entry) => entry.isFavorite);
+  const displayedFavoritePlans = favoritePlanTiles.length
+    ? favoritePlanTiles
+    : allPlannerPlanEntries;
+  const visibleFavoritePlans = displayedFavoritePlans.slice(
+    favoritePlanOffset,
+    favoritePlanOffset + 3
+  );
+
+  useEffect(() => {
+    setFavoritePlanOffset(0);
+  }, [favoritePlanTiles.length, allPlannerPlanEntries.length]);
 
   return (
-    <section className="theme-planner-shell rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
-      <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-[#8A7F6C]">Trip Planner</p>
-          <h3 className="mt-2 text-3xl font-semibold">
-            Gotowy planer z PDF oraz osobny widok do budowania wielu wariantow
-          </h3>
+    <section className="theme-planner-shell rounded-[2rem] border border-[#DDEDF0] bg-white p-6 shadow-[0_18px_70px_rgba(15,58,66,0.08)]">
+      <div className="mb-6 grid gap-5 xl:grid-cols-[minmax(320px,430px)_minmax(0,1fr)] xl:items-end">
+        <div className="flex items-start gap-3">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EAFBFD] text-[#008EA1]">
+            <Route className="h-6 w-6" />
+          </span>
+          <div>
+            <h3 className="text-3xl font-bold text-[#111827]">Plany podrozy</h3>
+            <p className="mt-1 text-sm font-medium text-[#61717D]">
+              Planuj, organizuj i sledz swoje trasy dzien po dniu
+            </p>
+          </div>
         </div>
 
-        <button className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#E3D9CA] bg-[#F8F4ED] px-4 py-2 text-sm text-[#3D382F]">
-          <Share2 className="h-4 w-4" />
-          Public family view
-        </button>
+        <div className="min-w-0">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h4 className="text-base font-bold text-[#111827]">Ulubione plany</h4>
+            <span className="rounded-full bg-[#EAFBFD] px-3 py-1 text-xs font-semibold text-[#008EA1]">
+              {favoritePlanTiles.length}
+            </span>
+          </div>
+          <div className="relative">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {visibleFavoritePlans.map((plan) => (
+                <button
+                  key={`favorite-header-tile-${plan.id}`}
+                  type="button"
+                  onClick={() => {
+                    setPendingGlobalPlanAction({
+                      mode: "preview",
+                      countryId: plan.countryId,
+                      destinationId: plan.destinationId,
+                      planId: plan.id,
+                    });
+                  }}
+                  className="group relative h-24 overflow-hidden rounded-[0.85rem] bg-[#DDEDF0] text-left shadow-[0_10px_24px_rgba(15,58,66,0.10)]"
+                >
+                  <PlannerImageUrls
+                    urls={getPlanCoverCandidates(plan, plan.destination)}
+                    alt={plan.name}
+                    className="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                  />
+                  <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+                  <span className="absolute bottom-3 left-3 right-3">
+                    <span className="block truncate text-sm font-bold text-white">{plan.name}</span>
+                    <span className="mt-0.5 block truncate text-xs font-medium text-white/80">
+                      {plan.countryName} · {plan.destinationName}
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            {displayedFavoritePlans.length > 3 ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setFavoritePlanOffset((prev) =>
+                    prev + 3 >= displayedFavoritePlans.length ? 0 : prev + 1
+                  )
+                }
+                className="absolute -right-4 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#008EA1] shadow-[0_12px_28px_rgba(15,58,66,0.16)] transition hover:bg-[#EAFBFD]"
+                aria-label="Pokaz kolejne ulubione plany"
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+            ) : null}
+          </div>
+        </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-3">
+      {false && <div className="mb-4 flex flex-wrap gap-3">
           <button
             onClick={() => setViewMode("preview")}
             className={cn(
@@ -1542,8 +1855,474 @@ export default function PlannerPanel({
           <PencilLine className="h-4 w-4" />
           Edycja planow
         </button>
+      </div>}
+
+      {false && <div className="mb-5 grid gap-4 lg:grid-cols-[minmax(180px,240px)_minmax(180px,260px)_minmax(220px,320px)_auto] lg:items-end">
+        <SelectInput
+          label="Kraj"
+          value={selectedCountryId}
+          onChange={setSelectedCountryId}
+          options={countries.map((country) => ({
+            value: country.id,
+            label: country.countryName,
+          }))}
+        />
+
+        <SelectInput
+          label="Destynacja"
+          value={selectedDestinationId}
+          onChange={setSelectedDestinationId}
+          options={(selectedCountry?.destinations || []).map((destination) => ({
+            value: destination.id,
+            label: destination.name,
+          }))}
+        />
+
+        <SelectInput
+          label="Plan podrozy"
+          value={selectedPlanId}
+          onChange={(value) => {
+            setSelectedPlanId(value);
+            setViewMode("preview");
+            setPlanPreviewOpen(false);
+          }}
+          options={
+            plans.length
+              ? plans.map((plan) => ({
+                  value: plan.id,
+                  label: `${plan.name} · ${plan.daysCount} dni`,
+                }))
+              : [{ value: "", label: loadingPlans ? "Ladowanie..." : "Brak planow" }]
+          }
+        />
+
+        <button
+          onClick={createPlan}
+          className="theme-planner-button inline-flex min-h-[52px] items-center justify-center gap-2 rounded-[1rem] border border-[#D8EDF1] bg-white px-5 py-3 text-sm font-semibold text-[#008EA1] shadow-[0_10px_24px_rgba(0,142,161,0.08)] transition hover:bg-[#EAFBFD]"
+        >
+          <Plus className="h-4 w-4" />
+          Nowy plan
+        </button>
+      </div>}
+
+      <div className="grid gap-5 xl:grid-cols-[430px_minmax(0,1fr)]">
+        <aside className="space-y-5">
+          <div className="theme-planner-card rounded-[1.55rem] border border-[#DDEDF0] bg-white p-4 shadow-[0_16px_42px_rgba(15,58,66,0.06)]">
+            <h4 className="mb-4 text-lg font-bold text-[#111827]">Filtry planu</h4>
+            <div className="grid gap-3">
+              <SelectInput
+                label="Kraj"
+                value={selectedCountryId}
+                onChange={setSelectedCountryId}
+                options={countries.map((country) => ({
+                  value: country.id,
+                  label: country.countryName,
+                }))}
+              />
+
+              <SelectInput
+                label="Destynacja"
+                value={selectedDestinationId}
+                onChange={setSelectedDestinationId}
+                options={(selectedCountry?.destinations || []).map((destination) => ({
+                  value: destination.id,
+                  label: destination.name,
+                }))}
+              />
+
+              <SelectInput
+                label="Plan podrozy"
+                value={selectedPlanId}
+                onChange={(value) => {
+                  setSelectedPlanId(value);
+                  setViewMode("preview");
+                  setPlanPreviewOpen(false);
+                }}
+                options={
+                  plans.length
+                    ? plans.map((plan) => ({
+                        value: plan.id,
+                        label: `${plan.name} · ${plan.daysCount} dni`,
+                      }))
+                    : [{ value: "", label: loadingPlans ? "Ladowanie..." : "Brak planow" }]
+                }
+              />
+            </div>
+          </div>
+
+          <div className="theme-planner-card rounded-[1.55rem] border border-[#DDEDF0] bg-white p-4 shadow-[0_16px_42px_rgba(15,58,66,0.06)]">
+            <h4 className="mb-4 text-lg font-bold text-[#111827]">Wszystkie plany</h4>
+            <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
+              <label className="relative block">
+                <span className="sr-only">Szukaj planow</span>
+                <input
+                  value={planSearchTerm}
+                  onChange={(event) => setPlanSearchTerm(event.target.value)}
+                  placeholder="Szukaj planow podrozy..."
+                  className="h-11 w-full rounded-[0.85rem] border border-[#DDEDF0] bg-white px-4 text-sm text-[#111827] outline-none transition focus:border-[#008EA1]"
+                />
+              </label>
+              <div className="flex h-11 items-center justify-center rounded-[0.85rem] border border-[#DDEDF0] bg-white text-xs font-semibold text-[#52616D]">
+                Od najnowszych
+              </div>
+            </div>
+
+            <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+              {countryPlanGroups.length ? (
+                countryPlanGroups.map(({ country, entries }) => {
+                  const expanded = expandedCountryIds.includes(country.id);
+                  return (
+                    <div
+                      key={`country-plan-group-${country.id}`}
+                      className="overflow-hidden rounded-[1rem] border border-[#E4F1F3] bg-[#FBFEFF]"
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedCountryIds((prev) =>
+                            prev.includes(country.id)
+                              ? prev.filter((id) => id !== country.id)
+                              : [...prev, country.id]
+                          )
+                        }
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                      >
+                        <span className="font-bold text-[#111827]">{country.countryName}</span>
+                        <span className="flex items-center gap-2 text-xs font-semibold text-[#008EA1]">
+                          {entries.length} planow
+                          {expanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </span>
+                      </button>
+
+                      {expanded ? (
+                        <div className="divide-y divide-[#E4F1F3]">
+                          {entries.length ? (
+                            entries.map((plan) => {
+                              const isActive =
+                                plan.id === selectedPlanId &&
+                                plan.destinationId === selectedDestination?.id;
+                              return (
+                                <div
+                                  key={`plan-row-${plan.destinationId}-${plan.id}`}
+                                  className={cn(
+                                    "flex items-center gap-3 px-3 py-3 transition",
+                                    isActive ? "bg-[#EAFBFD]" : "hover:bg-[#F3FBFC]"
+                                  )}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPendingGlobalPlanAction({
+                                        mode: "preview",
+                                        countryId: plan.countryId,
+                                        destinationId: plan.destinationId,
+                                        planId: plan.id,
+                                      });
+                                      setPlanPreviewOpen(false);
+                                    }}
+                                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                                  >
+                                    <span className="h-12 w-14 flex-none overflow-hidden rounded-[0.7rem] bg-[#DDEDF0]">
+                                      <PlannerImageUrls
+                                        urls={getPlanCoverCandidates(plan, plan.destination)}
+                                        alt={plan.name}
+                                        className="h-full w-full object-cover"
+                                      />
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block truncate text-sm font-bold text-[#111827]">
+                                        {plan.name}
+                                      </span>
+                                      <span className="mt-0.5 block text-xs text-[#61717D]">
+                                        {plan.destinationName}
+                                      </span>
+                                    </span>
+                                    <span className="hidden rounded-full border border-[#DDEDF0] bg-white px-2.5 py-1 text-xs text-[#61717D] sm:inline-flex">
+                                      {plan.daysCount} dni
+                                    </span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleDirectoryPlanFavorite(plan)}
+                                    disabled={saving}
+                                    className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#7A8893] transition hover:text-[#E23B68] disabled:opacity-50"
+                                    aria-label={plan.isFavorite ? "Usun z ulubionych" : "Dodaj do ulubionych"}
+                                  >
+                                    <Heart
+                                      className={cn(
+                                        "h-4 w-4",
+                                        plan.isFavorite ? "fill-[#E23B68] text-[#E23B68]" : ""
+                                      )}
+                                    />
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPendingGlobalPlanAction({
+                                        mode: "edit",
+                                        countryId: plan.countryId,
+                                        destinationId: plan.destinationId,
+                                        planId: plan.id,
+                                      });
+                                      setPlanPreviewOpen(false);
+                                    }}
+                                    className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#008EA1] transition hover:bg-[#EAFBFD]"
+                                    aria-label="Edytuj plan"
+                                  >
+                                    <PencilLine className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="px-4 py-6 text-sm text-[#61717D]">
+                              Brak planow dla tego kraju.
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="rounded-[1rem] border border-dashed border-[#DDEDF0] bg-[#FBFEFF] px-4 py-8 text-center text-sm text-[#61717D]">
+                  Brak planow pasujacych do wyszukiwania.
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={createPlan}
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[0.95rem] border border-[#DDEDF0] bg-white px-4 py-3 text-sm font-bold text-[#008EA1] transition hover:bg-[#EAFBFD]"
+            >
+              <Plus className="h-4 w-4" />
+              Dodaj nowy plan podrozy
+            </button>
+          </div>
+        </aside>
+
+        <div className="min-w-0 space-y-5">
+          {viewMode === "preview" ? (
+            <div className="theme-planner-card overflow-hidden rounded-[1.55rem] border border-[#DDEDF0] bg-white shadow-[0_16px_42px_rgba(15,58,66,0.06)]">
+              <div className="border-b border-[#E4F1F3] px-5 py-4">
+                <p className="text-xs font-semibold uppercase text-[#008EA1]">Aktualnie wyswietlany plan</p>
+                <h4 className="mt-1 text-xl font-bold text-[#111827]">{activePlanLabel}</h4>
+              </div>
+
+              {activePlanForPreview ? (
+                <>
+                  <div className="p-4 pb-0">
+                    <PlannerRouteMap
+                      destination={selectedDestination}
+                      plan={activePlanForPreview}
+                      compact
+                      activeDayIndex={activeDayIndex}
+                      onActiveDayChange={setActiveDayIndex}
+                      onCreatePlan={createPlan}
+                      onEditPlan={() => setViewMode("edit")}
+                      onExportPlan={() =>
+                        activePlanForPreview &&
+                        exportPlanToPdf(selectedDestination, selectedCountry, activePlanForPreview)
+                      }
+                      canExport={Boolean(activePlanForPreview)}
+                    />
+                  </div>
+                  <div className="grid h-[560px] min-h-0 gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+                    <div className="min-w-0 overflow-y-auto pr-1">
+                      <PlannerPreview
+                        destination={selectedDestination}
+                        plan={activePlanForPreview}
+                        activeDayIndex={activeDayIndex}
+                      />
+                    </div>
+                    <aside className="min-h-0 overflow-y-auto rounded-[1.25rem] border border-[#DDEDF0] bg-[#FBFEFF] p-4">
+                      <div className="overflow-hidden rounded-[1rem] bg-[#DDEDF0]">
+                        <PlannerImageUrls
+                          urls={getPlanCoverCandidates(activePlanForPreview, selectedDestination)}
+                          alt={activePlanForPreview.name}
+                          className="h-40 w-full object-cover"
+                        />
+                      </div>
+                      <h5 className="mt-4 text-lg font-bold text-[#008EA1]">{activePlanForPreview.name}</h5>
+                      <p className="mt-1 text-sm text-[#61717D]">
+                        {selectedCountry?.countryName} · {selectedDestination?.name}
+                      </p>
+                      <span className="mt-3 inline-flex rounded-full bg-[#EAFBFD] px-3 py-1 text-xs font-bold text-[#008EA1]">
+                        Aktywny plan
+                      </span>
+                      <div className="mt-4 grid gap-2">
+                        <button
+                          onClick={() => setViewMode("edit")}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-[0.85rem] border border-[#DDEDF0] bg-white px-4 py-2.5 text-sm font-semibold text-[#008EA1] transition hover:bg-[#EAFBFD]"
+                        >
+                          <PencilLine className="h-4 w-4" />
+                          Edytuj plan
+                        </button>
+                        <button
+                          onClick={() => togglePlanFavorite(activePlanForPreview)}
+                          disabled={saving}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-[0.85rem] border border-[#DDEDF0] bg-white px-4 py-2.5 text-sm font-semibold text-[#52616D] transition hover:bg-[#F3FBFC]"
+                        >
+                          <Star className={cn("h-4 w-4", activePlanForPreview.isFavorite ? "fill-[#E23B68] text-[#E23B68]" : "")} />
+                          {activePlanForPreview.isFavorite ? "Ulubiony" : "Dodaj do ulubionych"}
+                        </button>
+                        <button
+                          onClick={removePlan}
+                          disabled={!selectedPlan || saving}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-[0.85rem] border border-[#F0CED2] bg-[#FFF6F7] px-4 py-2.5 text-sm font-semibold text-[#B4233A] transition hover:bg-[#FFEDEF] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Usun plan
+                        </button>
+                      </div>
+                      <div className="mt-5 border-t border-[#E4F1F3] pt-4">
+                        <h6 className="mb-3 text-sm font-bold text-[#111827]">Podsumowanie</h6>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="rounded-[0.9rem] bg-white p-3">
+                            <p className="text-xs text-[#61717D]">Czas trwania</p>
+                            <p className="mt-1 font-bold text-[#111827]">{activePlanDays.length} dni</p>
+                          </div>
+                          <div className="rounded-[0.9rem] bg-white p-3">
+                            <p className="text-xs text-[#61717D]">Miejscowki</p>
+                            <p className="mt-1 font-bold text-[#111827]">{activePlanPlacesCount}</p>
+                          </div>
+                          <div className="rounded-[0.9rem] bg-white p-3">
+                            <p className="text-xs text-[#61717D]">Miasta</p>
+                            <p className="mt-1 font-bold text-[#111827]">{activePlanCitiesCount || 1}</p>
+                          </div>
+                          <div className="rounded-[0.9rem] bg-white p-3">
+                            <p className="text-xs text-[#61717D]">Trasa</p>
+                            <p className="mt-1 font-bold text-[#111827]">~ {Math.max(activePlanPlacesCount * 18, 0)} km</p>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+                  </div>
+                </>
+              ) : (
+                <div className="p-8 text-center text-sm text-[#61717D]">
+                  Brak planu dla tej destynacji. Utworz pierwszy plan, aby zobaczyc trase.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+              <div className="theme-planner-card rounded-[1.55rem] border border-[#DDEDF0] bg-white p-4 shadow-[0_16px_42px_rgba(15,58,66,0.06)]">
+                <PlannerEditRouteMap destination={selectedDestination} plan={draftPlan} />
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="font-bold text-[#111827]">Dodaj miejscowki</h4>
+                    <p className="mt-1 text-sm text-[#61717D]">Dostepne tylko w trybie edycji planu.</p>
+                  </div>
+                  <span className="rounded-full bg-[#EAFBFD] px-3 py-1 text-xs font-bold text-[#008EA1]">
+                    {filteredAvailablePlaces.length}
+                  </span>
+                </div>
+                <input
+                  value={placeSearchTerm}
+                  onChange={(event) => setPlaceSearchTerm(event.target.value)}
+                  placeholder="Szukaj miejscowek..."
+                  className="mb-4 h-11 w-full rounded-[0.85rem] border border-[#DDEDF0] bg-white px-4 text-sm text-[#111827] outline-none transition focus:border-[#008EA1]"
+                />
+                <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+                  {filteredAvailablePlaces.length ? (
+                    filteredAvailablePlaces.map((place) => (
+                      <PlannerPlaceCard
+                        key={place.id}
+                        place={place}
+                        draggable
+                        onDragStart={(event) => {
+                          event.dataTransfer.setData("text/place-id", place.id);
+                          event.dataTransfer.effectAllowed = "move";
+                        }}
+                      />
+                    ))
+                  ) : (
+                    <div className="rounded-[1rem] border border-dashed border-[#DDEDF0] bg-[#FBFEFF] px-4 py-8 text-center text-sm text-[#61717D]">
+                      {availablePlaces.length ? "Brak wynikow." : "Wszystkie miejscowki sa juz w planie."}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="theme-planner-card rounded-[1.55rem] border border-[#DDEDF0] bg-white p-5 shadow-[0_16px_42px_rgba(15,58,66,0.06)]">
+                <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-[#008EA1]">Tryb edycji</p>
+                    <h4 className="mt-1 text-2xl font-bold text-[#111827]">{draftPlan?.name || "Nowy plan"}</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setViewMode("preview")}
+                      className="inline-flex items-center justify-center rounded-[0.85rem] border border-[#DDEDF0] bg-white px-4 py-2.5 text-sm font-semibold text-[#52616D] transition hover:bg-[#F3FBFC]"
+                    >
+                      Zakoncz edycje
+                    </button>
+                    <button
+                      onClick={savePlan}
+                      disabled={saving || !selectedDestination || !draftPlan}
+                      className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] bg-[#008EA1] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#007485] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Save className="h-4 w-4" />
+                      {saving ? "Zapisywanie..." : "Zapisz plan"}
+                    </button>
+                  </div>
+                </div>
+
+                {draftPlan && (
+                  <div className="mb-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-semibold text-[#52616D]">Nazwa planu</span>
+                      <input
+                        value={draftPlan.name}
+                        onChange={(event) => updateDraft((prev) => ({ ...prev, name: event.target.value }))}
+                        className="h-12 w-full rounded-[0.9rem] border border-[#DDEDF0] bg-white px-4 text-sm text-[#111827] outline-none focus:border-[#008EA1]"
+                      />
+                    </label>
+                    <button
+                      onClick={addDay}
+                      className="mt-auto inline-flex h-12 items-center justify-center gap-2 rounded-[0.9rem] border border-[#DDEDF0] bg-white px-4 text-sm font-bold text-[#008EA1] transition hover:bg-[#EAFBFD]"
+                    >
+                      <Plus className="h-4 w-4" />
+                      Dodaj dzien
+                    </button>
+                  </div>
+                )}
+
+                <div className="max-h-[980px] space-y-4 overflow-y-auto pr-1">
+                  {normalizeItinerary(draftPlan?.itinerary || []).map((section, index, allDays) => (
+                    <DayColumn
+                      key={`planner-day-${index}`}
+                      dayIndex={index}
+                      day={section}
+                      destination={selectedDestination}
+                      onDropPlace={(placeId, insertIndex) => dropPlaceToDay(index, placeId, insertIndex)}
+                      onMovePlannedItem={movePlannedItem}
+                      onRemovePlace={(placeId) => removePlaceFromDay(index, placeId)}
+                      onDeleteDay={() => deleteDay(index)}
+                      onRenameDay={(value) => renameDay(index, value)}
+                      onDateChange={(value) => updateDayDate(index, value)}
+                      onMoveDayUp={() => moveDay(index, -1)}
+                      onMoveDayDown={() => moveDay(index, 1)}
+                      onItemNoteChange={(itemIndex, value) => updateItemNote(index, itemIndex, value)}
+                      isFirstDay={index === 0}
+                      isLastDay={index === allDays.length - 1}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
+      {false && (<>
       {decoratedGlobalFavoritePlans.length ? (
         <div className="theme-planner-card mb-6 rounded-[1.4rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
           <div className="mb-3 flex items-center gap-2">
@@ -1790,19 +2569,36 @@ export default function PlannerPanel({
 
       {viewMode === "preview" ? (
         <>
-          <div className="rounded-[1.75rem] border border-dashed border-[#DDD2C3] bg-[#FBF8F2] px-5 py-10 text-center text-sm text-[#7C7263]">
-            <div className="mx-auto flex max-w-[520px] flex-col items-center gap-4">
-              <p>
-                Kliknij wybrany kafelek planu powyzej, aby otworzyc pelny widok `Ready Plan`.
-              </p>
+          <div className="theme-planner-card rounded-[1.75rem] border border-[#EEE6DA] bg-[#FBF8F2] p-5">
+            <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm text-[#6B6255]">Aktualnie wyswietlany plan</p>
+                <h4 className="mt-1 text-2xl font-bold text-[#1F1D1A]">
+                  {activePlanLabel}
+                </h4>
+              </div>
               <button
-                onClick={createPlan}
-                className="theme-planner-button inline-flex items-center justify-center gap-2 rounded-full border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+                onClick={() =>
+                  activePlanForPreview &&
+                  exportPlanToPdf(selectedDestination, selectedCountry, activePlanForPreview)
+                }
+                disabled={!activePlanForPreview}
+                className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Plus className="h-4 w-4" />
-                Dodaj plan
+                <FileDown className="h-4 w-4" />
+                Eksportuj plan
               </button>
             </div>
+            {activePlanForPreview ? (
+              <>
+                <PlannerRouteMap destination={selectedDestination} plan={activePlanForPreview} compact />
+                <PlannerPreview destination={selectedDestination} plan={activePlanForPreview} />
+              </>
+            ) : (
+              <div className="rounded-[1.25rem] border border-dashed border-[#DDD2C3] bg-white px-5 py-10 text-center text-sm text-[#7C7263]">
+                Brak planu dla tej destynacji. Przejdz do edycji i utworz pierwszy plan.
+              </div>
+            )}
           </div>
           {false && (
         <div className="theme-planner-card rounded-[1.75rem] border border-[#EEE6DA] bg-[#FBF8F2] p-5">
@@ -2012,6 +2808,7 @@ export default function PlannerPanel({
         </div>
         </div>
       )}
+      </>)}
 
       {planPreviewOpen &&
         viewMode === "preview" &&

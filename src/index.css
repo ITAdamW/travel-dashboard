@@ -876,3 +876,395 @@ body[data-theme="dark"] video,
 body[data-theme="dark"] iframe {
   color-scheme: normal;
 }
+
+body {
+  background: #f6fbfc;
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at top left, rgba(0, 142, 161, 0.06), transparent 30%),
+    linear-gradient(180deg, #ffffff 0%, #f4fbfc 100%);
+}
+
+.theme-atlas-v2,
+.theme-atlas-v2 .theme-panel-main,
+.theme-atlas-v2 .theme-panel-side,
+.theme-atlas-v2 .theme-atlas-map-card,
+.theme-atlas-v2 .theme-atlas-stats,
+.theme-atlas-v2 .theme-atlas-side-stats,
+.theme-atlas-v2 .theme-atlas-country-select,
+.theme-atlas-v2 .theme-atlas-search,
+.theme-atlas-v2 .theme-atlas-field,
+.theme-atlas-v2 .theme-atlas-mini {
+  background: #ffffff;
+  color: #132334;
+  border-color: #dcecf0;
+}
+
+.theme-atlas-v2 .leaflet-tile-pane {
+  filter: saturate(0.35) contrast(0.98) brightness(1.08);
+}
+
+.theme-atlas-v2 .leaflet-control-zoom {
+  border: 1px solid #dcecf0;
+  border-radius: 12px;
+  box-shadow: 0 14px 30px rgba(15, 58, 66, 0.08);
+  overflow: hidden;
+}
+
+.theme-atlas-v2 .leaflet-control-zoom a {
+  background: #ffffff;
+  color: #132334;
+  border-color: #dcecf0;
+}
+
+.theme-atlas-v2 .leaflet-control-zoom a:hover {
+  background: #f0fbfc;
+  color: #008ea1;
+}
+
+.theme-side-nav {
+  background: #ffffff;
+  color: #132334;
+}
+
+.theme-side-nav-item {
+  min-height: 82px;
+}
+
+.theme-side-nav-toggle,
+.theme-atlas-carousel-arrow {
+  background: #ffffff;
+}
+
+.theme-country-icon {
+  box-shadow: inset 0 0 0 1px rgba(0, 142, 161, 0.1);
+}
+
+.theme-atlas-v2 .theme-panel-side > * {
+  width: 100%;
+  max-width: none;
+}
+
+.theme-atlas-v2 .theme-atlas-side-stats,
+.theme-atlas-v2 .theme-atlas-feature,
+.theme-atlas-v2 .theme-panel-side .relative {
+  width: 100%;
+}
+
+body[data-theme="dark"] {
+  background: #05090b;
+  color: #e9fbfe;
+}
+
+body[data-theme="dark"] .app-shell {
+  background:
+    radial-gradient(circle at top left, rgba(0, 197, 213, 0.12), transparent 34%),
+    linear-gradient(180deg, #05090b 0%, #020506 100%);
+  color: #e9fbfe;
+}
+
+body[data-theme="dark"] .theme-atlas-v2,
+body[data-theme="dark"] .theme-atlas-v2 .theme-panel-main,
+body[data-theme="dark"] .theme-atlas-v2 .theme-panel-side,
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-map-card,
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-stats,
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-side-stats,
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-country-select,
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-search,
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-field,
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-mini {
+  background: #05090b !important;
+  background-image: none !important;
+  color: #e9fbfe !important;
+  border-color: #123943 !important;
+}
+
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-map,
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-tile,
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-feature {
+  border-color: #123943 !important;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.42) !important;
+}
+
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-logo,
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-icon,
+body[data-theme="dark"] .theme-atlas-v2 .theme-country-icon {
+  background: rgba(0, 197, 213, 0.14) !important;
+  color: #25d9e8 !important;
+}
+
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-primary {
+  background: #00a9bc !important;
+  color: #ffffff !important;
+}
+
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-secondary,
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-icon-button {
+  background: #05090b !important;
+  color: #25d9e8 !important;
+  border-color: #123943 !important;
+}
+
+body[data-theme="dark"] .theme-atlas-v2 h1,
+body[data-theme="dark"] .theme-atlas-v2 h2,
+body[data-theme="dark"] .theme-atlas-v2 h3,
+body[data-theme="dark"] .theme-atlas-v2 h4,
+body[data-theme="dark"] .theme-atlas-v2 p,
+body[data-theme="dark"] .theme-atlas-v2 span,
+body[data-theme="dark"] .theme-atlas-v2 label,
+body[data-theme="dark"] .theme-atlas-v2 button,
+body[data-theme="dark"] .theme-atlas-v2 select {
+  color: #e9fbfe !important;
+}
+
+body[data-theme="dark"] .theme-atlas-v2 .text-\[\#647782\],
+body[data-theme="dark"] .theme-atlas-v2 [class*="text-\\#647782"] {
+  color: #9dbcc5 !important;
+}
+
+body[data-theme="dark"] .theme-atlas-v2 .theme-atlas-field option {
+  background: #05090b;
+  color: #e9fbfe;
+}
+
+body[data-theme="dark"] .theme-atlas-v2 .leaflet-tile-pane {
+  filter: grayscale(1) invert(1) brightness(0.42) contrast(1.18);
+}
+
+body[data-theme="dark"] .theme-atlas-v2 .leaflet-control-zoom {
+  border-color: #123943;
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.42);
+}
+
+body[data-theme="dark"] .theme-atlas-v2 .leaflet-control-zoom a {
+  background: #05090b !important;
+  color: #e9fbfe !important;
+  border-color: #123943 !important;
+}
+
+body[data-theme="dark"] .theme-side-nav {
+  background: #05090b !important;
+  color: #e9fbfe !important;
+  border-color: #123943 !important;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42) !important;
+}
+
+body[data-theme="dark"] .theme-side-nav > div:first-child {
+  background: #00a9bc !important;
+}
+
+body[data-theme="dark"] .theme-side-nav-item {
+  color: #9dbcc5 !important;
+}
+
+body[data-theme="dark"] .theme-side-nav-item:hover,
+body[data-theme="dark"] .theme-side-nav-item.text-\[\#008EA1\] {
+  color: #25d9e8 !important;
+}
+
+body[data-theme="dark"] .theme-side-nav-toggle,
+body[data-theme="dark"] .theme-atlas-carousel-arrow,
+body[data-theme="dark"] .theme-atlas-mini-arrow,
+body[data-theme="dark"] .theme-atlas-mini-cta {
+  background: #05090b !important;
+  color: #e9fbfe !important;
+  border-color: #123943 !important;
+}
+
+body[data-theme="dark"] .theme-atlas-mini-cta:hover {
+  background: rgba(0, 197, 213, 0.14) !important;
+  color: #25d9e8 !important;
+  border-color: #25d9e8 !important;
+}
+
+body[data-theme="dark"] .theme-atlas-v2 input {
+  color: #e9fbfe !important;
+}
+
+body[data-theme="dark"] .theme-atlas-v2 input::placeholder {
+  color: #9dbcc5 !important;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.theme-story-v2,
+.theme-story-v2 .theme-story-side,
+.theme-story-v2 .theme-story-info,
+.theme-story-v2 .theme-story-field,
+.theme-story-v2 .theme-story-toolbar-button,
+.theme-story-v2 .theme-story-nav-button {
+  background: #ffffff;
+  color: #132334;
+  border-color: #dcecf0;
+}
+
+.theme-story-v2 .leaflet-tile-pane {
+  filter: saturate(0.58) contrast(0.98) brightness(1.04);
+}
+
+.theme-story-v2 .leaflet-control-zoom {
+  border: 1px solid #dcecf0;
+  border-radius: 12px;
+  bottom: 16px;
+  left: 16px;
+  box-shadow: 0 14px 30px rgba(15, 58, 66, 0.08);
+  overflow: hidden;
+}
+
+.theme-story-v2 .leaflet-control-zoom a {
+  background: #ffffff;
+  color: #132334;
+  border-color: #dcecf0;
+}
+
+.theme-story-v2 .leaflet-popup-content-wrapper {
+  border-radius: 1.1rem;
+  box-shadow: 0 22px 60px rgba(15, 58, 66, 0.18);
+  padding: 0;
+}
+
+.theme-story-v2 .leaflet-popup-content {
+  margin: 0;
+}
+
+.theme-story-v2 .leaflet-popup-tip {
+  box-shadow: 0 14px 30px rgba(15, 58, 66, 0.12);
+}
+
+.theme-story-v2 .leaflet-popup-close-button {
+  align-items: center;
+  background: #ffffff !important;
+  border: 1px solid #dcecf0 !important;
+  border-radius: 999px;
+  color: #132334 !important;
+  display: inline-flex;
+  height: 28px;
+  justify-content: center;
+  padding: 0 !important;
+  right: 10px !important;
+  top: 10px !important;
+  width: 28px;
+}
+
+.theme-story-v2 a,
+.theme-story-modal a {
+  color: #008ea1 !important;
+  text-decoration-color: #8ddae4 !important;
+}
+
+.theme-story-info-icon {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.theme-story-filter {
+  color: #132334;
+}
+
+body[data-theme="dark"] .theme-story-v2,
+body[data-theme="dark"] .theme-story-v2 .theme-story-side,
+body[data-theme="dark"] .theme-story-v2 .theme-story-info,
+body[data-theme="dark"] .theme-story-v2 .theme-story-field,
+body[data-theme="dark"] .theme-story-v2 .theme-story-toolbar-button,
+body[data-theme="dark"] .theme-story-v2 .theme-story-nav-button,
+body[data-theme="dark"] .theme-story-v2 .theme-story-floating-control,
+body[data-theme="dark"] .theme-story-v2 .theme-story-modal,
+body[data-theme="dark"] .theme-story-v2 .theme-story-info-icon,
+body[data-theme="dark"] .theme-story-filter {
+  background: #05090b !important;
+  background-image: none !important;
+  color: #e9fbfe !important;
+  border-color: #123943 !important;
+}
+
+body[data-theme="dark"] .theme-story-v2 h1,
+body[data-theme="dark"] .theme-story-v2 h2,
+body[data-theme="dark"] .theme-story-v2 h3,
+body[data-theme="dark"] .theme-story-v2 p,
+body[data-theme="dark"] .theme-story-v2 span,
+body[data-theme="dark"] .theme-story-v2 button,
+body[data-theme="dark"] .theme-story-v2 select,
+body[data-theme="dark"] .theme-story-v2 input,
+body[data-theme="dark"] .theme-story-filter h3,
+body[data-theme="dark"] .theme-story-filter p,
+body[data-theme="dark"] .theme-story-filter button,
+body[data-theme="dark"] .theme-story-filter select,
+body[data-theme="dark"] .theme-story-filter input,
+body[data-theme="dark"] .theme-story-modal h2,
+body[data-theme="dark"] .theme-story-modal p,
+body[data-theme="dark"] .theme-story-modal button {
+  color: #e9fbfe !important;
+}
+
+body[data-theme="dark"] .theme-story-v2 [class*="text-\\#647782"],
+body[data-theme="dark"] .theme-story-filter [class*="text-\\#647782"],
+body[data-theme="dark"] .theme-story-modal [class*="text-\\#647782"] {
+  color: #9dbcc5 !important;
+}
+
+body[data-theme="dark"] .theme-story-v2 input::placeholder,
+body[data-theme="dark"] .theme-story-filter input::placeholder {
+  color: #9dbcc5 !important;
+}
+
+body[data-theme="dark"] .theme-story-v2 .leaflet-tile-pane {
+  filter: grayscale(1) invert(1) brightness(0.42) contrast(1.18);
+}
+
+body[data-theme="dark"] .theme-story-v2 .leaflet-control-zoom a {
+  background: #05090b !important;
+  color: #e9fbfe !important;
+  border-color: #123943 !important;
+}
+
+body[data-theme="dark"] .theme-story-v2 .leaflet-popup-content-wrapper,
+body[data-theme="dark"] .theme-story-v2 .leaflet-popup-tip {
+  background: #05090b !important;
+  color: #e9fbfe !important;
+  border: 1px solid #123943 !important;
+}
+
+body[data-theme="dark"] .theme-story-v2 .leaflet-popup-close-button {
+  background: #05090b !important;
+  color: #e9fbfe !important;
+  border-color: #123943 !important;
+}
+
+body[data-theme="dark"] .theme-story-v2 .leaflet-popup-content-wrapper .bg-white,
+body[data-theme="dark"] .theme-story-modal .bg-white {
+  background: #05090b !important;
+}
+
+body[data-theme="dark"] .theme-story-v2 .leaflet-popup-content-wrapper [class*="text-\\#132334"],
+body[data-theme="dark"] .theme-story-modal [class*="text-\\#132334"] {
+  color: #e9fbfe !important;
+}
+
+@media print {
+  body.print-story-map * {
+    visibility: hidden !important;
+  }
+
+  body.print-story-map #story-map-print-area,
+  body.print-story-map #story-map-print-area * {
+    visibility: visible !important;
+  }
+
+  body.print-story-map #story-map-print-area {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+}
