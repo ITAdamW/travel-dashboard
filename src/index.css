@@ -941,6 +941,14 @@ body {
   min-height: 82px;
 }
 
+.theme-side-nav nav {
+  scrollbar-width: none;
+}
+
+.theme-side-nav nav::-webkit-scrollbar {
+  display: none;
+}
+
 .theme-side-nav-toggle,
 .theme-atlas-carousel-arrow {
   background: #ffffff;

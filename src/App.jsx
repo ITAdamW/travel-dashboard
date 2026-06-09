@@ -89,7 +89,7 @@ function SideNavItem({ active, icon: Icon, label, onClick }) {
       type="button"
       onClick={onClick}
       className={[
-        "theme-side-nav-item relative flex w-full flex-col items-center gap-2 px-2 py-4 text-center text-xs font-semibold transition",
+        "theme-side-nav-item relative flex w-full flex-col items-center justify-center gap-2 px-2 py-4 text-center text-xs font-semibold transition",
         active ? "text-[#008EA1]" : "text-[#4D5A68] hover:text-[#008EA1]",
       ].join(" ")}
       title={label}
@@ -97,8 +97,8 @@ function SideNavItem({ active, icon: Icon, label, onClick }) {
       {active ? (
         <span className="absolute left-0 top-1/2 h-12 w-1 -translate-y-1/2 rounded-r-full bg-[#008EA1]" />
       ) : null}
-      {createElement(Icon, { className: "h-6 w-6" })}
-      <span className="leading-tight">{label}</span>
+      {createElement(Icon, { className: "mx-auto block h-6 w-6 shrink-0" })}
+      <span className="block w-full text-center leading-tight">{label}</span>
     </button>
   );
 }
