@@ -149,8 +149,10 @@ export default function LoginPanel({ theme = "light", onToggleTheme }) {
                   <Navigation className="h-6 w-6" />
                 </span>
                 <div>
-                  <p className="text-lg font-bold tracking-tight text-white">Travel Dashboard</p>
-                  <p className="text-xs text-[#D8F2F5]">Twoje podroze w jednym miejscu</p>
+                  <p className="text-lg font-bold tracking-tight text-white">Point A</p>
+                  <p className="text-xs text-[#D8F2F5]">
+                    Kazda podroz zaczyna sie od pierwszego punktu
+                  </p>
                 </div>
               </div>
 
@@ -334,7 +336,7 @@ export default function LoginPanel({ theme = "light", onToggleTheme }) {
         </main>
 
         <footer className="px-2 py-2 text-center text-[11px] text-[#82939C]">
-          Travel Dashboard · planowanie podrozy w jednym miejscu
+          Point A · Kazda podroz zaczyna sie od pierwszego punktu
         </footer>
       </div>
 

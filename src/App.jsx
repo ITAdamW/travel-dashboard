@@ -425,7 +425,7 @@ export default function App() {
               <Navigation className="h-5 w-5" />
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-sm font-bold text-[#132334]">Travel Dashboard</span>
+              <span className="block truncate text-sm font-bold text-[#132334]">Point A</span>
               <span className="block truncate text-xs text-[#647782]">Witaj, {userGreeting}</span>
             </span>
           </button>
