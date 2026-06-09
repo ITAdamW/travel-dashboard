@@ -38,7 +38,7 @@ import {
   fetchPlannerPlans,
   upsertPlannerPlan,
 } from "../lib/supabaseTravelData";
-import { replacePlannerPlanCover } from "../lib/storageMedia";
+import { listPlaceMedia, replacePlannerPlanCover } from "../lib/storageMedia";
 import {
   buildPlaceCoverCandidates,
   buildPlannerPlanCoverCandidates,
@@ -93,12 +93,16 @@ function uniqueImageUrls(urls = []) {
   return [...new Set(urls.filter(Boolean))];
 }
 
-function getPlaceImageCandidates(place) {
+function getPlaceImageCandidates(place, storageMedia = null) {
   if (!place) return [];
 
   return uniqueImageUrls([
     normalizeSupabaseMediaUrl(place.image),
     ...filterSupabaseMediaUrls(place.gallery),
+    storageMedia?.cover?.url,
+    ...(Array.isArray(storageMedia?.gallery)
+      ? storageMedia.gallery.map((item) => item?.url)
+      : []),
     place.storageMedia?.cover?.url,
     ...(Array.isArray(place.storageMedia?.gallery)
       ? place.storageMedia.gallery.map((item) => item?.url)
@@ -109,6 +113,23 @@ function getPlaceImageCandidates(place) {
 
 function getPlacePrimaryImage(place) {
   return getPlaceImageCandidates(place)[0] || "";
+}
+
+function getPlaceGalleryImages(place, storageMedia = null) {
+  if (!place) return [];
+
+  return uniqueImageUrls([
+    normalizeSupabaseMediaUrl(place.image),
+    ...filterSupabaseMediaUrls(place.gallery),
+    storageMedia?.cover?.url,
+    ...(Array.isArray(storageMedia?.gallery)
+      ? storageMedia.gallery.map((item) => item?.url)
+      : []),
+    place.storageMedia?.cover?.url,
+    ...(Array.isArray(place.storageMedia?.gallery)
+      ? place.storageMedia.gallery.map((item) => item?.url)
+      : []),
+  ]);
 }
 
 function getPlanCoverCandidates(plan, destination) {
@@ -510,13 +531,12 @@ function PlannerRouteMap({
               type="button"
               onClick={() => onActiveDayChange?.(null)}
               className={cn(
-                "inline-flex h-10 flex-[1.1] items-center justify-center gap-2 rounded-[0.8rem] px-3 text-sm font-bold transition",
+                "inline-flex h-10 flex-[1.1] items-center justify-center rounded-[0.8rem] px-3 text-center text-sm font-bold transition",
                 activeDayIndex == null
-                  ? "bg-[#111827] text-white"
-                  : "border border-[#DDEDF0] bg-white text-[#52616D] hover:bg-[#F3FBFC]"
+                  ? "bg-[#008EA1] text-white shadow-[0_6px_16px_rgba(0,142,161,0.22)]"
+                  : "border border-[#B9E4E9] bg-[#EAFBFD] text-[#007786] hover:bg-[#DDF8FB]"
               )}
             >
-              <span className="h-2.5 w-2.5 rounded-full bg-[#111827]" />
               Cala trasa
             </button>
             <div className="contents md:hidden">
@@ -1348,6 +1368,8 @@ export default function PlannerPanel({
   const [pendingGlobalPlanAction, setPendingGlobalPlanAction] = useState(null);
   const [pendingPlanCoverFile, setPendingPlanCoverFile] = useState(null);
   const [detailsPlace, setDetailsPlace] = useState(null);
+  const [detailsPlaceMedia, setDetailsPlaceMedia] = useState(null);
+  const [detailsLightboxIndex, setDetailsLightboxIndex] = useState(null);
   const canUsePortal = typeof document !== "undefined";
   const previousInitialCountryIdRef = useRef(initialCountryId);
   const previousInitialDestinationIdRef = useRef(initialDestinationId);
@@ -1365,6 +1387,12 @@ export default function PlannerPanel({
 
   const selectedPlan =
     plans.find((plan) => plan.id === selectedPlanId) || plans[0] || null;
+  const activeDetailsMedia =
+    detailsPlaceMedia?.placeId === detailsPlace?.id ? detailsPlaceMedia : null;
+  const detailsGalleryImages = useMemo(
+    () => getPlaceGalleryImages(detailsPlace, activeDetailsMedia),
+    [activeDetailsMedia, detailsPlace]
+  );
   const decoratedGlobalFavoritePlans = useMemo(
     () =>
       globalFavoritePlans
@@ -1387,6 +1415,46 @@ export default function PlannerPanel({
         .filter(Boolean),
     [countries, globalFavoritePlans]
   );
+
+  useEffect(() => {
+    if (
+      !detailsPlace?.countryId ||
+      !detailsPlace?.destinationId ||
+      !detailsPlace?.id
+    ) {
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    listPlaceMedia(
+      detailsPlace.countryId,
+      detailsPlace.destinationId,
+      detailsPlace.id
+    )
+      .then((media) => {
+        if (!cancelled) {
+          setDetailsPlaceMedia({ ...media, placeId: detailsPlace.id });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDetailsPlaceMedia({
+            placeId: detailsPlace.id,
+            cover: null,
+            gallery: [],
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    detailsPlace?.countryId,
+    detailsPlace?.destinationId,
+    detailsPlace?.id,
+  ]);
 
   useEffect(() => {
     const initialCountryChanged = previousInitialCountryIdRef.current !== initialCountryId;
@@ -3220,11 +3288,76 @@ export default function PlannerPanel({
             detailsPlace.info ||
             ""
           }
-          coverUrls={getPlaceImageCandidates(detailsPlace)}
-          galleryImages={getPlaceImageCandidates(detailsPlace)}
-          onClose={() => setDetailsPlace(null)}
+          coverUrls={getPlaceImageCandidates(detailsPlace, activeDetailsMedia)}
+          galleryImages={detailsGalleryImages}
+          onOpenImage={(index) => setDetailsLightboxIndex(index)}
+          onClose={() => {
+            setDetailsLightboxIndex(null);
+            setDetailsPlace(null);
+          }}
         />
       ) : null}
+
+      {detailsLightboxIndex != null &&
+        detailsGalleryImages.length > 0 &&
+        canUsePortal &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[1800] flex items-center justify-center bg-black/90 p-2 sm:p-6"
+            onClick={() => setDetailsLightboxIndex(null)}
+          >
+            <button
+              type="button"
+              onClick={() => setDetailsLightboxIndex(null)}
+              className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white sm:right-6 sm:top-6"
+              aria-label="Zamknij zdjecie"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {detailsGalleryImages.length > 1 ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDetailsLightboxIndex(
+                    (current) =>
+                      (current - 1 + detailsGalleryImages.length) %
+                      detailsGalleryImages.length
+                  );
+                }}
+                className="absolute left-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white sm:left-6"
+                aria-label="Poprzednie zdjecie"
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+            ) : null}
+
+            <img
+              src={detailsGalleryImages[detailsLightboxIndex]}
+              alt={`${detailsPlace?.name || "Atrakcja"} - pelny widok`}
+              className="max-h-[96dvh] max-w-full object-contain sm:max-h-[88vh] sm:max-w-[90vw] sm:rounded-2xl"
+              onClick={(event) => event.stopPropagation()}
+            />
+
+            {detailsGalleryImages.length > 1 ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDetailsLightboxIndex(
+                    (current) => (current + 1) % detailsGalleryImages.length
+                  );
+                }}
+                className="absolute right-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white sm:right-6"
+                aria-label="Nastepne zdjecie"
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+            ) : null}
+          </div>,
+          document.body
+        )}
     </section>
   );
 }
