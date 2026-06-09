@@ -246,21 +246,29 @@ body[data-theme="dark"] .atlas-scroll::-webkit-scrollbar-button {
 
 body[data-theme="dark"] .theme-login-shell {
   background:
-    radial-gradient(circle at top, rgba(173, 153, 110, 0.08), transparent 30%),
-    linear-gradient(180deg, #1a1d20 0%, #121416 100%) !important;
-  color: #f4efe6 !important;
+    radial-gradient(circle at 12% 8%, rgba(0, 142, 161, 0.16), transparent 30%),
+    linear-gradient(180deg, #111b20 0%, #0b1216 100%) !important;
+  color: #eefbfc !important;
 }
 
-body[data-theme="dark"] .theme-login-hero,
 body[data-theme="dark"] .theme-login-panel,
-body[data-theme="dark"] .theme-login-card,
 body[data-theme="dark"] .theme-login-segment,
 body[data-theme="dark"] .theme-login-toggle,
 body[data-theme="dark"] .theme-login-input {
-  background: #202428 !important;
+  background: #16242a !important;
   background-image: none !important;
-  color: #f4efe6 !important;
-  border-color: #3a403f !important;
+  color: #eefbfc !important;
+  border-color: #29434b !important;
+}
+
+body[data-theme="dark"] .theme-login-hero {
+  background: linear-gradient(145deg, #087f91 0%, #075f70 58%, #123e4a 100%) !important;
+  border-color: #267f8c !important;
+}
+
+body[data-theme="dark"] .theme-login-card {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
 }
 
 body[data-theme="dark"] .theme-login-hero,
@@ -270,9 +278,9 @@ body[data-theme="dark"] .theme-login-card {
 }
 
 body[data-theme="dark"] .theme-login-segment-active {
-  background: #181c1f !important;
-  color: #f4efe6 !important;
-  border-color: #3a403f !important;
+  background: #008ea1 !important;
+  color: #ffffff !important;
+  border-color: #008ea1 !important;
 }
 
 body[data-theme="dark"] .theme-login-shell h1,
@@ -294,7 +302,7 @@ body[data-theme="dark"] .theme-login-shell [class*="text-\\#8A7F6C"] {
 }
 
 body[data-theme="dark"] .theme-login-input::placeholder {
-  color: #a79f92;
+  color: #80949d;
 }
 
 body[data-theme="dark"] .theme-panel-shell,
