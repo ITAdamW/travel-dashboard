@@ -46,6 +46,7 @@ import {
   normalizeSupabaseMediaUrl,
 } from "../lib/mediaUrls";
 import RichText from "./RichText";
+import { FullPlaceInfoModal } from "./StoryPanel";
 
 const categoryMeta = {
   "forest-park": { label: "Las, wawoz, park", icon: MapPin },
@@ -397,7 +398,7 @@ function PlannerRouteMap({
 
       <div className={`relative overflow-hidden rounded-[1.25rem] border border-[#DDEDF0] bg-[#E8EEF1] ${compact ? "h-[520px]" : "h-[360px]"}`}>
         {compact ? (
-          <div className="absolute right-4 top-4 z-[650] flex flex-wrap justify-end gap-2">
+          <div className="planner-map-actions absolute right-4 top-4 z-[650] flex flex-wrap justify-end gap-2">
             <button
               type="button"
               onClick={onCreatePlan}
@@ -426,7 +427,7 @@ function PlannerRouteMap({
           </div>
         ) : null}
         {compact && planLabel ? (
-          <div className="absolute left-20 top-4 z-[650] max-w-[min(360px,calc(100%-6rem))] rounded-[1rem] border border-[#DDEDF0] bg-white/94 px-4 py-3 shadow-[0_16px_36px_rgba(15,58,66,0.16)] backdrop-blur">
+          <div className="planner-map-label absolute left-20 top-4 z-[650] max-w-[min(360px,calc(100%-6rem))] rounded-[1rem] border border-[#DDEDF0] bg-white/94 px-4 py-3 shadow-[0_16px_36px_rgba(15,58,66,0.16)] backdrop-blur">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#008EA1]">
               Aktualnie wyswietlany plan
             </p>
@@ -494,12 +495,12 @@ function PlannerRouteMap({
         </div>
 
         {compact ? (
-          <div className="absolute bottom-4 left-4 right-4 z-[650] flex items-center gap-2 rounded-[1rem] border border-[#DDEDF0] bg-white/94 p-2 shadow-[0_16px_36px_rgba(15,58,66,0.16)] backdrop-blur">
+          <div className="planner-day-controls absolute bottom-4 left-4 right-4 z-[650] flex items-center gap-2 rounded-[1rem] border border-[#DDEDF0] bg-white/94 p-2 shadow-[0_16px_36px_rgba(15,58,66,0.16)] backdrop-blur">
             {planDays.length > 5 ? (
               <button
                 type="button"
                 onClick={() => setDayOffset((prev) => Math.max(0, prev - 1))}
-                className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#008EA1] transition hover:bg-[#EAFBFD]"
+                className="hidden h-10 w-10 flex-none items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#008EA1] transition hover:bg-[#EAFBFD] md:inline-flex"
                 aria-label="Poprzednie dni"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -518,6 +519,25 @@ function PlannerRouteMap({
               <span className="h-2.5 w-2.5 rounded-full bg-[#111827]" />
               Cala trasa
             </button>
+            <div className="contents md:hidden">
+              {planDays.map((day, index) => (
+                <button
+                  key={`mobile-map-day-control-${index}`}
+                  type="button"
+                  onClick={() => onActiveDayChange?.(index)}
+                  style={activeDayIndex === index ? { backgroundColor: day.color } : undefined}
+                  className={cn(
+                    "inline-flex h-10 min-w-[5.5rem] flex-none items-center justify-center gap-2 rounded-[0.8rem] px-3 text-sm font-bold transition",
+                    activeDayIndex === index
+                      ? "text-white"
+                      : "border border-[#DDEDF0] bg-white text-[#52616D]"
+                  )}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: day.color }} />
+                  <span className="truncate">{day.day || `Dzien ${index + 1}`}</span>
+                </button>
+              ))}
+            </div>
             {visibleDayButtons.map((day, index) => {
               const realIndex = dayOffset + index;
               return (
@@ -527,7 +547,7 @@ function PlannerRouteMap({
                   onClick={() => onActiveDayChange?.(realIndex)}
                   style={activeDayIndex === realIndex ? { backgroundColor: day.color } : undefined}
                   className={cn(
-                    "inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[0.8rem] px-3 text-sm font-bold transition",
+                    "hidden h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-[0.8rem] px-3 text-sm font-bold transition md:inline-flex",
                     activeDayIndex === realIndex
                       ? "text-white"
                       : "border border-[#DDEDF0] bg-white text-[#52616D] hover:bg-[#F3FBFC]"
@@ -544,7 +564,7 @@ function PlannerRouteMap({
                 onClick={() =>
                   setDayOffset((prev) => Math.min(Math.max(planDays.length - 5, 0), prev + 1))
                 }
-                className="inline-flex h-10 w-10 flex-none items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#008EA1] transition hover:bg-[#EAFBFD]"
+                className="hidden h-10 w-10 flex-none items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#008EA1] transition hover:bg-[#EAFBFD] md:inline-flex"
                 aria-label="Kolejne dni"
               >
                 <ChevronRight className="h-5 w-5" />
@@ -732,7 +752,7 @@ function PlannerDayItem({
   );
 }
 
-function PlannerPreviewItem({ place, note }) {
+function PlannerPreviewItem({ place, note, onOpen }) {
   const Icon = categoryMeta[place.category]?.icon || MapPin;
   const imageFallback = (
     <span className="flex h-16 w-20 shrink-0 items-center justify-center rounded-[0.85rem] bg-[#EAFBFD] text-[#008EA1]">
@@ -741,7 +761,11 @@ function PlannerPreviewItem({ place, note }) {
   );
 
   return (
-    <div className="rounded-[1rem] border border-[#DDEDF0] bg-white p-3 shadow-[0_8px_22px_rgba(15,58,66,0.04)]">
+    <button
+      type="button"
+      onClick={() => onOpen?.(place)}
+      className="block w-full rounded-[1rem] border border-[#DDEDF0] bg-white p-3 text-left shadow-[0_8px_22px_rgba(15,58,66,0.04)] transition hover:border-[#8DDAE4] hover:shadow-[0_12px_28px_rgba(15,58,66,0.08)]"
+    >
       <div className="flex items-center gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#EAFBFD] text-[#008EA1]">
           <Icon className="h-4 w-4" />
@@ -778,7 +802,7 @@ function PlannerPreviewItem({ place, note }) {
           />
         </div>
       ) : null}
-    </div>
+    </button>
   );
 }
 
@@ -970,7 +994,7 @@ function DayColumn({
   );
 }
 
-function PlannerPreview({ destination, plan, activeDayIndex = null }) {
+function PlannerPreview({ destination, plan, activeDayIndex = null, onOpenPlace }) {
   const visibleDays = normalizeItinerary(plan.itinerary).filter(
     (_, index) => activeDayIndex == null || index === activeDayIndex
   );
@@ -1005,6 +1029,7 @@ function PlannerPreview({ destination, plan, activeDayIndex = null }) {
                   key={`preview-item-${index}-${itemIndex}-${place.id}`}
                   place={place}
                   note={normalized.note}
+                  onOpen={onOpenPlace}
                 />
               );
             })}
@@ -1017,7 +1042,7 @@ function PlannerPreview({ destination, plan, activeDayIndex = null }) {
 
 const PlannerEditRouteMap = PlannerRouteMap;
 
-function exportPlanToPdf(destination, country, plan) {
+function _exportPlanToPdfLegacy(destination, country, plan) {
   const printable = window.open("", "_blank", "width=1200,height=900");
   if (!printable) return;
 
@@ -1117,6 +1142,180 @@ function exportPlanToPdf(destination, country, plan) {
   printable.print();
 }
 
+function exportPlanToPdf(destination, country, plan) {
+  const printable = window.open("", "_blank", "width=1200,height=900");
+  if (!printable) return;
+
+  const escapeText = (value) =>
+    String(value || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;");
+  const itinerary = normalizeItinerary(plan.itinerary);
+  const mapDays = itinerary.map((section, dayIndex) => ({
+    day: section.day,
+    color: plannerDayPalette[dayIndex % plannerDayPalette.length],
+    points: section.items
+      .map((item, itemIndex) => {
+        const place = findPlaceById(destination, normalizeItem(item).placeId);
+        if (!place || !Array.isArray(place.coordinates)) return null;
+        return {
+          coordinates: place.coordinates,
+          label: String(itemIndex + 1),
+          name: place.name,
+        };
+      })
+      .filter(Boolean),
+  }));
+  const placeCount = itinerary.reduce((sum, day) => sum + day.items.length, 0);
+  const destinationSummary =
+    destination?.description ||
+    destination?.summary ||
+    `Plan obejmuje ${itinerary.length} dni i ${placeCount} miejsc w destynacji ${destination?.name || ""}.`;
+
+  const daysMarkup = itinerary
+    .map((section, dayIndex) => {
+      const cards = section.items
+        .map((item) => {
+          const normalized = normalizeItem(item);
+          const place = findPlaceById(destination, normalized.placeId);
+          if (!place) return null;
+
+          return `
+            <article class="card">
+              ${getPlacePrimaryImage(place) ? `<img src="${escapeText(getPlacePrimaryImage(place))}" alt="${escapeText(place.name)}" />` : ""}
+              <div class="body">
+                <h3>${escapeText(place.name)}</h3>
+                <p class="meta">${escapeText(categoryMeta[place.category]?.label || place.category)}</p>
+                ${place.note ? `<p class="place-note">${escapeText(place.note)}</p>` : ""}
+              </div>
+              ${normalized.note ? `<div class="plan-note">${escapeText(normalized.note)}</div>` : ""}
+            </article>
+          `;
+        })
+        .filter(Boolean)
+        .join("");
+
+      return `
+        <section class="day page-break">
+          <div class="day-head">
+            <div>
+              <p>DZIEN ${dayIndex + 1}</p>
+              <h2>${escapeText(section.day)}</h2>
+            </div>
+            ${section.date ? `<div class="date">${escapeText(formatPlannerDate(section.date))}</div>` : ""}
+          </div>
+          <div id="day-map-${dayIndex}" class="map day-map"></div>
+          <div class="list">${cards || '<p class="empty">Brak miejsc w tym dniu.</p>'}</div>
+        </section>
+      `;
+    })
+    .join("");
+
+  printable.document.write(`
+    <html>
+      <head>
+        <title>${escapeText(plan.name)}</title>
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <style>
+          * { box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; margin: 32px; color: #132334; background: #f5fafb; }
+          .hero { margin-bottom: 22px; }
+          .eyebrow { font-size: 11px; letter-spacing: .32em; text-transform: uppercase; color: #8a7f6c; }
+          h1 { margin: 12px 0 8px; font-size: 34px; }
+          .sub { color: #5e564b; font-size: 15px; }
+          .map { height: 390px; border: 1px solid #dcecf0; border-radius: 20px; margin: 20px 0 26px; overflow: hidden; background: #eaf4f7; }
+          .day-map { height: 300px; margin: 0; border-width: 0 0 1px; border-radius: 0; }
+          .leaflet-control-attribution { display: none; }
+          .export-marker { display:flex; width:30px; height:30px; align-items:center; justify-content:center; border-radius:999px; color:white; border:3px solid white; font-size:12px; font-weight:700; box-shadow:0 6px 16px rgba(15,58,66,.28); }
+          .summary { display:grid; grid-template-columns: 1fr repeat(3,140px); gap:14px; padding:18px; margin-bottom:24px; border:1px solid #dcecf0; border-radius:20px; background:white; }
+          .summary-copy { line-height:1.65; color:#52616d; }
+          .stat { padding:14px; border-radius:14px; background:#f3fbfc; text-align:center; }
+          .stat strong { display:block; margin-top:5px; font-size:20px; color:#008ea1; }
+          .day { margin-bottom:24px; border:1px solid #dcecf0; border-radius:24px; overflow:hidden; background:white; }
+          .day-head { display:flex; justify-content:space-between; gap:20px; align-items:center; padding:18px 20px; background:#fbfeff; border-bottom:1px solid #dcecf0; }
+          .day-head p { margin:0; font-size:10px; letter-spacing:.24em; color:#008ea1; }
+          .day-head h2 { margin:8px 0 0; font-size:24px; }
+          .date { color:#008ea1; font-size:13px; padding:7px 11px; border-radius:999px; background:#eafbfd; }
+          .list { display:flex; flex-direction:column; gap:14px; padding:16px; }
+          .card { display:flex; gap:16px; border:1px solid #e8dfd2; border-radius:18px; background:#fbf8f2; padding:12px; align-items:flex-start; }
+          .card img { width:124px; height:124px; object-fit:cover; border-radius:14px; flex-shrink:0; }
+          .body { flex:1; }
+          .body h3 { margin:0 0 8px; font-size:20px; }
+          .meta { color:#6b6255; font-size:13px; margin:0 0 10px; }
+          .place-note { margin:0; line-height:1.6; color:#5b544a; }
+          .plan-note { width:260px; min-width:260px; line-height:1.6; padding:10px 12px; border:1px solid #e5dccf; border-radius:12px; background:white; }
+          .empty { padding:20px; color:#647782; text-align:center; }
+          @media print {
+            body { margin:12mm; background:white; }
+            .page-break { break-before:page; }
+            .map, .card { break-inside:avoid; }
+          }
+        </style>
+      </head>
+      <body>
+        <header class="hero">
+          <p class="eyebrow">Travel Planner</p>
+          <h1>${escapeText(plan.name)}</h1>
+          <p class="sub">${escapeText(country.countryName)} / ${escapeText(destination.name)}</p>
+        </header>
+        <section id="overview-map" class="map"></section>
+        <section class="summary">
+          <div class="summary-copy">${escapeText(destinationSummary)}</div>
+          <div class="stat">Dni<strong>${itinerary.length}</strong></div>
+          <div class="stat">Miejsca<strong>${placeCount}</strong></div>
+          <div class="stat">Destynacja<strong>${escapeText(destination.name)}</strong></div>
+        </section>
+        ${daysMarkup}
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>
+        <script>
+          const days = ${JSON.stringify(mapDays).replaceAll("<", "\\u003c")};
+
+          function markerIcon(label, color) {
+            return L.divIcon({
+              className: "",
+              html: '<span class="export-marker" style="background:' + color + '">' + label + '</span>',
+              iconSize: [30, 30],
+              iconAnchor: [15, 15]
+            });
+          }
+
+          function renderMap(elementId, dayGroups) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            const map = L.map(element, { zoomControl: true, attributionControl: false });
+            L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", { maxZoom: 19 }).addTo(map);
+            const bounds = [];
+
+            dayGroups.forEach((day) => {
+              const line = day.points.map((point) => point.coordinates);
+              line.forEach((coordinates) => bounds.push(coordinates));
+              if (line.length > 1) {
+                L.polyline(line, { color: day.color, weight: 5, opacity: .88 }).addTo(map);
+              }
+              day.points.forEach((point) => {
+                L.marker(point.coordinates, { icon: markerIcon(point.label, day.color) })
+                  .addTo(map)
+                  .bindTooltip(point.name);
+              });
+            });
+
+            if (bounds.length > 1) map.fitBounds(bounds, { padding: [38, 38], maxZoom: 14 });
+            else if (bounds.length === 1) map.setView(bounds[0], 14);
+            else map.setView([0, 0], 2);
+          }
+
+          renderMap("overview-map", days);
+          days.forEach((day, index) => renderMap("day-map-" + index, [day]));
+          setTimeout(() => { window.focus(); window.print(); }, 2200);
+        <\/script>
+      </body>
+    </html>
+  `);
+  printable.document.close();
+}
+
 export default function PlannerPanel({
   countries,
   initialCountryId,
@@ -1138,6 +1337,7 @@ export default function PlannerPanel({
   const [planPreviewOpen, setPlanPreviewOpen] = useState(false);
   const [placeSearchTerm, setPlaceSearchTerm] = useState("");
   const [planSearchTerm, setPlanSearchTerm] = useState("");
+  const [planSort, setPlanSort] = useState("newest");
   const [activeDayIndex, setActiveDayIndex] = useState(null);
   const [favoritePlanOffset, setFavoritePlanOffset] = useState(0);
   const [expandedCountryIds, setExpandedCountryIds] = useState(() =>
@@ -1147,10 +1347,12 @@ export default function PlannerPanel({
   const [globalFavoritePlans, setGlobalFavoritePlans] = useState([]);
   const [pendingGlobalPlanAction, setPendingGlobalPlanAction] = useState(null);
   const [pendingPlanCoverFile, setPendingPlanCoverFile] = useState(null);
+  const [detailsPlace, setDetailsPlace] = useState(null);
   const canUsePortal = typeof document !== "undefined";
   const previousInitialCountryIdRef = useRef(initialCountryId);
   const previousInitialDestinationIdRef = useRef(initialDestinationId);
   const previousSelectedPlanKeyRef = useRef("");
+  const plannerMainViewRef = useRef(null);
 
   const selectedCountry = useMemo(
     () => countries.find((country) => country.id === selectedCountryId) || countries[0],
@@ -1366,13 +1568,27 @@ export default function PlannerPanel({
 
     if (pendingGlobalPlanAction.mode === "preview") {
       setViewMode("preview");
-      setPlanPreviewOpen(true);
     } else {
       setPlanPreviewOpen(false);
       setViewMode("edit");
     }
 
+    const shouldScrollToPlan =
+      pendingGlobalPlanAction.mode === "preview" &&
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches;
     setPendingGlobalPlanAction(null);
+
+    if (shouldScrollToPlan) {
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          plannerMainViewRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+          });
+        });
+      });
+    }
   }, [
     pendingGlobalPlanAction,
     plans,
@@ -1743,15 +1959,25 @@ export default function PlannerPanel({
   const normalizedPlanQuery = planSearchTerm.trim().toLowerCase();
   const countryPlanGroups = countries
     .map((country) => {
-      const countryEntries = allPlannerPlanEntries.filter((entry) => {
-        if (entry.countryId !== country.id) return false;
-        if (!normalizedPlanQuery) return true;
-        return [entry.name, entry.destinationName, entry.countryName]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase()
-          .includes(normalizedPlanQuery);
-      });
+      const countryEntries = allPlannerPlanEntries
+        .filter((entry) => {
+          if (entry.countryId !== country.id) return false;
+          if (!normalizedPlanQuery) return true;
+          return [entry.name, entry.destinationName, entry.countryName]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase()
+            .includes(normalizedPlanQuery);
+        })
+        .sort((a, b) => {
+          if (planSort === "name") {
+            return String(a.name || "").localeCompare(String(b.name || ""), "pl");
+          }
+
+          const aTime = Date.parse(a.updatedAt || "") || a.planIndex || 0;
+          const bTime = Date.parse(b.updatedAt || "") || b.planIndex || 0;
+          return planSort === "oldest" ? aTime - bTime : bTime - aTime;
+        });
 
       return {
         country,
@@ -1773,8 +1999,27 @@ export default function PlannerPanel({
   }, [favoritePlanTiles.length, allPlannerPlanEntries.length]);
 
   return (
-    <section className="theme-planner-shell rounded-[2rem] border border-[#DDEDF0] bg-white p-6 shadow-[0_18px_70px_rgba(15,58,66,0.08)]">
-      <div className="mb-6 grid gap-5 xl:grid-cols-[minmax(320px,430px)_minmax(0,1fr)] xl:items-end">
+    <section className="theme-planner-shell planner-layout rounded-[2rem] border border-[#DDEDF0] bg-white p-6 shadow-[0_18px_70px_rgba(15,58,66,0.08)]">
+      {viewMode === "preview" && activePlanForPreview ? (
+        <div className="planner-desktop-map mb-6 hidden min-w-0 xl:block">
+          <PlannerRouteMap
+            destination={selectedDestination}
+            plan={activePlanForPreview}
+            compact
+            activeDayIndex={activeDayIndex}
+            planLabel={activePlanLabel}
+            onActiveDayChange={setActiveDayIndex}
+            onCreatePlan={createPlan}
+            onEditPlan={() => setViewMode("edit")}
+            onExportPlan={() =>
+              exportPlanToPdf(selectedDestination, selectedCountry, activePlanForPreview)
+            }
+            canExport
+          />
+        </div>
+      ) : null}
+
+      <div className="planner-heading mb-6 flex min-w-0 flex-col gap-5">
         <div className="flex items-start gap-3">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EAFBFD] text-[#008EA1]">
             <Route className="h-6 w-6" />
@@ -1787,7 +2032,7 @@ export default function PlannerPanel({
           </div>
         </div>
 
-        <div className="min-w-0">
+        <div className="min-w-0 xl:max-w-[560px]">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h4 className="text-base font-bold text-[#111827]">Ulubione plany</h4>
             <span className="rounded-full bg-[#EAFBFD] px-3 py-1 text-xs font-semibold text-[#008EA1]">
@@ -1919,11 +2164,11 @@ export default function PlannerPanel({
         </button>
       </div>}
 
-      <div className="grid gap-5 xl:grid-cols-[430px_minmax(0,1fr)]">
-        <aside className="space-y-5">
-          <div className="theme-planner-card rounded-[1.55rem] border border-[#DDEDF0] bg-white p-4 shadow-[0_16px_42px_rgba(15,58,66,0.06)]">
-            <h4 className="mb-4 text-lg font-bold text-[#111827]">Filtry planu</h4>
-            <div className="grid gap-3">
+      <div className="planner-content grid gap-5 xl:grid-cols-[560px_minmax(0,1fr)]">
+        <aside className="planner-directory space-y-5">
+          <div className="theme-planner-card planner-directory-card rounded-[1.55rem] border border-[#DDEDF0] bg-white p-4 shadow-[0_16px_42px_rgba(15,58,66,0.06)]">
+            <h4 className="mb-4 text-lg font-bold text-[#111827]">Wszystkie plany</h4>
+            <div className="mb-4 grid gap-3 xl:grid-cols-3">
               <SelectInput
                 label="Kraj"
                 value={selectedCountryId}
@@ -1951,6 +2196,17 @@ export default function PlannerPanel({
                   setSelectedPlanId(value);
                   setViewMode("preview");
                   setPlanPreviewOpen(false);
+                  if (
+                    typeof window !== "undefined" &&
+                    window.matchMedia("(max-width: 767px)").matches
+                  ) {
+                    window.requestAnimationFrame(() => {
+                      plannerMainViewRef.current?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start",
+                      });
+                    });
+                  }
                 }}
                 options={
                   plans.length
@@ -1962,10 +2218,6 @@ export default function PlannerPanel({
                 }
               />
             </div>
-          </div>
-
-          <div className="theme-planner-card rounded-[1.55rem] border border-[#DDEDF0] bg-white p-4 shadow-[0_16px_42px_rgba(15,58,66,0.06)]">
-            <h4 className="mb-4 text-lg font-bold text-[#111827]">Wszystkie plany</h4>
             <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_150px]">
               <label className="relative block">
                 <span className="sr-only">Szukaj planow</span>
@@ -1976,12 +2228,19 @@ export default function PlannerPanel({
                   className="h-11 w-full rounded-[0.85rem] border border-[#DDEDF0] bg-white px-4 text-sm text-[#111827] outline-none transition focus:border-[#008EA1]"
                 />
               </label>
-              <div className="flex h-11 items-center justify-center rounded-[0.85rem] border border-[#DDEDF0] bg-white text-xs font-semibold text-[#52616D]">
-                Od najnowszych
-              </div>
+              <select
+                value={planSort}
+                onChange={(event) => setPlanSort(event.target.value)}
+                className="h-11 rounded-[0.85rem] border border-[#DDEDF0] bg-white px-3 text-xs font-semibold text-[#52616D] outline-none focus:border-[#008EA1]"
+                aria-label="Sortowanie planow"
+              >
+                <option value="newest">Od najnowszych</option>
+                <option value="oldest">Od najstarszych</option>
+                <option value="name">Nazwa A-Z</option>
+              </select>
             </div>
 
-            <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+            <div className="planner-directory-list max-h-[520px] space-y-3 overflow-y-auto pr-1">
               {countryPlanGroups.length ? (
                 countryPlanGroups.map(({ country, entries }) => {
                   const expanded = expandedCountryIds.includes(country.id);
@@ -2036,7 +2295,6 @@ export default function PlannerPanel({
                                         destinationId: plan.destinationId,
                                         planId: plan.id,
                                       });
-                                      setPlanPreviewOpen(false);
                                     }}
                                     className="flex min-w-0 flex-1 items-center gap-3 text-left"
                                   >
@@ -2113,7 +2371,7 @@ export default function PlannerPanel({
 
             <button
               onClick={createPlan}
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[0.95rem] border border-[#DDEDF0] bg-white px-4 py-3 text-sm font-bold text-[#008EA1] transition hover:bg-[#EAFBFD]"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[0.95rem] border border-[#008EA1] bg-[#008EA1] px-4 py-3 text-sm font-bold text-white shadow-[0_10px_24px_rgba(0,142,161,0.18)] transition hover:bg-[#007485]"
             >
               <Plus className="h-4 w-4" />
               Dodaj nowy plan podrozy
@@ -2121,12 +2379,76 @@ export default function PlannerPanel({
           </div>
         </aside>
 
-        <div className="min-w-0 space-y-5">
+        <div ref={plannerMainViewRef} className="planner-main-view min-w-0 scroll-mt-20 space-y-5">
           {viewMode === "preview" ? (
-            <div className="theme-planner-card overflow-hidden rounded-[1.55rem] border border-[#DDEDF0] bg-white shadow-[0_16px_42px_rgba(15,58,66,0.06)]">
+            <div className="theme-planner-card planner-preview-card overflow-hidden rounded-[1.55rem] border border-[#DDEDF0] bg-white shadow-[0_16px_42px_rgba(15,58,66,0.06)]">
               {activePlanForPreview ? (
                 <>
-                  <div className="p-4">
+                  <aside className="planner-plan-summary mx-4 mt-4 rounded-[1.25rem] border border-[#DDEDF0] bg-[#F8FCFD] p-4 shadow-[0_10px_28px_rgba(15,58,66,0.05)] xl:hidden">
+                    <div className="flex items-start gap-3">
+                      <div className="h-20 w-24 shrink-0 overflow-hidden rounded-[1rem] bg-[#DDEDF0]">
+                        <PlannerImageUrls
+                          urls={getPlanCoverCandidates(activePlanForPreview, selectedDestination)}
+                          alt={activePlanForPreview.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <h5 className="truncate text-xl font-bold text-[#008EA1]">
+                          {activePlanForPreview.name}
+                        </h5>
+                        <p className="mt-1 truncate text-sm text-[#61717D]">
+                          {selectedCountry?.countryName} / {selectedDestination?.name}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="rounded-xl border border-[#DDEDF0] bg-white px-2 py-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#61717D]">Czas</p>
+                        <p className="mt-1 text-sm font-bold text-[#111827]">{activePlanDays.length} dni</p>
+                      </div>
+                      <div className="rounded-xl border border-[#DDEDF0] bg-white px-2 py-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#61717D]">Miejsca</p>
+                        <p className="mt-1 text-sm font-bold text-[#111827]">{activePlanPlacesCount}</p>
+                      </div>
+                      <div className="rounded-xl border border-[#DDEDF0] bg-white px-2 py-3 text-center">
+                        <p className="text-[10px] font-semibold uppercase tracking-wide text-[#61717D]">Trasa</p>
+                        <p className="mt-1 text-sm font-bold text-[#111827]">~ {Math.max(activePlanPlacesCount * 18, 0)} km</p>
+                      </div>
+                    </div>
+                    <div className="planner-summary-actions mt-4 grid grid-cols-3 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setViewMode("edit")}
+                          className="inline-flex h-11 items-center justify-center rounded-xl border border-[#DDEDF0] bg-white text-[#008EA1]"
+                          aria-label="Edytuj plan"
+                          title="Edytuj plan"
+                        >
+                          <PencilLine className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => togglePlanFavorite(activePlanForPreview)}
+                          disabled={saving}
+                          className="inline-flex h-11 items-center justify-center rounded-xl border border-[#DDEDF0] bg-white text-[#E23B68] disabled:opacity-50"
+                          aria-label={activePlanForPreview.isFavorite ? "Usun z ulubionych" : "Dodaj do ulubionych"}
+                          title={activePlanForPreview.isFavorite ? "Usun z ulubionych" : "Dodaj do ulubionych"}
+                        >
+                          <Heart className={cn("h-4 w-4", activePlanForPreview.isFavorite ? "fill-current" : "")} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={removePlan}
+                          disabled={!selectedPlan || saving}
+                          className="inline-flex h-11 items-center justify-center rounded-xl border border-[#F0CED2] bg-[#FFF6F7] text-[#B4233A] disabled:opacity-50"
+                          aria-label="Usun plan"
+                          title="Usun plan"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                    </div>
+                  </aside>
+                  <div className="p-4 xl:hidden">
                     <PlannerRouteMap
                       destination={selectedDestination}
                       plan={activePlanForPreview}
@@ -2143,15 +2465,16 @@ export default function PlannerPanel({
                       canExport={Boolean(activePlanForPreview)}
                     />
                   </div>
-                  <div className="grid h-[560px] min-h-0 gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_300px]">
+                  <div className="planner-preview-body grid h-[560px] min-h-0 gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_300px]">
                     <div className="min-w-0 overflow-y-auto pr-1">
                       <PlannerPreview
                         destination={selectedDestination}
                         plan={activePlanForPreview}
                         activeDayIndex={activeDayIndex}
+                        onOpenPlace={setDetailsPlace}
                       />
                     </div>
-                    <aside className="min-h-0 overflow-y-auto rounded-[1.25rem] border border-[#DDEDF0] bg-[#FBFEFF] p-4">
+                    <aside className="planner-plan-summary hidden min-h-0 overflow-y-auto rounded-[1.25rem] border border-[#DDEDF0] bg-[#FBFEFF] p-4 xl:block">
                       <div className="overflow-hidden rounded-[1rem] bg-[#DDEDF0]">
                         <PlannerImageUrls
                           urls={getPlanCoverCandidates(activePlanForPreview, selectedDestination)}
@@ -2179,7 +2502,7 @@ export default function PlannerPanel({
                           disabled={saving}
                           className="inline-flex w-full items-center justify-center gap-2 rounded-[0.85rem] border border-[#DDEDF0] bg-white px-4 py-2.5 text-sm font-semibold text-[#52616D] transition hover:bg-[#F3FBFC]"
                         >
-                          <Star className={cn("h-4 w-4", activePlanForPreview.isFavorite ? "fill-[#E23B68] text-[#E23B68]" : "")} />
+                          <Heart className={cn("h-4 w-4", activePlanForPreview.isFavorite ? "fill-[#E23B68] text-[#E23B68]" : "")} />
                           {activePlanForPreview.isFavorite ? "Ulubiony" : "Dodaj do ulubionych"}
                         </button>
                         <button
@@ -2886,6 +3209,22 @@ export default function PlannerPanel({
           {status}
         </div>
       )}
+
+      {detailsPlace ? (
+        <FullPlaceInfoModal
+          place={detailsPlace}
+          description={
+            detailsPlace.description ||
+            detailsPlace.note ||
+            detailsPlace.subtitle ||
+            detailsPlace.info ||
+            ""
+          }
+          coverUrls={getPlaceImageCandidates(detailsPlace)}
+          galleryImages={getPlaceImageCandidates(detailsPlace)}
+          onClose={() => setDetailsPlace(null)}
+        />
+      ) : null}
     </section>
   );
 }

@@ -754,7 +754,7 @@ export default function RoutePanel({
                 </MapContainer>
               </div>
 
-              <div className="pointer-events-none absolute bottom-4 left-4 z-[650] w-[360px] max-w-[calc(100%-2rem)]">
+              <div className="route-map-active pointer-events-none absolute bottom-4 left-4 z-[650] w-[360px] max-w-[calc(100%-2rem)]">
                 <div className="pointer-events-auto rounded-[1.35rem] border border-[#E6DED1] bg-[rgba(255,255,255,0.92)] p-4 shadow-[0_16px_36px_rgba(34,31,25,0.10)] backdrop-blur">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -807,7 +807,7 @@ export default function RoutePanel({
                 </div>
               </div>
 
-              <div className="pointer-events-none absolute bottom-4 right-4 z-[650] w-[360px] max-w-[calc(100%-2rem)]">
+              <div className="route-map-legend pointer-events-none absolute bottom-4 right-4 z-[650] w-[360px] max-w-[calc(100%-2rem)]">
                 <div className="pointer-events-auto rounded-[1.35rem] border border-[#E6DED1] bg-[rgba(255,255,255,0.92)] p-4 shadow-[0_16px_36px_rgba(34,31,25,0.10)] backdrop-blur">
                   <div className="flex items-center gap-2">
                     <RouteIcon className="h-4 w-4 text-[#6B7A52]" />

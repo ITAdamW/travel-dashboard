@@ -1414,33 +1414,40 @@ function DestinationTabs({ destination, activeIndex, onPrev, onNext, onGoTo }) {
         galleryImages.length > 0 &&
         canUsePortal &&
         createPortal(
-        <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/80 p-6">
+        <div
+          className="story-lightbox fixed inset-0 z-[1700] flex items-center justify-center bg-black/90 p-2 sm:p-6"
+          onClick={() => setLightboxOpen(false)}
+        >
           <button
             onClick={() => setLightboxOpen(false)}
-            className="absolute right-6 top-6 rounded-full border border-white/20 bg-white/10 p-2 text-white"
+            className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white sm:right-6 sm:top-6"
           >
             <X className="h-5 w-5" />
           </button>
           <button
-            onClick={() =>
+            onClick={(event) => {
+              event.stopPropagation();
               setLightboxIndex(
                 (prev) => (prev - 1 + galleryImages.length) % galleryImages.length
-              )
-            }
-            className="absolute left-6 rounded-full border border-white/20 bg-white/10 p-2 text-white"
+              );
+            }}
+            className="absolute left-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white sm:left-6"
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
-          <SmartImage
-            urls={[galleryImages[lightboxIndex]]}
-            alt={`${currentSlide.title} full`}
-            className="max-h-[85vh] max-w-[85vw] rounded-2xl object-contain"
-          />
+          <div onClick={(event) => event.stopPropagation()} className="flex h-full w-full items-center justify-center">
+            <SmartImage
+              urls={[galleryImages[lightboxIndex]]}
+              alt={`${currentSlide.title} full`}
+              className="max-h-[96dvh] max-w-full object-contain sm:max-h-[88vh] sm:max-w-[90vw] sm:rounded-2xl"
+            />
+          </div>
           <button
-            onClick={() =>
-              setLightboxIndex((prev) => (prev + 1) % galleryImages.length)
-            }
-            className="absolute right-6 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-white/10 p-2 text-white"
+            onClick={(event) => {
+              event.stopPropagation();
+              setLightboxIndex((prev) => (prev + 1) % galleryImages.length);
+            }}
+            className="absolute right-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white sm:right-6"
           >
             <ChevronRight className="h-6 w-6" />
           </button>
@@ -1688,12 +1695,13 @@ function PracticalInfo({ icon: Icon, label, value }) {
   );
 }
 
-function FullPlaceInfoModal({
+export function FullPlaceInfoModal({
   place,
   description,
   coverUrls = [],
   galleryImages = [],
   activePlaceMedia = null,
+  onOpenImage,
   onClose,
 }) {
   if (!place) return null;
@@ -1722,13 +1730,15 @@ function FullPlaceInfoModal({
         </div>
         <div className="story-details-scroll max-h-[calc(88vh-96px)] overflow-y-auto px-5 py-5">
           <div className="relative overflow-hidden rounded-xl border border-[#DCECF0] bg-[#EAF4F7]">
-            <SmartImage
-              urls={coverUrls.length ? coverUrls : getPlaceImageCandidates(place, activePlaceMedia)}
-              alt={place.name}
-              className="h-[320px] w-full object-cover"
-            />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.02)_0%,rgba(0,0,0,0.16)_48%,rgba(0,0,0,0.70)_100%)]" />
-            <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+            <button type="button" onClick={() => onOpenImage?.(0)} className="block w-full">
+              <SmartImage
+                urls={coverUrls.length ? coverUrls : getPlaceImageCandidates(place, activePlaceMedia)}
+                alt={place.name}
+                className="h-[320px] w-full object-cover"
+              />
+            </button>
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.02)_0%,rgba(0,0,0,0.16)_48%,rgba(0,0,0,0.70)_100%)]" />
+            <div className="pointer-events-none absolute bottom-0 left-0 right-0 p-5 text-white">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-black/35 px-3 py-1 text-xs backdrop-blur">
                 <CategoryIcon className="h-3.5 w-3.5" />
                 {category.label}
@@ -1777,12 +1787,18 @@ function FullPlaceInfoModal({
               </h3>
               <div className="mt-3 grid grid-cols-4 gap-3">
                 {galleryImages.slice(0, 8).map((img, index) => (
-                  <SmartImage
+                  <button
                     key={`${img}-${index}`}
-                    urls={[img]}
-                    alt={`${place.name} ${index + 1}`}
-                    className="h-24 w-full rounded-lg border border-[#DCECF0] object-cover"
-                  />
+                    type="button"
+                    onClick={() => onOpenImage?.(index)}
+                    className="overflow-hidden rounded-lg border border-[#DCECF0] bg-white"
+                  >
+                    <SmartImage
+                      urls={[img]}
+                      alt={`${place.name} ${index + 1}`}
+                      className="h-24 w-full object-cover"
+                    />
+                  </button>
                 ))}
               </div>
             </div>
@@ -1913,8 +1929,8 @@ function PlaceDetailsPanel({
             className="h-[310px] w-full object-cover"
           />
         </button>
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.02)_0%,rgba(0,0,0,0.18)_50%,rgba(0,0,0,0.72)_100%)]" />
-        <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.02)_0%,rgba(0,0,0,0.18)_50%,rgba(0,0,0,0.72)_100%)]" />
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 p-5 text-white">
           <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-black/35 px-3 py-1 text-xs backdrop-blur">
             <CategoryIcon className="h-3.5 w-3.5" />
             {category.label}
@@ -2080,6 +2096,10 @@ function PlaceDetailsPanel({
           coverUrls={coverUrls}
           galleryImages={galleryImages}
           activePlaceMedia={activePlaceMedia}
+          onOpenImage={(index) => {
+            setLightboxIndex(index);
+            setLightboxOpen(true);
+          }}
           onClose={() => setDetailsOpen(false)}
         />
       ) : null}
@@ -2347,6 +2367,7 @@ export default function StoryPanel({
   const [trailGeometries, setTrailGeometries] = useState({});
   const [destinationDialogOpen, setDestinationDialogOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [mapControlsOpen, setMapControlsOpen] = useState(false);
   const [galleryStart, setGalleryStart] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -2740,8 +2761,22 @@ export default function StoryPanel({
             onSelectPlace={handleSelectPlace}
             onOpenDetails={handleOpenPlaceDetails}
             topOverlay={
-              <div className="flex flex-col gap-3">
-                <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="flex flex-col items-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMapControlsOpen((open) => !open)}
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-[#DCECF0] bg-white/95 px-3 text-sm font-semibold text-[#132334] shadow-[0_12px_28px_rgba(15,58,66,0.14)] backdrop-blur md:hidden"
+                  aria-expanded={mapControlsOpen}
+                >
+                  {mapControlsOpen ? <X className="h-4 w-4" /> : <Filter className="h-4 w-4" />}
+                  {mapControlsOpen ? "Zamknij" : "Opcje mapy"}
+                </button>
+                <div
+                  className={[
+                    "map-mobile-controls w-full flex-wrap items-end justify-between gap-2 md:flex md:gap-3",
+                    mapControlsOpen ? "flex" : "hidden",
+                  ].join(" ")}
+                >
                   <div className="flex flex-wrap items-end gap-3">
                   <label className="theme-story-floating-control min-w-[210px] rounded-xl border border-[#DCECF0] bg-white/95 px-3 py-2 shadow-[0_14px_34px_rgba(15,58,66,0.10)] backdrop-blur">
                     <span className="text-[11px] font-semibold text-[#647782]">Kraj</span>
@@ -2781,7 +2816,7 @@ export default function StoryPanel({
                     </select>
                   </label>
                   </div>
-                  <div className="ml-auto flex flex-wrap items-end justify-end gap-3">
+                  <div className="ml-auto flex flex-wrap items-end justify-end gap-2 md:gap-3">
                   <button
                     type="button"
                     onClick={() => setFilterOpen(true)}
@@ -2853,33 +2888,40 @@ export default function StoryPanel({
 
       {lightboxOpen && galleryImages.length > 0 &&
         createPortal(
-          <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-black/80 p-6">
+          <div
+            className="story-lightbox fixed inset-0 z-[1700] flex items-center justify-center bg-black/90 p-2 sm:p-6"
+            onClick={() => setLightboxOpen(false)}
+          >
             <button
               onClick={() => setLightboxOpen(false)}
-              className="absolute right-6 top-6 rounded-full border border-white/20 bg-white/10 p-2 text-white"
+              className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white sm:right-6 sm:top-6"
             >
               <X className="h-5 w-5" />
             </button>
             <button
-              onClick={() =>
+              onClick={(event) => {
+                event.stopPropagation();
                 setLightboxIndex(
                   (prev) => (prev - 1 + galleryImages.length) % galleryImages.length
-                )
-              }
-              className="absolute left-6 rounded-full border border-white/20 bg-white/10 p-2 text-white"
+                );
+              }}
+              className="absolute left-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white sm:left-6"
             >
               <ChevronLeft className="h-6 w-6" />
             </button>
-            <SmartImage
-              urls={[galleryImages[lightboxIndex]]}
-              alt={`${activePlace?.name || "Zdjecie"} full`}
-              className="max-h-[85vh] max-w-[85vw] rounded-2xl object-contain"
-            />
+            <div onClick={(event) => event.stopPropagation()} className="flex h-full w-full items-center justify-center">
+              <SmartImage
+                urls={[galleryImages[lightboxIndex]]}
+                alt={`${activePlace?.name || "Zdjecie"} full`}
+                className="max-h-[96dvh] max-w-full object-contain sm:max-h-[88vh] sm:max-w-[90vw] sm:rounded-2xl"
+              />
+            </div>
             <button
-              onClick={() =>
-                setLightboxIndex((prev) => (prev + 1) % galleryImages.length)
-              }
-              className="absolute right-6 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-white/10 p-2 text-white"
+              onClick={(event) => {
+                event.stopPropagation();
+                setLightboxIndex((prev) => (prev + 1) % galleryImages.length);
+              }}
+              className="absolute right-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/45 text-white sm:right-6"
             >
               <ChevronRight className="h-6 w-6" />
             </button>
@@ -2893,6 +2935,10 @@ export default function StoryPanel({
           coverUrls={getPlaceImageCandidates(activePlace, activePlaceMedia)}
           galleryImages={galleryImages}
           activePlaceMedia={activePlaceMedia}
+          onOpenImage={(index) => {
+            setLightboxIndex(index);
+            setLightboxOpen(true);
+          }}
           onClose={() => setMapDetailsOpen(false)}
         />
       ) : null}

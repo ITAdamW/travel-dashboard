@@ -1255,6 +1255,408 @@ body[data-theme="dark"] .planner-route-map-gray .leaflet-tile-pane {
   filter: grayscale(1) invert(1) brightness(0.44) contrast(1.18);
 }
 
+.mobile-navbar-scroll {
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+}
+
+.mobile-navbar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@media (min-width: 1280px) {
+  .planner-layout {
+    --planner-left-width: 560px;
+    --planner-gap: 1.25rem;
+    position: relative;
+    display: block;
+    height: calc(100dvh - 2rem);
+    min-height: 760px;
+    overflow: hidden;
+  }
+
+  .planner-layout .planner-heading {
+    position: absolute;
+    left: 0.75rem;
+    top: 0.5rem;
+    width: calc(var(--planner-left-width) - 0.75rem);
+    margin: 0;
+  }
+
+  .planner-layout .planner-desktop-map {
+    position: absolute;
+    left: calc(var(--planner-left-width) + var(--planner-gap));
+    right: 0;
+    top: 0;
+    margin: 0;
+  }
+
+  .planner-layout .planner-content {
+    display: contents;
+  }
+
+  .planner-layout .planner-directory {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    top: 14.5rem;
+    width: var(--planner-left-width);
+    min-height: 0;
+  }
+
+  .planner-layout .planner-directory-card {
+    display: flex;
+    height: 100%;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .planner-layout .planner-directory-list {
+    min-height: 0;
+    max-height: none;
+    flex: 1 1 auto;
+  }
+
+  .planner-layout .planner-main-view {
+    position: absolute;
+    bottom: 0;
+    left: calc(var(--planner-left-width) + var(--planner-gap));
+    right: 0;
+    top: 33.75rem;
+    min-height: 0;
+  }
+
+  .planner-layout .planner-preview-card {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .planner-layout .planner-preview-body {
+    height: 100%;
+    min-height: 0;
+    padding-top: 1rem;
+  }
+
+  .planner-layout .planner-preview-body > div,
+  .planner-layout .planner-preview-body > aside {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 1279px) {
+  .app-content {
+    padding-top: 4.75rem;
+  }
+}
+
+@media (max-width: 767px) {
+  html,
+  body,
+  #root {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .app-content {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  .theme-panel-shell,
+  .theme-planner-shell,
+  .theme-story-shell,
+  .theme-media-card,
+  .theme-users-panel,
+  .theme-admin-card {
+    border-radius: 1rem !important;
+  }
+
+  .theme-planner-shell:not(.space-y-5),
+  .theme-media-card,
+  .theme-users-panel,
+  .theme-admin-card {
+    padding: 1rem !important;
+  }
+
+  .theme-atlas-v2,
+  .theme-atlas-v2 > .grid {
+    min-height: 0 !important;
+  }
+
+  .theme-atlas-v2 .theme-panel-main,
+  .theme-atlas-v2 .theme-panel-side {
+    border-right: 0 !important;
+    padding: 1rem !important;
+  }
+
+  .theme-atlas-v2 .theme-panel-side {
+    border-top: 1px solid #dcecf0;
+  }
+
+  .theme-atlas-v2 .theme-atlas-map-card {
+    padding: 0.75rem !important;
+  }
+
+  .theme-atlas-v2 .theme-atlas-map-card > .min-h-\[360px\] {
+    min-height: 280px !important;
+  }
+
+  .theme-atlas-v2 .theme-atlas-stats,
+  .theme-atlas-v2 .theme-atlas-side-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .theme-atlas-v2 .theme-atlas-stat {
+    min-height: 64px;
+    border-bottom: 1px solid #dcecf0;
+    border-right: 0;
+  }
+
+  .theme-atlas-v2 .theme-atlas-stat:nth-child(odd) {
+    border-right: 1px solid #dcecf0;
+  }
+
+  .theme-atlas-v2 .theme-atlas-carousel-arrow {
+    right: 0 !important;
+  }
+
+  .theme-story-v2 {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    padding: 0.65rem !important;
+  }
+
+  .theme-story-v2 > .grid {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .theme-story-v2 .theme-story-map {
+    min-height: 62vh;
+  }
+
+  .theme-story-v2 .theme-story-floating-control {
+    min-width: 0 !important;
+    width: 100%;
+  }
+
+  .theme-story-v2 .theme-story-toolbar-button {
+    flex: 1 1 auto;
+    justify-content: center;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .theme-story-v2 .map-mobile-controls {
+    max-height: min(58dvh, 420px);
+    overflow-y: auto;
+    border: 1px solid #dcecf0;
+    border-radius: 0.9rem;
+    background: rgba(255, 255, 255, 0.96);
+    padding: 0.5rem;
+    box-shadow: 0 14px 34px rgba(15, 58, 66, 0.14);
+  }
+
+  .theme-story-v2 .map-mobile-controls > div {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .theme-story-v2 .map-mobile-controls .theme-story-floating-control {
+    padding: 0.45rem 0.65rem;
+  }
+
+  .theme-story-v2 .map-mobile-controls .theme-story-toolbar-button,
+  .theme-story-v2 .map-mobile-controls > div:last-child > span {
+    height: 2.5rem;
+    min-height: 2.5rem;
+    font-size: 0.75rem;
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+  }
+
+  .theme-story-filter {
+    bottom: 0.5rem !important;
+    left: 0.5rem !important;
+    top: 0.5rem !important;
+    width: calc(100vw - 1rem) !important;
+    max-width: none !important;
+    overflow-y: auto;
+  }
+
+  .theme-planner-shell h3,
+  .theme-planner-shell h1 {
+    font-size: 1.65rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .theme-planner-shell .h-\[560px\] {
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  .theme-planner-shell .max-h-\[520px\],
+  .theme-planner-shell .max-h-\[980px\] {
+    max-height: none !important;
+  }
+
+  .theme-planner-shell [class*="min-w-[190px]"],
+  .theme-story-v2 [class*="min-w-[180px]"] {
+    min-width: 0 !important;
+  }
+
+  .theme-planner-shell .absolute.-right-4,
+  .theme-planner-shell .absolute.right-\[-18px\] {
+    right: 0 !important;
+  }
+
+  .theme-planner-shell .planner-map-actions {
+    left: auto;
+    right: 0.5rem;
+    top: 0.5rem;
+    max-width: calc(100% - 1rem);
+    gap: 0.35rem;
+  }
+
+  .theme-planner-shell .planner-map-actions button {
+    height: 2.5rem;
+    width: 2.5rem;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0;
+    font-size: 0;
+  }
+
+  .theme-planner-shell .planner-map-actions button svg {
+    height: 1rem;
+    width: 1rem;
+  }
+
+  .theme-planner-shell .planner-map-label {
+    left: 0.5rem;
+    top: 0.5rem;
+    max-width: calc(100% - 9rem);
+    padding: 0.5rem 0.65rem;
+  }
+
+  .theme-planner-shell .planner-map-label p {
+    display: none;
+  }
+
+  .theme-planner-shell .planner-map-label h4 {
+    margin-top: 0;
+    font-size: 0.8rem;
+  }
+
+  .theme-planner-shell .planner-day-controls {
+    bottom: 0.5rem;
+    left: 0.5rem;
+    right: 0.5rem;
+    overflow-x: auto;
+    padding: 0.35rem;
+  }
+
+  .theme-planner-shell .planner-day-controls button {
+    min-width: 5.5rem;
+    flex: 0 0 auto;
+    height: 2.35rem;
+    font-size: 0.72rem;
+  }
+
+  .theme-planner-shell .planner-plan-summary {
+    order: -1;
+  }
+
+  .theme-planner-shell .planner-summary-actions {
+    width: 100%;
+  }
+
+  .route-map-active {
+    bottom: 0.5rem !important;
+    left: 0.5rem !important;
+    width: calc(100% - 1rem) !important;
+    max-width: none !important;
+  }
+
+  .route-map-active > div {
+    padding: 0.75rem !important;
+  }
+
+  .route-map-active p {
+    margin-top: 0.25rem !important;
+    font-size: 0.75rem !important;
+    line-height: 1.25rem !important;
+  }
+
+  .route-map-legend {
+    display: none;
+  }
+
+  .story-lightbox {
+    touch-action: pan-y;
+  }
+
+  .theme-user-settings-overlay,
+  .theme-story-v2 + .fixed,
+  .app-shell > .fixed.inset-0 {
+    align-items: flex-start !important;
+    overflow-y: auto;
+    padding: 0.5rem !important;
+  }
+
+  .theme-user-settings-modal {
+    max-height: calc(100dvh - 1rem);
+    overflow-y: auto;
+    border-radius: 1rem !important;
+    padding: 1rem !important;
+  }
+
+  .theme-media-shell,
+  .theme-users-shell {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .theme-media-card > .flex.items-center.justify-between,
+  .theme-users-panel > .flex.items-center.justify-between {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .theme-login-shell {
+    padding: 0.75rem !important;
+  }
+
+  .theme-login-hero,
+  .theme-login-panel {
+    border-radius: 1rem !important;
+    padding: 1rem !important;
+  }
+
+  .theme-planner-shell .aspect-\[210\/297\] h2 {
+    font-size: clamp(1.25rem, 7vw, 2.25rem) !important;
+  }
+
+  .theme-planner-shell .aspect-\[210\/297\] p,
+  .theme-planner-shell .aspect-\[210\/297\] a,
+  .theme-planner-shell .aspect-\[210\/297\] li {
+    font-size: clamp(0.55rem, 2.3vw, 0.875rem) !important;
+  }
+
+  .theme-planner-shell section[id^="place-"] img {
+    max-height: 48vh;
+  }
+
+  .leaflet-control-container .leaflet-top {
+    top: 0.25rem;
+  }
+
+  .leaflet-control-container .leaflet-left {
+    left: 0.25rem;
+  }
+}
+
 @media print {
   body.print-story-map * {
     visibility: hidden !important;

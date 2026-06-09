@@ -139,6 +139,10 @@ export function plannerPlanFolder(destinationId, planId) {
   return `planner-plans/${destinationId}/${planId}`;
 }
 
+export function guideAssetFolder(destinationId) {
+  return `guide-assets/${destinationId}`;
+}
+
 export async function listPlaceMedia(countryId, destinationId, placeId) {
   if (!supabase) {
     return {
@@ -291,6 +295,29 @@ export async function replacePlannerPlanCover(destinationId, planId, file) {
     bucket: IMAGE_BUCKET,
     path,
     url: versionedPublicUrl(IMAGE_BUCKET, path),
+  };
+}
+
+export async function uploadGuideImage(destinationId, file) {
+  const folder = guideAssetFolder(destinationId);
+  const extension = fileExtension(file.name) || "jpg";
+  const safeBase = stripExtension(file.name)
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const path = `${folder}/${Date.now()}-${safeBase || "image"}.${extension}`;
+
+  const { error } = await supabase.storage.from(IMAGE_BUCKET).upload(path, file, {
+    contentType: file.type || `image/${extension}`,
+    upsert: false,
+  });
+
+  if (error) throw error;
+
+  return {
+    bucket: IMAGE_BUCKET,
+    path,
+    url: publicUrl(IMAGE_BUCKET, path),
   };
 }
 

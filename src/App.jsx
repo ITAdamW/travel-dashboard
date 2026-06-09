@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createElement, useCallback, useEffect, useMemo, useState } from "react";
 import {
-  BarChart3,
   BookImage,
+  BookOpen,
   CalendarDays,
   Compass,
   Database,
   Globe2,
-  Heart,
   Images,
+  LogOut,
   Map,
+  Menu,
   Moon,
   Navigation,
   Plus,
@@ -16,11 +17,13 @@ import {
   Settings2,
   Sun,
   Users as UsersIcon,
+  X,
 } from "lucide-react";
 import AtlasPanel from "./components/AtlasPanel";
 import StoryPanel from "./components/StoryPanel";
 import PlannerPanel from "./components/PlannerPanel";
 import RoutePanel from "./components/RoutePanel";
+import GuidePanel from "./components/GuidePanel";
 import LoginPanel from "./components/LoginPanel";
 import MediaPanel from "./components/MediaPanel";
 import DataAdminPanel from "./components/DataAdminPanel";
@@ -80,33 +83,6 @@ function getUserGreeting(profile, session) {
   return login || fullName || emailPrefix || "podrozniku";
 }
 
-function navbarButtonClass({ active, style }) {
-  if (style === "old") {
-    return [
-      "theme-navbar-button theme-navbar-old-button group relative flex items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-all duration-200",
-      active
-        ? "border-[#D8CCBB] bg-white text-[#1F1D1A] shadow-[0_10px_24px_rgba(36,32,26,0.07)]"
-        : "border-transparent bg-[#F8F4EC] text-[#6B6255] hover:border-[#E7DDD0] hover:bg-white/80 hover:text-[#1F1D1A]",
-    ].join(" ");
-  }
-
-  if (style === "line") {
-    return [
-      "theme-navbar-button group relative inline-flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition",
-      active
-        ? "border-[#6B7A52] text-[#1F1D1A]"
-        : "border-transparent text-[#6B6255] hover:border-[#D8CCBB] hover:text-[#1F1D1A]",
-    ].join(" ");
-  }
-
-  return [
-    "theme-navbar-button group inline-flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-sm font-medium transition",
-    active
-      ? "border-[#D8CCBB] bg-white text-[#1F1D1A] shadow-[0_10px_24px_rgba(36,32,26,0.07)]"
-      : "border-transparent bg-[#F8F4EC] text-[#6B6255] hover:border-[#E7DDD0] hover:bg-white/80 hover:text-[#1F1D1A]",
-  ].join(" ");
-}
-
 function SideNavItem({ active, icon: Icon, label, onClick }) {
   return (
     <button
@@ -121,7 +97,7 @@ function SideNavItem({ active, icon: Icon, label, onClick }) {
       {active ? (
         <span className="absolute left-0 top-1/2 h-12 w-1 -translate-y-1/2 rounded-r-full bg-[#008EA1]" />
       ) : null}
-      <Icon className="h-6 w-6" />
+      {createElement(Icon, { className: "h-6 w-6" })}
       <span className="leading-tight">{label}</span>
     </button>
   );
@@ -136,13 +112,15 @@ function SideNavbar({
   userGreeting,
   session,
   isAdmin,
+  onSignOut,
 }) {
   const avatarUrl = session?.user?.user_metadata?.avatar_url;
   const initials = (userGreeting || "U").slice(0, 1).toUpperCase();
   const primaryItems = [
     { key: "atlas", label: "Mapa swiata", icon: Globe2 },
     { key: "story", label: "Mapa destynacji", icon: Compass },
-    { key: "planner", label: "Plany i trasa", icon: CalendarDays },
+    { key: "planner", label: "Plany i trasy", icon: CalendarDays },
+    { key: "guide", label: "Przewodniki", icon: BookOpen },
   ];
   const adminItems = isAdmin
     ? [
@@ -151,18 +129,12 @@ function SideNavbar({
         { key: "users", label: "Uzytkownicy", icon: UsersIcon, onClick: () => onChangePanel("users") },
       ]
     : [];
-  const secondaryItems = [
-    { key: "favorites", label: "Ulubione", icon: Heart, onClick: () => onChangePanel("atlas") },
-    { key: "stats", label: "Statystyki", icon: BarChart3, onClick: () => onChangePanel("atlas") },
-    { key: "settings", label: "Ustawienia", icon: Settings2, onClick: onOpenSettings },
-  ];
-
   return (
     <aside className="theme-side-nav fixed bottom-4 left-4 top-4 z-[1400] hidden w-[104px] flex-col overflow-hidden rounded-[1.4rem] border border-[#DCECF0] bg-white shadow-[0_24px_70px_rgba(15,58,66,0.12)] xl:flex">
       <div className="flex h-20 items-center justify-center bg-[#008EA1] text-white">
         <Navigation className="h-9 w-9 fill-white/95 stroke-white" />
       </div>
-      <nav className="flex flex-1 flex-col items-center justify-between py-4">
+      <nav className="atlas-scroll flex flex-1 flex-col items-center justify-between overflow-y-auto py-4">
         <div className="w-full">
           {primaryItems.map((item) => (
             <SideNavItem
@@ -185,15 +157,6 @@ function SideNavbar({
         </div>
 
         <div className="w-full">
-          {secondaryItems.map((item) => (
-            <SideNavItem
-              key={item.key}
-              active={false}
-              icon={item.icon}
-              label={item.label}
-              onClick={item.onClick}
-            />
-          ))}
           <button
             type="button"
             onClick={onToggleTheme}
@@ -203,13 +166,28 @@ function SideNavbar({
           >
             {theme === "light" ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
           </button>
-          <div className="mx-auto mt-4 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[#DCECF0] bg-[#E6FAFC] text-sm font-bold text-[#008EA1]">
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="mx-auto mt-4 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[#DCECF0] bg-[#E6FAFC] text-sm font-bold text-[#008EA1] transition hover:border-[#008EA1] hover:bg-[#DDF8FB]"
+            aria-label="Ustawienia profilu"
+            title="Ustawienia profilu"
+          >
             {avatarUrl ? (
               <img src={avatarUrl} alt={userGreeting} className="h-full w-full object-cover" />
             ) : (
               initials
             )}
-          </div>
+          </button>
+          <button
+            type="button"
+            onClick={onSignOut}
+            className="theme-side-nav-toggle mx-auto mt-3 flex h-11 w-14 items-center justify-center rounded-xl border border-[#DCECF0] bg-white text-[#4D5A68] transition hover:border-[#008EA1] hover:text-[#008EA1]"
+            aria-label="Wyloguj sie"
+            title="Wyloguj sie"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
         </div>
       </nav>
     </aside>
@@ -234,6 +212,7 @@ export default function App() {
   const [userSettingsOpen, setUserSettingsOpen] = useState(false);
   const [currentUserProfile, setCurrentUserProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     document.body.dataset.theme = theme;
@@ -388,11 +367,11 @@ export default function App() {
   const userGreeting = getUserGreeting(currentUserProfile, session);
   const userRole = getUserRole(currentUserProfile, session);
   const isAdmin = userRole === "admin";
-  const navbarStyle = currentUserProfile?.navbarStyle || "capsule";
   const navItems = [
     { key: "atlas", label: "Atlas", panelLabel: "Panel 1", number: "1", icon: Globe2, visible: true },
     { key: "story", label: "Destination", panelLabel: "Panel 2", number: "2", icon: Map, visible: true },
-    { key: "planner", label: "Planner", panelLabel: "Panel 3", number: "3", icon: BookImage, visible: true },
+    { key: "planner", label: "Plany i trasy", panelLabel: "Panel 3", number: "3", icon: BookImage, visible: true },
+    { key: "guide", label: "Przewodniki", panelLabel: "Panel 4", number: "4", icon: BookOpen, visible: true },
     { key: "route", label: "Route", panelLabel: "Panel 4", number: "4", icon: RouteIcon, visible: false },
     { key: "media", label: "Media", panelLabel: "Panel 5", number: "5", icon: Images, visible: isAdmin },
     { key: "admin", label: "Dodaj miejsce", panelLabel: "Panel 6", number: "6", icon: Database, visible: isAdmin },
@@ -433,200 +412,94 @@ export default function App() {
         userGreeting={userGreeting}
         session={session}
         isAdmin={isAdmin}
+        onSignOut={() => supabase?.auth.signOut()}
       />
-      <header
-        className={[
-          "theme-navbar sticky top-0 z-[1300] w-full backdrop-blur xl:hidden",
-          navbarStyle === "old"
-            ? "px-3 py-4 sm:px-4 md:px-6 xl:px-8"
-            : "border-b border-[#E7DED2] bg-[linear-gradient(180deg,rgba(252,250,246,0.97)_0%,rgba(246,240,229,0.95)_100%)] shadow-[0_10px_24px_rgba(36,32,26,0.06)]",
-        ].join(" ")}
-      >
-        {navbarStyle === "old" ? (
-          <div className="theme-navbar-old-shell rounded-[1.4rem] border border-[#E7DED2] bg-[linear-gradient(180deg,rgba(252,250,246,0.96)_0%,rgba(246,240,229,0.96)_100%)] p-1.5 shadow-[0_10px_24px_rgba(36,32,26,0.06)]">
-            <div className="flex flex-col gap-1.5 xl:flex-row xl:items-stretch xl:justify-between">
-              <div className="grid flex-1 grid-cols-2 gap-1.5 md:grid-cols-3 xl:grid-cols-6">
-                {navItems.map((item) => {
-                  return (
-                    <button
-                      key={item.key}
-                      onClick={() => setActivePanel(item.key)}
-                      className={navbarButtonClass({
-                        active: activePanel === item.key,
-                        style: navbarStyle,
-                      })}
-                    >
-                      <span
-                        className={[
-                          "inline-flex h-8 w-8 items-center justify-center rounded-full border text-xs font-medium transition",
-                          activePanel === item.key
-                            ? "border-[#D8CCBB] bg-[#F6F1E8] text-[#5F6D45]"
-                            : "border-[#E7DDD0] bg-white text-[#8B806F]",
-                        ].join(" ")}
-                      >
-                        {item.number}
-                      </span>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.22em] text-[#8A7F6C]">
-                          {item.panelLabel}
-                        </p>
-                        <p className="text-sm font-medium">{item.label}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="flex items-center justify-between gap-2 rounded-[1.2rem] border border-[#E7DDD0] bg-white/70 px-3 py-2 xl:min-w-[350px] xl:justify-end">
-                <div className="min-w-0 xl:mr-auto">
-                  <p className="truncate text-sm font-medium text-[#1F1D1A]">
-                    Witaj, {userGreeting}
-                  </p>
-                  <p className="truncate text-xs capitalize text-[#6B6255]">
-                    Rola: {userRole}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
+      <header className="theme-navbar mobile-navbar fixed inset-x-0 top-0 z-[1500] w-full border-b border-[#DCECF0] bg-white/95 shadow-[0_8px_24px_rgba(15,58,66,0.08)] backdrop-blur xl:hidden">
+        <div className="flex items-center justify-between gap-3 px-3 py-2.5 sm:px-4">
+          <button
+            type="button"
+            onClick={() => setActivePanel("atlas")}
+            className="flex min-w-0 items-center gap-2 text-left"
+          >
+            <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#008EA1] text-white">
+              <Navigation className="h-5 w-5" />
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-sm font-bold text-[#132334]">Travel Dashboard</span>
+              <span className="block truncate text-xs text-[#647782]">Witaj, {userGreeting}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            className="theme-navbar-utility inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#DCECF0] bg-white text-[#132334]"
+            aria-label={mobileMenuOpen ? "Zamknij menu" : "Otworz menu"}
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
+        {mobileMenuOpen ? (
+          <div className="mobile-menu-panel border-t border-[#DCECF0] px-3 pb-3 pt-2 sm:px-4">
+            <nav className="grid max-h-[calc(100dvh-10rem)] grid-cols-2 gap-2 overflow-y-auto">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = activePanel === item.key;
+                return (
                   <button
-                    onClick={() => setUserSettingsOpen(true)}
-                    className="theme-navbar-utility inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
-                    aria-label="Ustawienia uzytkownika"
-                    title="Ustawienia uzytkownika"
+                    key={item.key}
+                    type="button"
+                    onClick={() => {
+                      setActivePanel(item.key);
+                      setMobileMenuOpen(false);
+                    }}
+                    className={[
+                      "inline-flex min-h-12 items-center gap-2 rounded-xl border px-3 text-left text-sm font-semibold transition",
+                      active
+                        ? "border-[#008EA1] bg-[#E6FAFC] text-[#007786]"
+                        : "border-[#DCECF0] bg-white text-[#52616D]",
+                    ].join(" ")}
                   >
-                    <Settings2 className="h-5 w-5" />
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {item.label}
                   </button>
-                  <button
-                    onClick={() =>
-                      setTheme((prev) => (prev === "light" ? "dark" : "light"))
-                    }
-                    aria-label={
-                      theme === "light"
-                        ? "Wlacz tryb ciemny"
-                        : "Wlacz tryb jasny"
-                    }
-                    title={
-                      theme === "light"
-                        ? "Wlacz tryb ciemny"
-                        : "Wlacz tryb jasny"
-                    }
-                    className="theme-navbar-utility inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
-                  >
-                    {theme === "light" ? (
-                      <Sun className="h-5 w-5" />
-                    ) : (
-                      <Moon className="h-5 w-5" />
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => supabase?.auth.signOut()}
-                    className="theme-navbar-utility inline-flex items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
-                  >
-                    Wyloguj
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex w-full flex-col gap-3 px-3 py-3 sm:px-4 md:px-6 xl:flex-row xl:items-center xl:justify-between xl:px-8">
-            <div className="flex items-center gap-4">
-              <div className="shrink-0">
-                <p className="text-[11px] uppercase tracking-[0.3em] text-[#8A7F6C]">
-                  Travel Dashboard
-                </p>
-                <p className="mt-1 text-lg font-semibold text-[#1F1D1A]">
-                  Travel Dashboard
-                </p>
-              </div>
-              <nav
-                className={[
-                  "flex min-w-0 flex-1 flex-wrap items-center gap-1.5",
-                  navbarStyle === "line"
-                    ? "border-b border-[#E7DDD0] xl:border-b-0"
-                    : "",
-                ].join(" ")}
+                );
+              })}
+            </nav>
+            <div className="mt-2 grid grid-cols-3 gap-2 border-t border-[#DCECF0] pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setUserSettingsOpen(true);
+                  setMobileMenuOpen(false);
+                }}
+                className="theme-navbar-utility inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#DCECF0] bg-white text-xs font-semibold text-[#132334]"
               >
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.key}
-                      onClick={() => setActivePanel(item.key)}
-                      className={navbarButtonClass({
-                        active: activePanel === item.key,
-                        style: navbarStyle,
-                      })}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-
-            <div
-              className={[
-                "flex items-center justify-between gap-2",
-                navbarStyle === "line"
-                  ? "xl:min-w-[330px]"
-                  : "rounded-[1.2rem] border border-[#E7DDD0] bg-white/70 px-3 py-2 xl:min-w-[350px]",
-              ].join(" ")}
-            >
-              <div className="min-w-0 xl:mr-auto">
-                <p className="truncate text-sm font-medium text-[#1F1D1A]">
-                  Witaj, {userGreeting}
-                </p>
-                <p className="truncate text-xs capitalize text-[#6B6255]">
-                  Rola: {userRole}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setUserSettingsOpen(true)}
-                  className="theme-navbar-utility inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
-                  aria-label="Ustawienia uzytkownika"
-                  title="Ustawienia uzytkownika"
-                >
-                  <Settings2 className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() =>
-                    setTheme((prev) => (prev === "light" ? "dark" : "light"))
-                  }
-                  aria-label={
-                    theme === "light"
-                      ? "Wlacz tryb ciemny"
-                      : "Wlacz tryb jasny"
-                  }
-                  title={
-                    theme === "light"
-                      ? "Wlacz tryb ciemny"
-                      : "Wlacz tryb jasny"
-                  }
-                  className="theme-navbar-utility inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
-                >
-                  {theme === "light" ? (
-                    <Sun className="h-5 w-5" />
-                  ) : (
-                    <Moon className="h-5 w-5" />
-                  )}
-                </button>
-
-                <button
-                  onClick={() => supabase?.auth.signOut()}
-                  className="theme-navbar-utility inline-flex items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white px-4 py-2.5 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
-                >
-                  Wyloguj
-                </button>
-              </div>
+                <Settings2 className="h-4 w-4" />
+                Profil
+              </button>
+              <button
+                type="button"
+                onClick={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))}
+                className="theme-navbar-utility inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#DCECF0] bg-white text-xs font-semibold text-[#132334]"
+              >
+                {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+                Motyw
+              </button>
+              <button
+                type="button"
+                onClick={() => supabase?.auth.signOut()}
+                className="theme-navbar-utility inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#DCECF0] bg-white text-xs font-semibold text-[#132334]"
+              >
+                <LogOut className="h-4 w-4" />
+                Wyloguj
+              </button>
             </div>
           </div>
-        )}
+        ) : null}
       </header>
 
-      <div className="w-full px-3 pb-4 pt-2 sm:px-4 md:px-6 md:pb-6 md:pt-3 xl:pl-[136px] xl:pr-5">
+      <div className="app-content w-full min-w-0 px-3 pb-4 pt-2 sm:px-4 md:px-6 md:pb-6 md:pt-3 xl:pl-[136px] xl:pr-5">
 
         {activePanel === "atlas" &&
           (travelCountries.length > 0 ? (
@@ -695,6 +568,17 @@ export default function App() {
             />
           ) : (
             <EmptyPanelState message="Planner pojawi sie po dodaniu pierwszej destynacji w bazie." />
+          ))}
+
+        {activePanel === "guide" &&
+          (travelCountries.length > 0 ? (
+            <GuidePanel
+              countries={travelCountries}
+              initialCountryId={selectedCountryId}
+              initialDestinationId={selectedDestinationId}
+            />
+          ) : (
+            <EmptyPanelState message="Przewodniki pojawia sie po dodaniu pierwszej destynacji w bazie." />
           ))}
 
         {activePanel === "route" &&

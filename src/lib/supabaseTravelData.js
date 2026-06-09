@@ -358,3 +358,45 @@ export async function updatePlaceRoutePath(placeId, routePath) {
 
   if (error) throw error;
 }
+
+export async function fetchGuideLayout(destinationId) {
+  if (!supabase || !destinationId) return null;
+
+  const { data, error } = await supabase
+    .from("guide_layouts")
+    .select("*")
+    .eq("destination_id", destinationId)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return data
+    ? {
+        destinationId: data.destination_id,
+        pages: ensureArray(data.pages, []),
+        updatedAt: data.updated_at,
+      }
+    : null;
+}
+
+export async function upsertGuideLayout(destinationId, pages) {
+  if (!supabase || !destinationId) return null;
+
+  const { data, error } = await supabase
+    .from("guide_layouts")
+    .upsert({
+      destination_id: destinationId,
+      pages: ensureArray(pages, []),
+      updated_at: new Date().toISOString(),
+    })
+    .select("*")
+    .single();
+
+  if (error) throw error;
+
+  return {
+    destinationId: data.destination_id,
+    pages: ensureArray(data.pages, []),
+    updatedAt: data.updated_at,
+  };
+}
