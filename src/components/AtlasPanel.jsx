@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 import {
   CalendarDays,
@@ -13,11 +14,13 @@ import {
   Mountain,
   Plane,
   Search,
-  Share2,
   Trees,
   Waves,
+  X,
 } from "lucide-react";
 import { fetchPlannerPlans } from "../lib/supabaseTravelData";
+
+const FAVORITE_DESTINATIONS_STORAGE_KEY = "travel-dashboard-favorite-destinations";
 
 function cn(...classes) {
   return classes.filter(Boolean).join(" ");
@@ -93,6 +96,29 @@ function flattenDestinations(countries) {
   return countries.flatMap((country) =>
     country.destinations.map((destination) => ({ ...destination, country }))
   );
+}
+
+function getInitialFavoriteDestinationIds(countries) {
+  const allDestinations = flattenDestinations(countries);
+  if (typeof window === "undefined") {
+    return allDestinations
+      .filter((destination) => isTestFavoriteDestination(destination, destination.country))
+      .map((destination) => destination.id);
+  }
+
+  const storedValue = window.localStorage.getItem(FAVORITE_DESTINATIONS_STORAGE_KEY);
+  if (storedValue !== null) {
+    try {
+      const storedIds = JSON.parse(storedValue);
+      if (Array.isArray(storedIds)) return storedIds;
+    } catch {
+      // Fall back to the initial showcase favorites when stored data is invalid.
+    }
+  }
+
+  return allDestinations
+    .filter((destination) => isTestFavoriteDestination(destination, destination.country))
+    .map((destination) => destination.id);
 }
 
 function getCountryIcon(countryName) {
@@ -214,9 +240,21 @@ function AtlasLeafletMap({ countries, selectedCountryId, onSelectCountry }) {
 
 function getDestinationCover(destination) {
   return (
+    destination?.image ||
+    destination?.gallery?.[0] ||
     destination?.places?.find((place) => place.image)?.image ||
     destination?.places?.find((place) => place.gallery?.length)?.gallery?.[0] ||
     ""
+  );
+}
+
+function getDestinationDescription(destination) {
+  return (
+    destination?.description ||
+    destination?.summary ||
+    destination?.places?.find((place) => place.description)?.description ||
+    destination?.places?.find((place) => place.note)?.note ||
+    `${destination?.name || "Ta destynacja"} ma zapisane miejsca, zdjęcia i informacje pomocne przy planowaniu podróży.`
   );
 }
 
@@ -224,7 +262,7 @@ function AtlasStat({ icon: Icon, label, value }) {
   return (
     <div className="theme-atlas-stat flex min-h-[72px] items-center gap-3 border-r border-[#DCECF0] px-3 last:border-r-0">
       <span className="theme-atlas-icon inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#E6FAFC] text-[#008EA1]">
-        <Icon className="h-5 w-5" />
+        {createElement(Icon, { className: "h-5 w-5" })}
       </span>
       <div className="min-w-0">
         <p className="text-xs leading-tight text-[#647782]">{label}</p>
@@ -253,7 +291,7 @@ function DestinationTile({ destination, status, onOpen }) {
         <div className="absolute inset-0 bg-[linear-gradient(135deg,#CDEFF4_0%,#F7FCFD_100%)]" />
       )}
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.04)_0%,rgba(0,0,0,0.18)_42%,rgba(0,0,0,0.82)_100%)]" />
-      <span className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/70 bg-black/20 text-white backdrop-blur">
+      <span className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/80 bg-black/20 text-white backdrop-blur">
         <Heart className="h-5 w-5" />
       </span>
       <div className="absolute inset-x-0 bottom-0 p-5 text-white">
@@ -313,6 +351,178 @@ function MiniDestination({ destination, onOpen, onOpenStory }) {
   );
 }
 
+function DestinationListModal({
+  title,
+  destinations,
+  plansByDestination,
+  favoriteDestinationIds,
+  onToggleFavorite,
+  onOpenMap,
+  onOpenPlans,
+  onClose,
+}) {
+  useEffect(() => {
+    function handleKeyDown(event) {
+      if (event.key === "Escape") onClose();
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose]);
+
+  const totalPlaces = destinations.reduce(
+    (sum, destination) => sum + destination.places.length,
+    0
+  );
+  const totalPlans = destinations.reduce(
+    (sum, destination) => sum + (plansByDestination[destination.id]?.length || 0),
+    0
+  );
+  const mostDetailedDestination = [...destinations].sort(
+    (a, b) => b.places.length - a.places.length
+  )[0];
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[3000] flex items-center justify-center bg-[#0B252C]/65 p-3 backdrop-blur-sm md:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-[1.5rem] border border-white/60 bg-[#F7FCFD] shadow-[0_30px_100px_rgba(4,35,42,0.35)]">
+        <div className="flex items-start justify-between gap-4 border-b border-[#DCECF0] bg-white px-5 py-5 md:px-7">
+          <div>
+            <h2 className="text-2xl font-semibold text-[#132334]">{title}</h2>
+            <p className="mt-1 text-sm text-[#647782]">
+              {destinations.length} destynacji, {totalPlaces} miejsc i {totalPlans} planów podróży
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#DCECF0] bg-white text-[#132334] transition hover:border-[#008EA1] hover:text-[#008EA1]"
+            aria-label="Zamknij listę destynacji"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto p-5 md:p-7">
+          {destinations.length ? (
+            <>
+              <div className="mb-6 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-[#DCECF0] bg-white p-4">
+                  <p className="text-xs text-[#647782]">Najwięcej zapisanych miejsc</p>
+                  <p className="mt-1 truncate text-xl font-semibold text-[#132334]">
+                    {mostDetailedDestination?.name || "Brak"}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[#DCECF0] bg-white p-4">
+                  <p className="text-xs text-[#647782]">Gotowe plany podróży</p>
+                  <p className="mt-1 text-xl font-semibold text-[#132334]">{totalPlans}</p>
+                </div>
+              </div>
+
+              <div className="grid gap-4">
+                {destinations.map((destination) => {
+                  const coverImage = getDestinationCover(destination);
+                  const isFavorite = favoriteDestinationIds.includes(destination.id);
+
+                  return (
+                    <article
+                      key={destination.id}
+                      className="grid h-[470px] overflow-hidden rounded-xl border border-[#DCECF0] bg-white shadow-[0_14px_34px_rgba(15,58,66,0.06)] sm:h-[440px] md:h-[280px] md:grid-cols-[minmax(280px,38%)_minmax(0,1fr)]"
+                    >
+                      <div className="relative h-52 bg-[#EAF4F7] sm:h-56 md:h-full">
+                        {coverImage ? (
+                          <img
+                            src={coverImage}
+                            alt={destination.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : null}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                        <button
+                          type="button"
+                          onClick={() => onToggleFavorite(destination.id)}
+                          className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-black/20 text-white backdrop-blur transition hover:bg-black/35"
+                          aria-label={isFavorite ? "Usuń z ulubionych" : "Dodaj do ulubionych"}
+                        >
+                          <Heart className="h-5 w-5" />
+                        </button>
+                        <div className="absolute inset-x-0 bottom-0 p-5 text-white">
+                          <h3 className="text-xl font-semibold">{destination.name}</h3>
+                          <p className="mt-1 text-sm text-white/85">
+                            {[destination.area, destination.country.countryName]
+                              .filter(Boolean)
+                              .join(" · ")}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex min-w-0 flex-col p-5 md:p-6">
+                        <div className="mb-3 flex flex-wrap gap-2 text-xs">
+                          <span className="rounded-full bg-[#E6FAFC] px-3 py-1 text-[#007786]">
+                            {destination.places.length} miejsc
+                          </span>
+                          <span className="rounded-full bg-[#F0F5F6] px-3 py-1 text-[#52616D]">
+                            {plansByDestination[destination.id]?.length || 0} planów
+                          </span>
+                          <span className="rounded-full bg-[#F0F5F6] px-3 py-1 text-[#52616D]">
+                            {destination.country.status === "visited" ? "Odwiedzona" : "Planowana"}
+                          </span>
+                        </div>
+                        <p className="line-clamp-3 text-sm leading-6 text-[#647782]">
+                          {getDestinationDescription(destination)}
+                        </p>
+                        <div className="mt-auto grid gap-3 pt-5 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={() => onOpenMap(destination)}
+                            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-[#008EA1] px-4 text-sm font-semibold text-white transition hover:bg-[#007786]"
+                          >
+                            <MapPin className="h-4 w-4" />
+                            Zobacz miejsca na mapie
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onOpenPlans(destination)}
+                            className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-[#9FC5CC] bg-white px-4 text-sm font-semibold text-[#007786] transition hover:border-[#008EA1] hover:bg-[#F3FCFD]"
+                          >
+                            <CalendarDays className="h-4 w-4" />
+                            Zobacz plany podróży
+                          </button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </>
+          ) : (
+            <div className="rounded-xl border border-dashed border-[#B8D9DE] bg-white px-6 py-14 text-center">
+              <Heart className="mx-auto h-8 w-8 text-[#8CBCC3]" />
+              <p className="mt-3 font-semibold text-[#132334]">Brak ulubionych destynacji</p>
+              <p className="mt-1 text-sm text-[#647782]">
+                Dodaj je sercem przy wybranej destynacji.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export default function AtlasPanel({
   countries,
   selectedCountry,
@@ -326,6 +536,10 @@ export default function AtlasPanel({
   const [favoriteOffset, setFavoriteOffset] = useState(0);
   const [countryOffset, setCountryOffset] = useState(0);
   const [plansByDestination, setPlansByDestination] = useState({});
+  const [destinationModalMode, setDestinationModalMode] = useState("");
+  const [favoriteDestinationIds, setFavoriteDestinationIds] = useState(() =>
+    getInitialFavoriteDestinationIds(countries)
+  );
   const selectedDestination =
     selectedCountry.destinations.find(
       (destination) => destination.id === selectedDestinationId
@@ -345,11 +559,8 @@ export default function AtlasPanel({
   );
   const allDestinations = useMemo(() => flattenDestinations(countries), [countries]);
   const favoriteDestinations = useMemo(
-    () =>
-      allDestinations.filter((destination) =>
-        isTestFavoriteDestination(destination, destination.country)
-      ),
-    [allDestinations]
+    () => allDestinations.filter((destination) => favoriteDestinationIds.includes(destination.id)),
+    [allDestinations, favoriteDestinationIds]
   );
   const visibleFavoriteDestinations =
     favoriteDestinations.length > 0
@@ -377,9 +588,9 @@ export default function AtlasPanel({
     0
   );
   const countryFavoriteCount = selectedCountry.destinations.filter((destination) =>
-    isTestFavoriteDestination(destination, selectedCountry)
+    favoriteDestinationIds.includes(destination.id)
   ).length;
-  const CountryIcon = getCountryIcon(selectedCountry.countryName);
+  const countryIcon = getCountryIcon(selectedCountry.countryName);
   const searchOptions = [
     ...countries.map((country) => ({
       type: "country",
@@ -395,6 +606,14 @@ export default function AtlasPanel({
       destinationId: destination.id,
     })),
   ];
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      FAVORITE_DESTINATIONS_STORAGE_KEY,
+      JSON.stringify(favoriteDestinationIds)
+    );
+  }, [favoriteDestinationIds]);
 
   useEffect(() => {
     let cancelled = false;
@@ -425,13 +644,22 @@ export default function AtlasPanel({
     };
   }, [allDestinations]);
 
-  useEffect(() => {
-    setCountryOffset(0);
-  }, [selectedCountry.id]);
-
   function selectDestination(destination) {
-    onSelectCountry(destination.country.id);
+    selectCountry(destination.country.id);
     onSelectDestination?.(destination.id);
+  }
+
+  function selectCountry(countryId) {
+    setCountryOffset(0);
+    onSelectCountry(countryId);
+  }
+
+  function toggleFavoriteDestination(destinationId) {
+    setFavoriteDestinationIds((current) =>
+      current.includes(destinationId)
+        ? current.filter((id) => id !== destinationId)
+        : [...current, destinationId]
+    );
   }
 
   function handleSearchChange(value) {
@@ -448,7 +676,7 @@ export default function AtlasPanel({
 
     if (!exactMatch) return;
 
-    onSelectCountry(exactMatch.countryId);
+    selectCountry(exactMatch.countryId);
     if (exactMatch.type === "destination") {
       onSelectDestination?.(exactMatch.destinationId);
     }
@@ -472,24 +700,6 @@ export default function AtlasPanel({
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                className="theme-atlas-icon-button inline-flex h-11 w-11 items-center justify-center rounded-full border border-transparent text-[#132334] transition hover:border-[#DCECF0] hover:bg-[#F5FCFD]"
-                aria-label="Ulubione"
-                title="Ulubione"
-              >
-                <Heart className="h-5 w-5" />
-              </button>
-              <button
-                type="button"
-                className="theme-atlas-icon-button inline-flex h-11 w-11 items-center justify-center rounded-full border border-transparent text-[#132334] transition hover:border-[#DCECF0] hover:bg-[#F5FCFD]"
-                aria-label="Udostepnij"
-                title="Udostepnij"
-              >
-                <Share2 className="h-5 w-5" />
-              </button>
-            </div>
           </div>
 
           <div className="theme-atlas-map-card flex min-h-0 flex-1 flex-col rounded-xl border border-[#DCECF0] bg-white p-4 shadow-[0_16px_44px_rgba(15,58,66,0.05)]">
@@ -500,7 +710,7 @@ export default function AtlasPanel({
                 </span>
                 <select
                   value={selectedCountry.id}
-                  onChange={(e) => onSelectCountry(e.target.value)}
+                  onChange={(e) => selectCountry(e.target.value)}
                   className="theme-atlas-field mt-1 h-12 w-full rounded-lg border border-[#DCECF0] bg-white px-4 text-sm font-medium text-[#132334] outline-none transition focus:border-[#008EA1] focus:ring-4 focus:ring-[#008EA1]/10"
                 >
                   {countries.map((country) => (
@@ -549,7 +759,7 @@ export default function AtlasPanel({
               <AtlasLeafletMap
                 countries={countries}
                 selectedCountryId={selectedCountry.id}
-                onSelectCountry={onSelectCountry}
+                onSelectCountry={selectCountry}
               />
             </div>
 
@@ -584,6 +794,7 @@ export default function AtlasPanel({
               </h2>
               <button
                 type="button"
+                onClick={() => setDestinationModalMode("favorites")}
                 className="text-sm font-medium text-[#008EA1] transition hover:text-[#006E7D]"
               >
                 Zobacz wszystkie ulubione
@@ -621,7 +832,7 @@ export default function AtlasPanel({
           <div className="mb-7 flex w-full items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <span className="theme-country-icon inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E6FAFC] text-[#008EA1]">
-                <CountryIcon className="h-6 w-6" />
+                {createElement(countryIcon, { className: "h-6 w-6" })}
               </span>
               <h2 className="truncate text-2xl font-semibold text-[#132334]">
                 {selectedCountry.countryName}
@@ -667,9 +878,31 @@ export default function AtlasPanel({
           {selectedDestination ? (
             <>
               <div className="mb-8 w-full">
-                <h3 className="mb-4 text-base font-semibold text-[#132334]">
-                  Polecana destynacja
-                </h3>
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <h3 className="text-xl font-semibold text-[#132334]">
+                    {selectedDestination.name}
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => toggleFavoriteDestination(selectedDestination.id)}
+                    className={cn(
+                      "inline-flex h-10 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition",
+                      favoriteDestinationIds.includes(selectedDestination.id)
+                        ? "border-[#008EA1] bg-[#E6FAFC] text-[#007786]"
+                        : "border-[#DCECF0] bg-white text-[#52616D] hover:border-[#008EA1] hover:text-[#008EA1]"
+                    )}
+                  >
+                    <Heart
+                      className={cn(
+                        "h-4 w-4",
+                        favoriteDestinationIds.includes(selectedDestination.id) && "fill-current"
+                      )}
+                    />
+                    {favoriteDestinationIds.includes(selectedDestination.id)
+                      ? "Ulubiona"
+                      : "Dodaj do ulubionych"}
+                  </button>
+                </div>
                 <button
                   type="button"
                   onClick={() => onOpenPlace(selectedDestination.id)}
@@ -707,8 +940,7 @@ export default function AtlasPanel({
                   Opis destynacji
                 </h3>
                 <p className="text-sm leading-6 text-[#647782]">
-                  {selectedDestination.description ||
-                    `${selectedDestination.name} to jedna z zapisanych destynacji w tym kraju. Otworz ja, aby przejrzec miejsca, zdjecia i szczegoly podrozy.`}
+                  {getDestinationDescription(selectedDestination)}
                 </p>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2">
                   <button
@@ -737,7 +969,11 @@ export default function AtlasPanel({
               <h3 className="text-base font-semibold text-[#132334]">
                 Inne destynacje w {selectedCountry.countryName}
               </h3>
-              <button type="button" className="text-xs font-medium text-[#008EA1]">
+              <button
+                type="button"
+                onClick={() => setDestinationModalMode("country")}
+                className="text-xs font-medium text-[#008EA1]"
+              >
                 Zobacz wszystkie
               </button>
             </div>
@@ -771,6 +1007,37 @@ export default function AtlasPanel({
           </div>
         </aside>
       </div>
+      {destinationModalMode ? (
+        <DestinationListModal
+          title={
+            destinationModalMode === "favorites"
+              ? "Wszystkie ulubione destynacje"
+              : `Wszystkie destynacje: ${selectedCountry.countryName}`
+          }
+          destinations={
+            destinationModalMode === "favorites"
+              ? favoriteDestinations
+              : selectedCountry.destinations.map((destination) => ({
+                  ...destination,
+                  country: selectedCountry,
+                }))
+          }
+          plansByDestination={plansByDestination}
+          favoriteDestinationIds={favoriteDestinationIds}
+          onToggleFavorite={toggleFavoriteDestination}
+          onOpenMap={(destination) => {
+            selectDestination(destination);
+            setDestinationModalMode("");
+            onOpenPlace(destination.id);
+          }}
+          onOpenPlans={(destination) => {
+            selectDestination(destination);
+            setDestinationModalMode("");
+            onOpenPlan(destination.id, null);
+          }}
+          onClose={() => setDestinationModalMode("")}
+        />
+      ) : null}
     </section>
   );
 }

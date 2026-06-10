@@ -1,4 +1,5 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { createElement } from "react";
 import {
   MapContainer,
   Marker,
@@ -60,6 +61,10 @@ import {
 } from "../lib/mediaUrls";
 import { listPlaceMedia } from "../lib/storageMedia";
 import RichText from "./RichText";
+
+function cn(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1400&q=80";
@@ -352,9 +357,16 @@ function createPlaceMarkerIcon(place, isActive, isCategorySelected) {
   const meta = categoryMeta[place.category] || categoryMeta.city;
   const Icon = meta.icon;
   const emphasized = isActive || isCategorySelected;
-  const bgColor = isActive ? "#008EA1" : emphasized ? meta.color : "#FFFFFF";
+  const isVisited = place.status === "visited";
+  const bgColor = isActive
+    ? "#008EA1"
+    : isVisited
+      ? "#35B9C8"
+      : emphasized
+        ? "#E6FAFC"
+        : "#FFFFFF";
   const borderColor = isActive ? "#BDECF1" : "#FFFFFF";
-  const iconColor = emphasized ? "#FFFFFF" : "#008EA1";
+  const iconColor = isActive || isVisited ? "#FFFFFF" : "#008EA1";
   const iconMarkup = renderToStaticMarkup(
     <Icon
       size={18}
@@ -367,10 +379,14 @@ function createPlaceMarkerIcon(place, isActive, isCategorySelected) {
     className: "story-map-marker-shell",
     html: `<div style="width:${isActive ? 48 : emphasized ? 40 : 38}px;height:${
       isActive ? 48 : emphasized ? 40 : 38
-    }px;border-radius:9999px;display:flex;align-items:center;justify-content:center;border:${
+    }px;border-radius:9999px;position:relative;display:flex;align-items:center;justify-content:center;border:${
       isActive ? 4 : 3
     }px solid ${borderColor};background:${bgColor};box-shadow:0 14px 32px rgba(34,31,25,0.18);">${
       iconMarkup
+    }${
+      isVisited
+        ? '<span style="position:absolute;right:-2px;top:-2px;width:14px;height:14px;border-radius:9999px;background:#132334;color:white;border:2px solid white;font-size:9px;line-height:10px;text-align:center;font-weight:700;">✓</span>'
+        : ""
     }</div>`,
     iconSize: [
       isActive ? 48 : emphasized ? 40 : 38,
@@ -1813,47 +1829,78 @@ export function FullPlaceInfoModal({
 function MapPlacePopup({ place, onSelectPlace, onOpenDetails }) {
   const image = getPlacePrimaryImage(place);
   const meta = categoryMeta[place.category] || categoryMeta.city;
+  const subtitle = place.subtitle || place.note || meta.label;
 
   return (
-    <div className="w-[310px] rounded-[1.1rem] bg-white p-3 text-[#132334]">
-      <div className="flex items-start gap-3">
-        <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-[#EAF4F7]">
-          <SmartImage
-            urls={[image]}
-            alt={place.name}
-            className="h-full w-full object-cover"
-          />
-        </div>
-        <div className="min-w-0 pt-0.5">
-          <p className="truncate text-lg font-semibold leading-tight">{place.name}</p>
-          <p className="mt-1 text-sm leading-tight text-[#647782]">{meta.label}</p>
-          <div className="mt-2 inline-flex items-center gap-2 text-sm font-semibold leading-tight text-[#008EA1]">
-            <Star className="h-4 w-4 fill-[#008EA1]" />
+    <div className="w-[min(272px,calc(100vw-48px))] overflow-hidden rounded-[1rem] bg-white text-[#132334]">
+      <div className="relative px-3 pb-2 pt-2">
+        <p className="pr-8 text-left text-base font-semibold leading-snug">{place.name}</p>
+      </div>
+      <div className="h-28 w-full bg-[#EAF4F7]">
+        <SmartImage
+          urls={[image]}
+          alt={place.name}
+          className="h-full w-full object-cover"
+        />
+      </div>
+      <div className="px-3 pb-3 pt-2.5">
+        <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-2 text-xs font-semibold text-[#007786]">
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#E6FAFC] text-[#008EA1]">
+              {createElement(meta.icon, { className: "h-4 w-4" })}
+            </span>
+            <span className="truncate">{meta.label}</span>
+          </div>
+          <div className="ml-auto inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-[#007786]">
+            <Star className="h-4 w-4 fill-[#25C6D5] text-[#008EA1]" />
             {(place.rating || 4.5).toFixed(1)}
           </div>
         </div>
+        <span
+          className={cn(
+            "mt-2 inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide",
+            place.status === "visited"
+              ? "bg-[#DDF8FB] text-[#007786]"
+              : "bg-[#F0F5F6] text-[#647782]"
+          )}
+        >
+          {place.status === "visited" ? "Odwiedzone" : "Do odwiedzenia"}
+        </span>
+        {subtitle ? (
+          <div className="mt-2 line-clamp-2 text-left text-xs leading-5 text-[#647782]">
+            <RichText
+              text={subtitle}
+              paragraphClassName="leading-5 text-[#647782]"
+              listClassName="text-[#647782]"
+            />
+          </div>
+        ) : null}
+        <div className="mt-2.5 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              onSelectPlace(place.id);
+              onOpenDetails(place.id);
+            }}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border-2 border-[#8FC5CD] bg-white px-3 text-xs font-semibold text-[#007786] transition hover:border-[#008EA1] hover:bg-[#E6FAFC]"
+            aria-label="Zobacz szczegóły"
+            title="Zobacz szczegóły"
+          >
+            <Info className="h-4 w-4" />
+            <span className="hidden sm:inline">Szczegóły</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => window.open(mapsUrl(place), "_blank", "noopener,noreferrer")}
+            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-[#008EA1] px-3 text-xs font-semibold text-white transition hover:bg-[#007786]"
+            aria-label="Nawiguj w Google Maps"
+            title="Nawiguj w Google Maps"
+          >
+            <MapPin className="h-4 w-4" />
+            <span className="hidden sm:inline">Nawiguj</span>
+          </button>
+        </div>
       </div>
-      <p className="mt-3 line-clamp-2 text-sm leading-6 text-[#647782]">
-        {getPlaceDescription(place)}
-      </p>
-      <button
-        type="button"
-        onClick={() => {
-          onSelectPlace(place.id);
-          onOpenDetails(place.id);
-        }}
-        className="mt-3 inline-flex h-10 w-full items-center justify-center rounded-lg border border-[#DCECF0] bg-white px-4 text-sm font-semibold text-[#008EA1] transition hover:border-[#008EA1] hover:bg-[#E6FAFC]"
-      >
-        Zobacz szczegoly
-      </button>
-      <button
-        type="button"
-        onClick={() => window.open(mapsUrl(place), "_blank", "noopener,noreferrer")}
-        className="mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-[#008EA1] px-4 text-sm font-semibold text-white transition hover:bg-[#007786]"
-      >
-        <MapPin className="h-4 w-4" />
-        Nawiguj w Google Maps
-      </button>
     </div>
   );
 }
@@ -1936,10 +1983,15 @@ function PlaceDetailsPanel({
             {category.label}
           </div>
           <h2 className="text-3xl font-semibold leading-tight">{place.name}</h2>
-          <div className="mt-2 inline-flex items-center gap-2 text-sm text-white/90">
-            <Star className="h-4 w-4 fill-[#25D9E8] text-[#25D9E8]" />
-            {(place.rating || 4.5).toFixed(1)}
-            <span className="text-white/60">({currentIndex + 1}/{total})</span>
+          <div className="mt-2 flex items-center justify-between gap-3 text-sm text-white/90">
+            <span className="inline-flex items-center gap-2">
+              <Star className="h-4 w-4 fill-[#25D9E8] text-[#25D9E8]" />
+              {(place.rating || 4.5).toFixed(1)}
+              <span className="text-white/60">({currentIndex + 1}/{total})</span>
+            </span>
+            <span className="inline-flex items-center rounded-full border border-white/40 bg-black/35 px-3 py-1 text-xs font-semibold text-white backdrop-blur">
+              {place.status === "visited" ? "Odwiedzone" : "Do odwiedzenia"}
+            </span>
           </div>
         </div>
       </div>
@@ -2326,6 +2378,16 @@ function StoryFilterDrawer({
               >
                 <span className="min-w-0 flex-1 truncate font-semibold">
                   {place.name}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 rounded-full px-2 py-1 text-[10px] font-bold",
+                    place.status === "visited"
+                      ? "bg-[#DDF8FB] text-[#007786]"
+                      : "bg-[#F0F5F6] text-[#647782]"
+                  )}
+                >
+                  {place.status === "visited" ? "Odwiedzone" : "Planowane"}
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0" />
               </button>

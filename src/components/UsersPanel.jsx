@@ -22,20 +22,20 @@ function UserCard({
   const isCurrentUser = profile.id === currentUserId;
 
   return (
-    <div className="theme-users-card rounded-[1.4rem] border border-[#E8DFD2] bg-white p-4 shadow-[0_10px_24px_rgba(36,32,26,0.04)]">
+    <div className="theme-users-card rounded-[1.25rem] border border-[#DCECF0] bg-white p-4 shadow-[0_12px_30px_rgba(15,58,66,0.05)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-lg font-medium text-[#1F1D1A]">
+          <p className="truncate text-lg font-semibold text-[#132334]">
             {displayName}
           </p>
-          <p className="mt-1 truncate text-sm text-[#6B6255]">{profile.email}</p>
-          <p className="mt-2 text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
+          <p className="mt-1 truncate text-sm text-[#647782]">{profile.email}</p>
+          <p className="mt-2 text-xs uppercase tracking-[0.18em] text-[#008EA1]">
             Login: {profile.login || "brak"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {isCurrentUser && (
-            <span className="theme-users-badge rounded-full border border-[#D8CCBB] bg-[#F8F2E9] px-3 py-1 text-xs font-medium text-[#5E564B]">
+            <span className="theme-users-badge rounded-full border border-[#B8D9DE] bg-[#E6FAFC] px-3 py-1 text-xs font-semibold text-[#007786]">
               Ty
             </span>
           )}
@@ -43,13 +43,13 @@ function UserCard({
             className={[
               "rounded-full border px-3 py-1 text-xs font-medium",
               profile.approved
-                ? "border-[#D5E2C8] bg-[#F4FAEE] text-[#4F6A2F]"
-                : "border-[#E8D7BE] bg-[#FFF8EE] text-[#8A6A28]",
+                ? "border-[#9EDDE5] bg-[#E6FAFC] text-[#007786]"
+                : "border-[#F1D59D] bg-[#FFF8E8] text-[#8A651C]",
             ].join(" ")}
           >
             {profile.approved ? "zaakceptowane" : "oczekuje"}
           </span>
-          <span className="theme-users-role rounded-full border border-[#D5E2C8] bg-[#F4FAEE] px-3 py-1 text-xs font-medium capitalize text-[#4F6A2F]">
+          <span className="theme-users-role rounded-full border border-[#DCECF0] bg-[#F3F8F9] px-3 py-1 text-xs font-semibold capitalize text-[#52616D]">
             {profile.role}
           </span>
         </div>
@@ -60,7 +60,7 @@ function UserCard({
           value={profile.role}
           onChange={(event) => onChangeRole(profile.id, event.target.value)}
           disabled={busy || isCurrentUser}
-          className="theme-users-select rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-2.5 text-sm text-[#1F1D1A] disabled:opacity-60"
+          className="theme-users-select h-10 rounded-lg border border-[#DCECF0] bg-white px-3 text-sm text-[#132334] outline-none focus:border-[#008EA1] disabled:opacity-60"
         >
           <option value="user">user</option>
           <option value="admin">admin</option>
@@ -73,8 +73,8 @@ function UserCard({
           className={[
             "inline-flex items-center gap-2 rounded-[1rem] border px-4 py-2.5 text-sm font-medium transition disabled:opacity-60",
             profile.approved
-              ? "border-[#E5DCCF] bg-white text-[#6B6255] hover:bg-[#FBF8F2]"
-              : "border-[#D5E2C8] bg-[#F4FAEE] text-[#4F6A2F] hover:bg-[#ECF6E0]",
+              ? "border-[#B8D9DE] bg-white text-[#52616D] hover:bg-[#F3FCFD]"
+              : "border-[#008EA1] bg-[#008EA1] text-white hover:bg-[#007786]",
           ].join(" ")}
         >
           {profile.approved ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
@@ -230,33 +230,33 @@ export default function UsersPanel({ currentUserId }) {
   };
 
   return (
-    <section className="theme-users-shell grid gap-5 xl:grid-cols-[0.86fr_1.14fr]">
-      <aside className="theme-users-panel rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
+    <section className="theme-users-shell grid gap-5 xl:grid-cols-[380px_minmax(0,1fr)]">
+      <aside className="theme-users-panel rounded-[1.5rem] border border-[#DCECF0] bg-white p-6 shadow-[0_18px_55px_rgba(15,58,66,0.07)]">
         <div className="flex items-center gap-3">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] text-[#5F6D45]">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-[#E6FAFC] text-[#008EA1]">
             <Users className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-[#8A7F6C]">
-              Panel 7
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#008EA1]">
+              Administracja
             </p>
-            <h2 className="mt-1 text-3xl font-semibold text-[#1F1D1A]">
-              Users
+            <h2 className="mt-1 text-3xl font-semibold text-[#132334]">
+              Użytkownicy
             </h2>
           </div>
         </div>
 
-        <p className="mt-4 text-sm leading-7 text-[#5E564B]">
+        <p className="mt-4 text-sm leading-7 text-[#647782]">
           Admin moze zaakceptowac konto do logowania, zmieniac role i usuwac
           konta, ktore nie powinny miec dostepu do aplikacji.
         </p>
 
-        <div className="theme-users-note mt-6 rounded-[1.4rem] border border-[#E8DFD2] bg-[#FBF8F2] p-4">
+        <div className="theme-users-note mt-6 rounded-xl border border-[#CFE7EB] bg-[#F7FCFD] p-4">
           <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-[#5F6D45]" />
-            <p className="text-sm font-medium text-[#1F1D1A]">Workflow kont</p>
+            <Shield className="h-4 w-4 text-[#008EA1]" />
+            <p className="text-sm font-semibold text-[#132334]">Akceptacja kont</p>
           </div>
-          <p className="mt-2 text-sm leading-6 text-[#6B6255]">
+          <p className="mt-2 text-sm leading-6 text-[#647782]">
             Nowy uzytkownik po rejestracji trafia na liste jako konto oczekujace.
             Dopiero po akceptacji w tym panelu moze zalogowac sie do systemu.
           </p>
@@ -265,20 +265,20 @@ export default function UsersPanel({ currentUserId }) {
         <button
           onClick={loadProfiles}
           disabled={loading}
-          className="theme-users-button mt-6 inline-flex items-center gap-2 rounded-[1rem] border border-[#D8CCBB] bg-white px-4 py-3 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9] disabled:opacity-70"
+          className="theme-users-button mt-6 inline-flex h-11 items-center gap-2 rounded-lg border border-[#B8D9DE] bg-white px-4 text-sm font-semibold text-[#007786] transition hover:border-[#008EA1] hover:bg-[#F3FCFD] disabled:opacity-70"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           Odswiez liste
         </button>
       </aside>
 
-      <div className="theme-users-panel rounded-[2rem] border border-[#E6DED1] bg-white p-6 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
+      <div className="theme-users-panel rounded-[1.5rem] border border-[#DCECF0] bg-white p-6 shadow-[0_18px_55px_rgba(15,58,66,0.07)]">
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-[#8A7F6C]">
-              Registered users
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#008EA1]">
+              Zarejestrowane konta
             </p>
-            <h3 className="mt-2 text-2xl font-semibold text-[#1F1D1A]">
+            <h3 className="mt-2 text-2xl font-semibold text-[#132334]">
               {loading ? "Ladowanie..." : `${sortedProfiles.length} kont`}
             </h3>
           </div>
@@ -298,7 +298,7 @@ export default function UsersPanel({ currentUserId }) {
           ))}
 
           {!loading && !sortedProfiles.length && (
-            <div className="theme-users-empty rounded-[1.4rem] border border-dashed border-[#DDD2C3] bg-[#FBF8F2] px-5 py-8 text-sm text-[#7C7263]">
+            <div className="theme-users-empty rounded-xl border border-dashed border-[#B8D9DE] bg-[#F7FCFD] px-5 py-8 text-sm text-[#647782]">
               Brak profili do wyswietlenia.
             </div>
           )}

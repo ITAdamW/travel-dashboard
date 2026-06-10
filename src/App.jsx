@@ -6,7 +6,6 @@ import {
   Compass,
   Database,
   Globe2,
-  Images,
   LogOut,
   Map,
   Menu,
@@ -25,7 +24,6 @@ import PlannerPanel from "./components/PlannerPanel";
 import RoutePanel from "./components/RoutePanel";
 import GuidePanel from "./components/GuidePanel";
 import LoginPanel from "./components/LoginPanel";
-import MediaPanel from "./components/MediaPanel";
 import DataAdminPanel from "./components/DataAdminPanel";
 import UserSettingsPanel from "./components/UserSettingsPanel";
 import UsersPanel from "./components/UsersPanel";
@@ -125,7 +123,6 @@ function SideNavbar({
   const adminItems = isAdmin
     ? [
         { key: "admin", label: "Dodaj miejsce", icon: Database, onClick: () => onChangePanel("admin") },
-        { key: "media", label: "Media", icon: Images, onClick: () => onChangePanel("media") },
         { key: "users", label: "Uzytkownicy", icon: UsersIcon, onClick: () => onChangePanel("users") },
       ]
     : [];
@@ -373,7 +370,6 @@ export default function App() {
     { key: "planner", label: "Plany i trasy", panelLabel: "Panel 3", number: "3", icon: BookImage, visible: true },
     { key: "guide", label: "Przewodniki", panelLabel: "Panel 4", number: "4", icon: BookOpen, visible: true },
     { key: "route", label: "Route", panelLabel: "Panel 4", number: "4", icon: RouteIcon, visible: false },
-    { key: "media", label: "Media", panelLabel: "Panel 5", number: "5", icon: Images, visible: isAdmin },
     { key: "admin", label: "Dodaj miejsce", panelLabel: "Panel 6", number: "6", icon: Database, visible: isAdmin },
     { key: "users", label: "Uzytkownicy", panelLabel: "Panel 7", number: "7", icon: UsersIcon, visible: isAdmin },
   ].filter((item) => item.visible);
@@ -591,16 +587,6 @@ export default function App() {
             />
           ) : (
             <EmptyPanelState message="Route pojawi sie po dodaniu pierwszego planu w bazie." />
-          ))}
-
-        {activePanel === "media" &&
-          (isAdmin && travelCountries.length > 0 ? (
-            <MediaPanel
-              countries={travelCountries}
-              onMediaChanged={loadTravelData}
-            />
-          ) : (
-            <EmptyPanelState message="Panel media jest dostepny tylko dla admina i wymaga danych krajow, destynacji i miejsc w bazie." />
           ))}
 
         {activePanel === "admin" &&

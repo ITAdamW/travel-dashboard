@@ -388,7 +388,7 @@ function PlannerRouteMap({
 
   if (!routePoints.length) {
     return (
-    <div className="mb-4 rounded-[1.3rem] border border-dashed border-[#DDD2C3] bg-white px-5 py-8 text-center text-sm text-[#7C7263]">
+    <div className="mb-4 rounded-[1.3rem] border border-dashed border-[#B8D9DE] bg-[#F7FCFD] px-5 py-8 text-center text-sm text-[#61717D]">
       Dodaj atrakcje do dni planu, aby zobaczyc trase na mapie.
     </div>
   );
@@ -400,18 +400,18 @@ function PlannerRouteMap({
         "rounded-[1.4rem] border bg-white shadow-[0_8px_22px_rgba(34,31,25,0.04)]",
         compact
           ? "mb-0 overflow-hidden border-[#DDEDF0] p-0"
-          : "mb-4 border-[#E8DFD2] p-3"
+          : "mb-4 border-[#DDEDF0] p-3"
       )}
     >
       {!compact ? (
         <div className="mb-3 flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">Mapa trasy</p>
-            <p className="mt-2 text-lg font-semibold text-[#1F1D1A]">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#008EA1]">Mapa trasy</p>
+            <p className="mt-2 text-lg font-semibold text-[#111827]">
               Trasa aktualizuje sie na biezaco
             </p>
           </div>
-          <span className="rounded-full border border-[#E1D7C8] bg-[#FBF8F2] px-3 py-1 text-xs text-[#6B6255]">
+          <span className="rounded-full border border-[#B8D9DE] bg-[#EAFBFD] px-3 py-1 text-xs text-[#007786]">
             {planDays.length} dni
           </span>
         </div>
@@ -629,7 +629,7 @@ function PlannerPlaceCard({ place, draggable = false, onDragStart, onRemove, com
       draggable={draggable}
       onDragStart={draggable ? onDragStart : undefined}
       className={cn(
-        "theme-planner-card flex items-center justify-between gap-3 rounded-2xl border border-[#E8DFD2] bg-white shadow-[0_4px_14px_rgba(34,31,25,0.025)]",
+        "theme-planner-card flex items-center justify-between gap-3 rounded-2xl border border-[#DDEDF0] bg-white shadow-[0_8px_20px_rgba(15,58,66,0.04)]",
         compact ? "p-3" : "px-4 py-3",
         draggable && "cursor-grab active:cursor-grabbing"
       )}
@@ -649,8 +649,8 @@ function PlannerPlaceCard({ place, draggable = false, onDragStart, onRemove, com
         )}
 
         <div className="min-w-0">
-          <p className="truncate font-medium text-[#1F1D1A]">{place.name}</p>
-          <p className="truncate text-sm text-[#7A7164]">
+          <p className="truncate font-medium text-[#111827]">{place.name}</p>
+          <p className="truncate text-sm text-[#61717D]">
             {categoryMeta[place.category]?.label || place.category}
           </p>
           {!compact && (
@@ -667,7 +667,7 @@ function PlannerPlaceCard({ place, draggable = false, onDragStart, onRemove, com
       {onRemove && (
         <button
           onClick={onRemove}
-          className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#E3D9CA] bg-[#FBF8F2] px-3 py-2 text-xs text-[#5E564B] transition hover:bg-[#F2ECE2]"
+          className="inline-flex shrink-0 items-center gap-2 rounded-full border border-[#B8D9DE] bg-white px-3 py-2 text-xs text-[#007786] transition hover:bg-[#EAFBFD]"
         >
           <Trash2 className="h-3.5 w-3.5" />
           Usun
@@ -691,7 +691,7 @@ function PlannerDayItem({
 }) {
   const Icon = categoryMeta[place.category]?.icon || MapPin;
   const imageFallback = (
-    <span className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-[1rem] bg-[#EDE7DB] text-[#6B7A52]">
+    <span className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-[1rem] bg-[#EAFBFD] text-[#008EA1]">
       <Icon className="h-5 w-5" />
     </span>
   );
@@ -705,7 +705,7 @@ function PlannerDayItem({
       onDragLeave={onDragLeaveCard}
       onDrop={onDropOnCard}
       className={cn(
-        "theme-planner-card rounded-[1.1rem] border border-[#E8DFD2] bg-white p-3 transition",
+        "theme-planner-card rounded-[1.1rem] border border-[#DDEDF0] bg-white p-3 transition",
         isDragging && "scale-[0.985] opacity-60 shadow-[0_12px_28px_rgba(34,31,25,0.08)]"
       )}
     >
@@ -718,7 +718,7 @@ function PlannerDayItem({
             fallback={imageFallback}
           />
         ) : (
-          <span className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-[1rem] bg-[#EDE7DB] text-[#6B7A52]">
+          <span className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-[1rem] bg-[#EAFBFD] text-[#008EA1]">
             <Icon className="h-5 w-5" />
           </span>
         )}
@@ -726,8 +726,8 @@ function PlannerDayItem({
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex-1">
             <div className="min-w-0">
-              <p className="truncate text-base font-semibold text-[#1F1D1A]">{place.name}</p>
-              <p className="mt-1 text-sm text-[#7A7164]">
+              <p className="truncate text-base font-semibold text-[#111827]">{place.name}</p>
+              <p className="mt-1 text-sm text-[#61717D]">
                 {categoryMeta[place.category]?.label || place.category}
               </p>
               {place.note ? (
@@ -742,12 +742,12 @@ function PlannerDayItem({
           </div>
 
           <div className="mt-4 flex flex-wrap gap-2">
-            <span className="inline-flex items-center rounded-full border border-[#E3D9CA] bg-[#FBF8F2] px-3 py-2 text-xs text-[#5E564B]">
+            <span className="inline-flex items-center rounded-full border border-[#DDEDF0] bg-[#FBFEFF] px-3 py-2 text-xs text-[#52616D]">
               Przeciagnij, aby zmienic kolejnosc
             </span>
             <button
               onClick={onRemove}
-              className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#E3D9CA] bg-[#FBF8F2] px-3 py-2 text-xs text-[#5E564B] transition hover:bg-[#F2ECE2]"
+              className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#B8D9DE] bg-white px-3 py-2 text-xs text-[#007786] transition hover:bg-[#EAFBFD]"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Usun
@@ -756,7 +756,7 @@ function PlannerDayItem({
         </div>
 
         <label className="block md:w-[320px] md:min-w-[320px]">
-          <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-[#8A7F6C]">
+          <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-[#61717D]">
             Notatka do punktu
           </span>
           <textarea
@@ -764,7 +764,7 @@ function PlannerDayItem({
             value={item.note || ""}
             onChange={(e) => onNoteChange(e.target.value)}
             placeholder="Np. rezerwacja na 10:00, zachod slonca, parking po lewej stronie..."
-            className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2.5 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+            className="w-full rounded-[1rem] border border-[#DDEDF0] bg-[#FBFEFF] px-3 py-2.5 text-sm text-[#111827] outline-none transition focus:border-[#008EA1]"
           />
         </label>
       </div>
@@ -823,6 +823,61 @@ function PlannerPreviewItem({ place, note, onOpen }) {
         </div>
       ) : null}
     </button>
+  );
+}
+
+function PlannerPreviewDay({ section, dayIndex, destination, onOpenPlace }) {
+  const [expanded, setExpanded] = useState(true);
+
+  return (
+    <div className="overflow-hidden rounded-[1.25rem] border border-[#DDEDF0] bg-white shadow-[0_10px_28px_rgba(15,58,66,0.05)]">
+      <button
+        type="button"
+        onClick={() => setExpanded((current) => !current)}
+        className="flex w-full items-center justify-between gap-3 bg-[#FBFEFF] px-4 py-3 text-left"
+        aria-expanded={expanded}
+      >
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#008EA1]">
+            Dzien
+          </p>
+          <h4 className="mt-0.5 truncate text-base font-bold text-[#111827]">{section.day}</h4>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {section.date ? (
+            <span className="rounded-full bg-[#EAFBFD] px-3 py-1 text-xs font-semibold text-[#008EA1]">
+              {formatPlannerDate(section.date)}
+            </span>
+          ) : null}
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#008EA1]">
+            {expanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </span>
+        </div>
+      </button>
+
+      {expanded ? (
+        <div className="space-y-3 border-t border-[#E4F1F3] p-4">
+          {section.items.map((item, itemIndex) => {
+            const normalized = normalizeItem(item);
+            const place = findPlaceById(destination, normalized.placeId);
+            if (!place) return null;
+
+            return (
+              <PlannerPreviewItem
+                key={`preview-item-${dayIndex}-${itemIndex}-${place.id}`}
+                place={place}
+                note={normalized.note}
+                onOpen={onOpenPlace}
+              />
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -928,22 +983,22 @@ function DayColumn({
       onDrop={(e) => {
         handleDropAtIndex(e, places.length);
       }}
-      className="theme-planner-card rounded-[1.4rem] border border-[#E8DFD2] bg-white p-4"
+      className="theme-planner-card rounded-[1.4rem] border border-[#DDEDF0] bg-white p-4"
     >
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex-1">
-          <p className="text-[10px] uppercase tracking-[0.24em] text-[#8A7F6C]">Day</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#008EA1]">Dzien</p>
           <div className="mt-1 grid gap-2 md:grid-cols-[minmax(0,1fr)_190px]">
             <input
               value={day.day}
               onChange={(e) => onRenameDay(e.target.value)}
-              className="w-full rounded-xl border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-base font-medium text-[#1F1D1A] outline-none"
+              className="w-full rounded-xl border border-[#DDEDF0] bg-[#FBFEFF] px-3 py-2 text-base font-medium text-[#111827] outline-none focus:border-[#008EA1]"
             />
             <input
               type="date"
               value={day.date || ""}
               onChange={(e) => onDateChange(e.target.value)}
-              className="w-full rounded-xl border border-[#E5DCCF] bg-[#FBF8F2] px-3 py-2 text-sm text-[#1F1D1A] outline-none"
+              className="w-full rounded-xl border border-[#DDEDF0] bg-[#FBFEFF] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#008EA1]"
               aria-label={`Data dla ${day.day || `Day ${dayIndex + 1}`}`}
             />
           </div>
@@ -953,7 +1008,7 @@ function DayColumn({
           <button
             onClick={onMoveDayUp}
             disabled={isFirstDay}
-            className="theme-planner-button inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#E3D9CA] bg-[#FBF8F2] text-[#5E564B] transition hover:bg-[#F2ECE2] disabled:cursor-not-allowed disabled:opacity-40"
+            className="theme-planner-button inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#B8D9DE] bg-white text-[#007786] transition hover:bg-[#EAFBFD] disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Przesun dzien w gore"
           >
             <ArrowUp className="h-4 w-4" />
@@ -961,14 +1016,14 @@ function DayColumn({
           <button
             onClick={onMoveDayDown}
             disabled={isLastDay}
-            className="theme-planner-button inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#E3D9CA] bg-[#FBF8F2] text-[#5E564B] transition hover:bg-[#F2ECE2] disabled:cursor-not-allowed disabled:opacity-40"
+            className="theme-planner-button inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#B8D9DE] bg-white text-[#007786] transition hover:bg-[#EAFBFD] disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Przesun dzien w dol"
           >
             <ArrowDown className="h-4 w-4" />
           </button>
           <button
             onClick={onDeleteDay}
-            className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#E3D9CA] bg-[#FBF8F2] px-3 py-2 text-xs text-[#5E564B] transition hover:bg-[#F2ECE2]"
+            className="theme-planner-button inline-flex items-center gap-2 rounded-full border border-[#B8D9DE] bg-white px-3 py-2 text-xs text-[#007786] transition hover:bg-[#EAFBFD]"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Usun dzien
@@ -976,7 +1031,7 @@ function DayColumn({
         </div>
       </div>
 
-      <div className="theme-planner-empty min-h-[140px] space-y-3 rounded-[1.1rem] border border-dashed border-[#DED4C7] bg-[#FBF8F2] p-3">
+      <div className="theme-planner-empty min-h-[140px] space-y-3 rounded-[1.1rem] border border-dashed border-[#B8D9DE] bg-[#F7FCFD] p-3">
         {places.length ? (
           places.flatMap(({ place, item, index }) => [
             renderDropSlot(index),
@@ -1005,7 +1060,7 @@ function DayColumn({
             />,
           ]).concat(renderDropSlot(places.length))
         ) : (
-          <div className="theme-planner-empty flex min-h-[110px] items-center justify-center rounded-[1rem] border border-dashed border-[#E5DCCF] bg-white/70 px-4 text-center text-sm text-[#7C7263]">
+          <div className="theme-planner-empty flex min-h-[110px] items-center justify-center rounded-[1rem] border border-dashed border-[#B8D9DE] bg-white/70 px-4 text-center text-sm text-[#61717D]">
             Przeciagnij tutaj miejscowki z listy po lewej.
           </div>
         )}
@@ -1022,39 +1077,13 @@ function PlannerPreview({ destination, plan, activeDayIndex = null, onOpenPlace 
   return (
     <div className="space-y-4">
       {visibleDays.map((section, index) => (
-        <div
+        <PlannerPreviewDay
           key={`preview-day-${index}`}
-          className="overflow-hidden rounded-[1.25rem] border border-[#DDEDF0] bg-white shadow-[0_10px_28px_rgba(15,58,66,0.05)]"
-        >
-          <div className="flex items-center justify-between gap-3 border-b border-[#E4F1F3] bg-[#FBFEFF] px-4 py-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#008EA1]">Dzien</p>
-              <h4 className="mt-0.5 truncate text-base font-bold text-[#111827]">{section.day}</h4>
-            </div>
-            {section.date ? (
-              <span className="shrink-0 rounded-full bg-[#EAFBFD] px-3 py-1 text-xs font-semibold text-[#008EA1]">
-                {formatPlannerDate(section.date)}
-              </span>
-            ) : null}
-          </div>
-
-          <div className="space-y-3 p-4">
-            {section.items.map((item, itemIndex) => {
-              const normalized = normalizeItem(item);
-              const place = findPlaceById(destination, normalized.placeId);
-              if (!place) return null;
-
-              return (
-                <PlannerPreviewItem
-                  key={`preview-item-${index}-${itemIndex}-${place.id}`}
-                  place={place}
-                  note={normalized.note}
-                  onOpen={onOpenPlace}
-                />
-              );
-            })}
-          </div>
-        </div>
+          section={section}
+          dayIndex={index}
+          destination={destination}
+          onOpenPlace={onOpenPlace}
+        />
       ))}
     </div>
   );
@@ -1361,7 +1390,7 @@ export default function PlannerPanel({
   const [activeDayIndex, setActiveDayIndex] = useState(null);
   const [favoritePlanOffset, setFavoritePlanOffset] = useState(0);
   const [expandedCountryIds, setExpandedCountryIds] = useState(() =>
-    countries[0]?.id ? [countries[0].id] : []
+    initialCountryId || countries[0]?.id ? [initialCountryId || countries[0]?.id] : []
   );
   const [allPlannerPlanEntries, setAllPlannerPlanEntries] = useState([]);
   const [globalFavoritePlans, setGlobalFavoritePlans] = useState([]);
@@ -2067,7 +2096,12 @@ export default function PlannerPanel({
   }, [favoritePlanTiles.length, allPlannerPlanEntries.length]);
 
   return (
-    <section className="theme-planner-shell planner-layout rounded-[2rem] border border-[#DDEDF0] bg-white p-6 shadow-[0_18px_70px_rgba(15,58,66,0.08)]">
+    <section
+      className={cn(
+        "theme-planner-shell planner-layout rounded-[2rem] border border-[#DDEDF0] bg-white p-6 shadow-[0_18px_70px_rgba(15,58,66,0.08)]",
+        viewMode === "edit" && "planner-editing"
+      )}
+    >
       {viewMode === "preview" && activePlanForPreview ? (
         <div className="planner-desktop-map mb-6 hidden min-w-0 xl:block">
           <PlannerRouteMap
@@ -2087,6 +2121,7 @@ export default function PlannerPanel({
         </div>
       ) : null}
 
+      {viewMode !== "edit" ? (
       <div className="planner-heading mb-6 flex min-w-0 flex-col gap-5">
         <div className="flex items-start gap-3">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EAFBFD] text-[#008EA1]">
@@ -2155,6 +2190,7 @@ export default function PlannerPanel({
           </div>
         </div>
       </div>
+      ) : null}
 
       {false && <div className="mb-4 flex flex-wrap gap-3">
           <button
@@ -2232,7 +2268,13 @@ export default function PlannerPanel({
         </button>
       </div>}
 
-      <div className="planner-content grid gap-5 xl:grid-cols-[560px_minmax(0,1fr)]">
+      <div
+        className={cn(
+          "planner-content grid gap-5",
+          viewMode === "edit" ? "grid-cols-1" : "xl:grid-cols-[560px_minmax(0,1fr)]"
+        )}
+      >
+        {viewMode !== "edit" ? (
         <aside className="planner-directory space-y-5">
           <div className="theme-planner-card planner-directory-card rounded-[1.55rem] border border-[#DDEDF0] bg-white p-4 shadow-[0_16px_42px_rgba(15,58,66,0.06)]">
             <h4 className="mb-4 text-lg font-bold text-[#111827]">Wszystkie plany</h4>
@@ -2446,6 +2488,7 @@ export default function PlannerPanel({
             </button>
           </div>
         </aside>
+        ) : null}
 
         <div ref={plannerMainViewRef} className="planner-main-view min-w-0 scroll-mt-20 space-y-5">
           {viewMode === "preview" ? (

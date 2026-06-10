@@ -135,6 +135,14 @@ export function placeFolder(countryId, destinationId, placeId) {
   return `${countryId}/${destinationId}/${placeId}`;
 }
 
+export function countryMediaFolder(countryId) {
+  return `entities/countries/${countryId}`;
+}
+
+export function destinationMediaFolder(countryId, destinationId) {
+  return `entities/destinations/${countryId}/${destinationId}`;
+}
+
 export function plannerPlanFolder(destinationId, planId) {
   return `planner-plans/${destinationId}/${planId}`;
 }
@@ -249,7 +257,10 @@ export async function hydrateCountriesWithStorage(countries) {
 }
 
 export async function replaceCover(countryId, destinationId, placeId, file) {
-  const folder = placeFolder(countryId, destinationId, placeId);
+  return replaceMediaCover(placeFolder(countryId, destinationId, placeId), file);
+}
+
+export async function replaceMediaCover(folder, file) {
   const extension = fileExtension(file.name) || "jpg";
   const path = `${folder}/cover.${extension}`;
 
@@ -322,7 +333,10 @@ export async function uploadGuideImage(destinationId, file) {
 }
 
 export async function uploadGalleryFiles(countryId, destinationId, placeId, files) {
-  const folder = placeFolder(countryId, destinationId, placeId);
+  return uploadMediaGallery(placeFolder(countryId, destinationId, placeId), files);
+}
+
+export async function uploadMediaGallery(folder, files) {
   const uploaded = [];
 
   for (const file of files) {
@@ -351,7 +365,10 @@ export async function uploadGalleryFiles(countryId, destinationId, placeId, file
 }
 
 export async function uploadVideoFiles(countryId, destinationId, placeId, files) {
-  const folder = placeFolder(countryId, destinationId, placeId);
+  return uploadMediaVideos(placeFolder(countryId, destinationId, placeId), files);
+}
+
+export async function uploadMediaVideos(folder, files) {
   const uploaded = [];
 
   for (const file of files) {

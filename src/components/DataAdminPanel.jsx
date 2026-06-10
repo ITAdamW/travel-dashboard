@@ -1,5 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from "react";
-import { Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { createElement } from "react";
+import { Flag, ImagePlus, MapPinned, Plus, Save, Trash2, Upload, Video } from "lucide-react";
 import {
   deleteCountryById,
   deleteDestinationById,
@@ -8,7 +9,14 @@ import {
   upsertDestination,
   upsertPlace,
 } from "../lib/supabaseTravelData";
-import { replaceCover } from "../lib/storageMedia";
+import {
+  countryMediaFolder,
+  destinationMediaFolder,
+  placeFolder,
+  replaceMediaCover,
+  uploadMediaGallery,
+  uploadMediaVideos,
+} from "../lib/storageMedia";
 import { filterSupabaseMediaUrls } from "../lib/mediaUrls";
 import { buildMadeiraPrPlaceTemplates } from "../lib/madeiraPrCatalog";
 import {
@@ -33,11 +41,11 @@ function cn(...classes) {
 
 function SectionCard({ title, subtitle, action, children }) {
   return (
-    <section className="theme-admin-card rounded-[1.75rem] border border-[#E6DED1] bg-white p-5 shadow-[0_16px_60px_rgba(34,31,25,0.05)]">
+    <section className="theme-admin-card rounded-[1.5rem] border border-[#DCECF0] bg-white p-5 shadow-[0_18px_55px_rgba(15,58,66,0.07)] md:p-7">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs uppercase tracking-[0.3em] text-[#8A7F6C]">{title}</p>
-          <p className="mt-2 text-sm leading-7 text-[#5E564B]">{subtitle}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#008EA1]">{title}</p>
+          <p className="mt-2 text-sm leading-7 text-[#647782]">{subtitle}</p>
         </div>
         {action ? <div className="shrink-0">{action}</div> : null}
       </div>
@@ -49,13 +57,13 @@ function SectionCard({ title, subtitle, action, children }) {
 function TextInput({ label, value, onChange, placeholder, type = "text" }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-[#4D463D]">{label}</span>
+      <span className="mb-2 block text-sm font-medium text-[#52616D]">{label}</span>
       <input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+        className="h-10 w-full rounded-lg border border-[#DCECF0] bg-white px-3 text-sm text-[#132334] outline-none transition focus:border-[#008EA1] focus:ring-4 focus:ring-[#008EA1]/10"
       />
     </label>
   );
@@ -70,13 +78,13 @@ function TextArea({ label, value, onChange, placeholder, rows = 4, helperText = 
 
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-[#4D463D]">{label}</span>
+      <span className="mb-2 block text-sm font-medium text-[#52616D]">{label}</span>
       <textarea
         rows={rows}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+        className="w-full rounded-lg border border-[#DCECF0] bg-white px-3 py-2 text-sm text-[#132334] outline-none transition focus:border-[#008EA1] focus:ring-4 focus:ring-[#008EA1]/10"
       />
       {resolvedHelperText ? (
         <span className="mt-2 block text-xs leading-5 text-[#7A7164]">{resolvedHelperText}</span>
@@ -88,11 +96,11 @@ function TextArea({ label, value, onChange, placeholder, rows = 4, helperText = 
 function SelectInput({ label, value, onChange, options }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-medium text-[#4D463D]">{label}</span>
+      <span className="mb-2 block text-sm font-medium text-[#52616D]">{label}</span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+        className="h-10 w-full rounded-lg border border-[#DCECF0] bg-white px-3 text-sm text-[#132334] outline-none transition focus:border-[#008EA1] focus:ring-4 focus:ring-[#008EA1]/10"
       >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -137,7 +145,7 @@ function SearchableSelectInput({ label, value, onChange, options, placeholder = 
             }, 120);
           }}
           placeholder={placeholder}
-          className="w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+          className="h-10 w-full rounded-lg border border-[#DCECF0] bg-white px-3 text-sm text-[#132334] outline-none transition focus:border-[#008EA1]"
         />
 
         {open ? (
@@ -177,25 +185,96 @@ function SearchableSelectInput({ label, value, onChange, options, placeholder = 
   );
 }
 
-function FileInput({ label, onChange, accept = "", helperText = "", fileName = "" }) {
+function MediaFields({
+  media,
+  onChange,
+  currentMedia = {},
+  showGallery = true,
+  showVideos = true,
+}) {
+  const currentImages = [currentMedia.image, ...(currentMedia.gallery || [])].filter(Boolean);
+  const currentVideos = [currentMedia.video, ...(currentMedia.videos || [])].filter(Boolean);
+
   return (
-    <label className="block">
-      <span className="mb-2 block text-sm font-medium text-[#4D463D]">{label}</span>
-      <input
-        type="file"
-        accept={accept}
-        onChange={(e) => onChange(e.target.files?.[0] || null)}
-        className="block w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition file:mr-4 file:rounded-full file:border-0 file:bg-[#1F1D1A] file:px-4 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[#2C2924]"
-      />
-      {fileName ? (
-        <span className="mt-2 block text-xs leading-5 text-[#5E564B]">
-          Wybrany plik: {fileName}
-        </span>
-      ) : null}
-      {helperText ? (
-        <span className="mt-2 block text-xs leading-5 text-[#7A7164]">{helperText}</span>
-      ) : null}
-    </label>
+    <section className="rounded-[1.25rem] border border-[#CFE7EB] bg-[#F7FCFD] p-4 md:col-span-2 xl:col-span-3">
+      <div className="mb-4">
+        <h3 className="font-semibold text-[#132334]">Media</h3>
+        <p className="mt-1 text-xs leading-5 text-[#647782]">
+          Pliki zostaną wysłane do Supabase Storage podczas zapisywania formularza.
+        </p>
+      </div>
+      <div
+        className={cn(
+          "grid gap-3",
+          showGallery && showVideos ? "lg:grid-cols-3" : showGallery || showVideos ? "lg:grid-cols-2" : ""
+        )}
+      >
+        <label className="rounded-xl border border-[#DCECF0] bg-white p-3">
+          <span className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#007786]">
+            <ImagePlus className="h-4 w-4" /> Cover
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(event) =>
+              onChange((current) => ({ ...current, cover: event.target.files?.[0] || null }))
+            }
+            className="block w-full text-xs text-[#52616D] file:mr-3 file:rounded-lg file:border-0 file:bg-[#E6FAFC] file:px-3 file:py-2 file:font-semibold file:text-[#007786]"
+          />
+          <p className="mt-2 truncate text-xs text-[#647782]">
+            {media.cover?.name || (currentMedia.image ? "Aktualny cover zapisany" : "Brak covera")}
+          </p>
+        </label>
+        {showGallery ? (
+        <label className="rounded-xl border border-[#DCECF0] bg-white p-3">
+          <span className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#007786]">
+            <Upload className="h-4 w-4" /> Galeria
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(event) =>
+              onChange((current) => ({
+                ...current,
+                gallery: Array.from(event.target.files || []),
+              }))
+            }
+            className="block w-full text-xs text-[#52616D] file:mr-3 file:rounded-lg file:border-0 file:bg-[#E6FAFC] file:px-3 file:py-2 file:font-semibold file:text-[#007786]"
+          />
+          <p className="mt-2 text-xs text-[#647782]">
+            {media.gallery.length
+              ? `${media.gallery.length} nowych plików`
+              : `${currentImages.length} zapisanych zdjęć`}
+          </p>
+        </label>
+        ) : null}
+        {showVideos ? (
+        <label className="rounded-xl border border-[#DCECF0] bg-white p-3">
+          <span className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#007786]">
+            <Video className="h-4 w-4" /> Wideo
+          </span>
+          <input
+            type="file"
+            accept="video/*"
+            multiple
+            onChange={(event) =>
+              onChange((current) => ({
+                ...current,
+                videos: Array.from(event.target.files || []),
+              }))
+            }
+            className="block w-full text-xs text-[#52616D] file:mr-3 file:rounded-lg file:border-0 file:bg-[#E6FAFC] file:px-3 file:py-2 file:font-semibold file:text-[#007786]"
+          />
+          <p className="mt-2 text-xs text-[#647782]">
+            {media.videos.length
+              ? `${media.videos.length} nowych plików`
+              : `${currentVideos.length} zapisanych filmów`}
+          </p>
+        </label>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
@@ -217,8 +296,8 @@ function ActionButton({
         variant === "danger"
           ? "theme-admin-danger border-[#E5CBC5] bg-[#FFF5F2] text-[#8E4E45] hover:bg-[#FDEBE6]"
           : variant === "primary"
-          ? "border-[#D8CCBB] bg-[#1F1D1A] text-white hover:bg-[#2C2924]"
-          : "border-[#D8CCBB] bg-white text-[#1F1D1A] hover:bg-[#F8F2E9]",
+          ? "border-[#008EA1] bg-[#008EA1] text-white hover:bg-[#007786]"
+          : "border-[#B8D9DE] bg-white text-[#007786] hover:border-[#008EA1] hover:bg-[#F3FCFD]",
         className
       )}
     >
@@ -235,6 +314,10 @@ function toCountryForm(country) {
     year: country?.year || "",
     region: country?.region || "",
     summary: country?.summary || "",
+    image: country?.image || "",
+    gallery: country?.gallery || [],
+    video: country?.video || "",
+    videos: country?.videos || [],
   };
 }
 
@@ -245,6 +328,9 @@ function toDestinationForm(destination) {
     area: destination?.area || "",
     video: destination?.video || "",
     summary: destination?.summary || "",
+    image: destination?.image || "",
+    gallery: destination?.gallery || [],
+    videos: destination?.videos || [],
   };
 }
 
@@ -277,6 +363,8 @@ export default function DataAdminPanel({
   countries,
   onReloadFromDatabase,
 }) {
+  const [editorMode, setEditorMode] = useState("place");
+  const [formIntent, setFormIntent] = useState("edit");
   const [selectedCountryId, setSelectedCountryId] = useState(countries[0]?.id || "");
   const [selectedDestinationId, setSelectedDestinationId] = useState(
     countries[0]?.destinations[0]?.id || ""
@@ -291,9 +379,56 @@ export default function DataAdminPanel({
   const [placeForm, setPlaceForm] = useState(
     toPlaceForm(countries[0]?.destinations?.[0]?.places?.[0])
   );
-  const [placeCoverFile, setPlaceCoverFile] = useState(null);
+  const [countryMedia, setCountryMedia] = useState({ cover: null, gallery: [], videos: [] });
+  const [destinationMedia, setDestinationMedia] = useState({ cover: null, gallery: [], videos: [] });
+  const [placeMedia, setPlaceMedia] = useState({ cover: null, gallery: [], videos: [] });
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
+
+  function changeEditorMode(mode) {
+    setEditorMode(mode);
+    setFormIntent("create");
+    const timestamp = Date.now();
+
+    if (mode === "country") {
+      setCountryForm({
+        ...toCountryForm(null),
+        id: `country-${timestamp}`,
+        countryName: "",
+      });
+      setCountryMedia({ cover: null, gallery: [], videos: [] });
+    } else if (mode === "destination") {
+      setDestinationForm({
+        ...toDestinationForm(null),
+        id: `destination-${timestamp}`,
+        name: "",
+      });
+      setDestinationMedia({ cover: null, gallery: [], videos: [] });
+    } else {
+      setPlaceForm({
+        ...toPlaceForm(null),
+        id: `place-${timestamp}`,
+        name: "",
+      });
+      setPlaceMedia({ cover: null, gallery: [], videos: [] });
+    }
+  }
+
+  function startEditing(mode) {
+    setEditorMode(mode);
+    setFormIntent("edit");
+
+    if (mode === "country") {
+      setCountryForm(toCountryForm(selectedCountry));
+      setCountryMedia({ cover: null, gallery: [], videos: [] });
+    } else if (mode === "destination") {
+      setDestinationForm(toDestinationForm(selectedDestination));
+      setDestinationMedia({ cover: null, gallery: [], videos: [] });
+    } else {
+      setPlaceForm(toPlaceForm(selectedPlace));
+      setPlaceMedia({ cover: null, gallery: [], videos: [] });
+    }
+  }
 
   const selectedCountry = useMemo(
     () => countries.find((country) => country.id === selectedCountryId) || countries[0],
@@ -331,17 +466,47 @@ export default function DataAdminPanel({
   }, [selectedDestination, selectedPlaceId]);
 
   useEffect(() => {
+    if (editorMode === "country" && formIntent === "create") return;
     setCountryForm(toCountryForm(selectedCountry));
-  }, [selectedCountry?.id]);
+    setCountryMedia({ cover: null, gallery: [], videos: [] });
+  }, [editorMode, formIntent, selectedCountry?.id]);
 
   useEffect(() => {
+    if (editorMode === "destination" && formIntent === "create") return;
     setDestinationForm(toDestinationForm(selectedDestination));
-  }, [selectedDestination?.id]);
+    setDestinationMedia({ cover: null, gallery: [], videos: [] });
+  }, [editorMode, formIntent, selectedDestination?.id]);
 
   useEffect(() => {
+    if (editorMode === "place" && formIntent === "create") return;
     setPlaceForm(toPlaceForm(selectedPlace));
-    setPlaceCoverFile(null);
-  }, [selectedPlace?.id]);
+    setPlaceMedia({ cover: null, gallery: [], videos: [] });
+  }, [editorMode, formIntent, selectedPlace?.id]);
+
+  async function uploadPendingMedia(folder, pendingMedia, currentEntity = {}) {
+    const existingEntity = currentEntity || {};
+    const [cover, gallery, videos] = await Promise.all([
+      pendingMedia.cover ? replaceMediaCover(folder, pendingMedia.cover) : null,
+      pendingMedia.gallery.length ? uploadMediaGallery(folder, pendingMedia.gallery) : [],
+      pendingMedia.videos.length ? uploadMediaVideos(folder, pendingMedia.videos) : [],
+    ]);
+
+    const nextGallery = [
+      ...filterSupabaseMediaUrls(existingEntity.gallery || []),
+      ...gallery.map((item) => item.url),
+    ].filter((value, index, array) => array.indexOf(value) === index);
+    const nextVideos = [
+      ...(Array.isArray(existingEntity.videos) ? existingEntity.videos : []),
+      ...videos.map((item) => item.url),
+    ].filter((value, index, array) => value && array.indexOf(value) === index);
+
+    return {
+      image: cover?.url || existingEntity.image || "",
+      gallery: nextGallery,
+      video: nextVideos[0] || existingEntity.video || "",
+      videos: nextVideos,
+    };
+  }
 
   const runAction = async (action, message, nextSelection) => {
     setLoading(true);
@@ -355,6 +520,7 @@ export default function DataAdminPanel({
         if (result?.destinationId) setSelectedDestinationId(result.destinationId);
         if (result?.placeId) setSelectedPlaceId(result.placeId);
       }
+      setFormIntent("edit");
       setStatus(message);
     } catch (error) {
       setStatus(error.message || "Operacja na bazie danych nie powiodła się.");
@@ -365,15 +531,25 @@ export default function DataAdminPanel({
 
   const handleSaveCountry = () =>
     runAction(
-      () =>
-        upsertCountry(
+      async () => {
+        const nextCountryId = slugify(countryForm.id) || countryForm.id;
+        const mediaFields = await uploadPendingMedia(
+          countryMediaFolder(nextCountryId),
+          countryMedia,
+          formIntent === "edit" ? selectedCountry : null
+        );
+        await upsertCountry(
           {
-            ...selectedCountry,
+            ...(formIntent === "edit" ? selectedCountry : {}),
             ...countryForm,
-            id: slugify(countryForm.id) || countryForm.id,
+            ...mediaFields,
+            id: nextCountryId,
           },
-          countries.findIndex((country) => country.id === selectedCountryId)
-        ),
+          formIntent === "edit"
+            ? countries.findIndex((country) => country.id === selectedCountryId)
+            : countries.length
+        );
+      },
       "Zapisano zmiany kraju w Supabase.",
       () => ({
         countryId: slugify(countryForm.id) || countryForm.id,
@@ -382,18 +558,28 @@ export default function DataAdminPanel({
 
   const handleSaveDestination = () =>
     runAction(
-      () =>
-        upsertDestination(
+      async () => {
+        const nextDestinationId = slugify(destinationForm.id) || destinationForm.id;
+        const mediaFields = await uploadPendingMedia(
+          destinationMediaFolder(selectedCountryId, nextDestinationId),
+          destinationMedia,
+          formIntent === "edit" ? selectedDestination : null
+        );
+        await upsertDestination(
           selectedCountryId,
           {
-            ...selectedDestination,
+            ...(formIntent === "edit" ? selectedDestination : {}),
             ...destinationForm,
-            id: slugify(destinationForm.id) || destinationForm.id,
+            ...mediaFields,
+            id: nextDestinationId,
           },
-          selectedCountry?.destinations.findIndex(
-            (destination) => destination.id === selectedDestinationId
-          ) || 0
-        ),
+          formIntent === "edit"
+            ? selectedCountry?.destinations.findIndex(
+                (destination) => destination.id === selectedDestinationId
+              ) || 0
+            : selectedCountry?.destinations.length || 0
+        );
+      },
       "Zapisano zmiany destynacji w Supabase.",
       () => ({
         countryId: selectedCountryId,
@@ -406,7 +592,7 @@ export default function DataAdminPanel({
       async () => {
         const nextPlaceId = slugify(placeForm.id) || placeForm.id;
         const nextPlacePayload = {
-          ...selectedPlace,
+          ...(formIntent === "edit" ? selectedPlace : {}),
           ...placeForm,
           id: nextPlaceId,
           coordinates: [Number(placeForm.latitude) || 0, Number(placeForm.longitude) || 0],
@@ -429,33 +615,36 @@ export default function DataAdminPanel({
         await upsertPlace(
           selectedDestinationId,
           nextPlacePayload,
-          selectedDestination?.places.findIndex((place) => place.id === selectedPlaceId) || 0
+          formIntent === "edit"
+            ? selectedDestination?.places.findIndex((place) => place.id === selectedPlaceId) || 0
+            : selectedDestination?.places.length || 0
         );
 
-        if (placeCoverFile && selectedCountryId && selectedDestinationId && nextPlaceId) {
-          const cover = await replaceCover(
-            selectedCountryId,
-            selectedDestinationId,
-            nextPlaceId,
-            placeCoverFile
+        if (
+          (placeMedia.cover || placeMedia.gallery.length || placeMedia.videos.length) &&
+          selectedCountryId &&
+          selectedDestinationId &&
+          nextPlaceId
+        ) {
+          const mediaFields = await uploadPendingMedia(
+            placeFolder(selectedCountryId, selectedDestinationId, nextPlaceId),
+            placeMedia,
+            formIntent === "edit" ? selectedPlace : null
           );
-
           await upsertPlace(
             selectedDestinationId,
             {
               ...nextPlacePayload,
-              image: cover.url,
-              gallery: [
-                cover.url,
-                ...filterSupabaseMediaUrls(selectedPlace?.gallery || []),
-              ].filter((value, index, array) => array.indexOf(value) === index),
+              ...mediaFields,
             },
-            selectedDestination?.places.findIndex((place) => place.id === selectedPlaceId) || 0
+            formIntent === "edit"
+              ? selectedDestination?.places.findIndex((place) => place.id === selectedPlaceId) || 0
+              : selectedDestination?.places.length || 0
           );
         }
       },
-      placeCoverFile
-        ? "Zapisano zmiany miejscówki i wgrano cover do Supabase."
+      placeMedia.cover || placeMedia.gallery.length || placeMedia.videos.length
+        ? "Zapisano zmiany miejscówki i wgrano media do Supabase."
         : "Zapisano zmiany miejscówki w Supabase.",
       () => ({
         countryId: selectedCountryId,
@@ -463,90 +652,6 @@ export default function DataAdminPanel({
         placeId: slugify(placeForm.id) || placeForm.id,
       })
     );
-
-  const addCountry = () => {
-    const nextId = `country-${Date.now()}`;
-    runAction(
-      () =>
-        upsertCountry(
-          {
-            id: nextId,
-            countryName: "Nowy kraj",
-            status: "planned",
-            year: "Planned",
-            region: "",
-            summary: "",
-          },
-          countries.length
-        ),
-      "Dodano nowy kraj do Supabase.",
-      () => ({ countryId: nextId })
-    );
-  };
-
-  const addDestination = () => {
-    if (!selectedCountry) return;
-    const nextId = `destination-${Date.now()}`;
-    runAction(
-      () =>
-        upsertDestination(
-          selectedCountryId,
-          {
-            id: nextId,
-            name: "Nowe miasto",
-            area: "",
-            video: "",
-            summary: "",
-            itinerary: [],
-            places: [],
-          },
-          selectedCountry.destinations.length
-        ),
-      "Dodano nową destynację do Supabase.",
-      () => ({ countryId: selectedCountryId, destinationId: nextId })
-    );
-  };
-
-  const addPlace = () => {
-    if (!selectedDestination) return;
-    const nextId = `place-${Date.now()}`;
-    runAction(
-      () =>
-        upsertPlace(
-          selectedDestinationId,
-          {
-            id: nextId,
-            name: "Nowe miejsce",
-            category: "city",
-            coordinates: [0, 0],
-            note: DEFAULT_PLACE_NOTE,
-            status: "planned",
-            subtitle: "",
-            description: "",
-            image: "",
-            gallery: [],
-            video: "",
-            videos: [],
-            rating: 4.5,
-            info: "",
-            ticket: "",
-            reservation: "",
-            paid: "",
-            distanceKm: 0,
-            durationHours: 0,
-            startCoordinates: [],
-            endCoordinates: [],
-          },
-          selectedDestination.places.length
-        ),
-      "Dodano nową miejscówkę do Supabase.",
-      () => ({
-        countryId: selectedCountryId,
-        destinationId: selectedDestinationId,
-        placeId: nextId,
-      })
-    );
-  };
 
   const addMadeiraPrPlaces = () => {
     if (!selectedDestination) return;
@@ -770,57 +875,108 @@ export default function DataAdminPanel({
     );
   };
 
-  const reloadData = () =>
-    runAction(
-      () => Promise.resolve(onReloadFromDatabase()),
-      "Dane zostały przeładowane z Supabase.",
-      (refreshedCountries) => {
-        const nextCountry =
-          refreshedCountries.find((country) => country.id === selectedCountryId) ||
-          refreshedCountries[0];
-        const nextDestination =
-          nextCountry?.destinations.find((destination) => destination.id === selectedDestinationId) ||
-          nextCountry?.destinations[0];
-        const nextPlace =
-          nextDestination?.places.find((place) => place.id === selectedPlaceId) ||
-          nextDestination?.places[0];
-        return {
-          countryId: nextCountry?.id || "",
-          destinationId: nextDestination?.id || "",
-          placeId: nextPlace?.id || "",
-        };
-      }
-    );
-
   return (
     <section className="theme-admin-shell grid gap-5">
-      <div className="flex flex-wrap gap-3">
-        <ActionButton onClick={reloadData} disabled={loading}>
-          <RefreshCw className="h-4 w-4" />
-          Przeładuj z bazy
-        </ActionButton>
+      <div className="mx-auto grid w-full max-w-4xl gap-3 sm:grid-cols-3">
+        {[
+          { key: "country", label: "Kraj", icon: Flag },
+          { key: "destination", label: "Destynacja", icon: MapPinned },
+          { key: "place", label: "Miejscówka", icon: Plus },
+        ].map(({ key, label, icon }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => {
+              setEditorMode(key);
+              startEditing(key);
+            }}
+            className={cn(
+              "inline-flex min-h-16 items-center justify-center gap-3 rounded-xl border px-4 text-sm font-semibold transition",
+              editorMode === key
+                ? "border-[#008EA1] bg-[#008EA1] text-white shadow-[0_12px_28px_rgba(0,142,161,0.20)]"
+                : "border-[#DCECF0] bg-white text-[#52616D] hover:border-[#8DDAE4] hover:bg-[#F3FCFD] hover:text-[#007786]"
+            )}
+          >
+            {createElement(icon, { className: "h-5 w-5" })}
+            {label}
+          </button>
+        ))}
       </div>
 
-      <div className="grid gap-5 xl:grid-cols-3">
+      <div>
+        <div className="mx-auto mb-4 grid max-w-xl grid-cols-2 gap-2 rounded-xl border border-[#DCECF0] bg-[#F7FCFD] p-1.5">
+          <button
+            type="button"
+            onClick={() => changeEditorMode(editorMode)}
+            className={cn(
+              "h-10 rounded-lg text-sm font-semibold transition",
+              formIntent === "create"
+                ? "bg-[#008EA1] text-white shadow-sm"
+                : "text-[#52616D] hover:bg-white hover:text-[#007786]"
+            )}
+          >
+            Dodaj nowy
+          </button>
+          <button
+            type="button"
+            onClick={() => startEditing(editorMode)}
+            className={cn(
+              "h-10 rounded-lg text-sm font-semibold transition",
+              formIntent === "edit"
+                ? "bg-white text-[#007786] shadow-sm ring-1 ring-[#B8D9DE]"
+                : "text-[#52616D] hover:bg-white hover:text-[#007786]"
+            )}
+          >
+            Edytuj istniejący
+          </button>
+        </div>
+
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-[#DCECF0] bg-[#F7FCFD] px-4 py-3">
+          <div>
+            <p className="text-sm font-semibold text-[#132334]">
+              {formIntent === "create" ? "Dodawanie nowego elementu" : "Edycja istniejącego elementu"}
+            </p>
+            <p className="mt-0.5 text-xs text-[#647782]">
+              {formIntent === "create"
+                ? "Uzupełnij formularz i zapisz, aby utworzyć nowy rekord."
+                : "Zmiany zostaną zapisane w aktualnie wybranym rekordzie."}
+            </p>
+          </div>
+          <span
+            className={cn(
+              "shrink-0 rounded-full px-3 py-1 text-xs font-bold",
+              formIntent === "create"
+                ? "bg-[#008EA1] text-white"
+                : "bg-[#E6FAFC] text-[#007786]"
+            )}
+          >
+            {formIntent === "create" ? "NOWY" : "EDYCJA"}
+          </span>
+        </div>
+
+        {editorMode === "country" ? (
         <SectionCard
-          title="Country"
-          subtitle="Wybierz i modyfikuj podstawowe dane kraju oraz jego status."
-          action={
-            <ActionButton onClick={addCountry} disabled={loading}>
-              <Plus className="h-4 w-4" />
-              Dodaj kraj
-            </ActionButton>
-          }
+          title="Kraj"
+          subtitle="Uzupełnij dane nowego kraju albo wybierz istniejący, aby go edytować."
         >
-          <div className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <SelectInput
-              label="Wybrany kraj"
-              value={selectedCountryId}
-              onChange={setSelectedCountryId}
-              options={countries.map((country) => ({
-                value: country.id,
-                label: country.countryName,
-              }))}
+              label="Edytuj istniejący kraj"
+              value={formIntent === "edit" ? selectedCountryId : ""}
+              onChange={(value) => {
+                if (!value) return;
+                setFormIntent("edit");
+                setSelectedCountryId(value);
+                const country = countries.find((item) => item.id === value);
+                setCountryForm(toCountryForm(country));
+              }}
+              options={[
+                { value: "", label: "Wybierz kraj do edycji..." },
+                ...countries.map((country) => ({
+                  value: country.id,
+                  label: country.countryName,
+                })),
+              ]}
             />
             <TextInput
               label="ID kraju"
@@ -861,7 +1017,7 @@ export default function DataAdminPanel({
               onChange={(value) => setCountryForm((prev) => ({ ...prev, summary: value }))}
               placeholder="Krótki opis kraju"
             />
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 md:col-span-2 xl:col-span-3">
               <ActionButton
                 onClick={handleSaveCountry}
                 variant="primary"
@@ -869,12 +1025,12 @@ export default function DataAdminPanel({
                 className="w-full"
               >
                 <Save className="h-4 w-4" />
-                Zapisz kraj
+                {formIntent === "create" ? "Dodaj kraj" : "Zapisz zmiany"}
               </ActionButton>
               <ActionButton
                 onClick={deleteCountry}
                 variant="danger"
-                disabled={loading}
+                disabled={loading || formIntent === "create"}
                 className="w-full"
               >
                 <Trash2 className="h-4 w-4" />
@@ -883,26 +1039,42 @@ export default function DataAdminPanel({
             </div>
           </div>
         </SectionCard>
+        ) : null}
 
+        {editorMode === "destination" ? (
         <SectionCard
-          title="Destination"
-          subtitle="Edytuj miasto lub destynację przypisaną do wybranego kraju."
-          action={
-            <ActionButton onClick={addDestination} disabled={loading || !selectedCountry}>
-              <Plus className="h-4 w-4" />
-              Dodaj miasto
-            </ActionButton>
-          }
+          title="Destynacja"
+          subtitle="Wybierz kraj, uzupełnij dane i opcjonalnie dodaj cover wykorzystywany na kartach destynacji."
         >
-          <div className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <SelectInput
-              label="Wybrana destynacja"
-              value={selectedDestinationId}
-              onChange={setSelectedDestinationId}
-              options={(selectedCountry?.destinations || []).map((destination) => ({
-                value: destination.id,
-                label: destination.name,
+              label="Kraj"
+              value={selectedCountryId}
+              onChange={setSelectedCountryId}
+              options={countries.map((country) => ({
+                value: country.id,
+                label: country.countryName,
               }))}
+            />
+            <SelectInput
+              label="Edytuj istniejącą destynację"
+              value={formIntent === "edit" ? selectedDestinationId : ""}
+              onChange={(value) => {
+                if (!value) return;
+                setFormIntent("edit");
+                setSelectedDestinationId(value);
+                const destination = selectedCountry?.destinations.find(
+                  (item) => item.id === value
+                );
+                setDestinationForm(toDestinationForm(destination));
+              }}
+              options={[
+                { value: "", label: "Wybierz destynację do edycji..." },
+                ...(selectedCountry?.destinations || []).map((destination) => ({
+                  value: destination.id,
+                  label: destination.name,
+                })),
+              ]}
             />
             <TextInput
               label="ID destynacji"
@@ -928,7 +1100,14 @@ export default function DataAdminPanel({
               onChange={(value) => setDestinationForm((prev) => ({ ...prev, summary: value }))}
               placeholder="Opis destynacji"
             />
-            <div className="grid gap-3 sm:grid-cols-2">
+            <MediaFields
+              media={destinationMedia}
+              onChange={setDestinationMedia}
+              currentMedia={formIntent === "edit" ? selectedDestination : {}}
+              showGallery={false}
+              showVideos
+            />
+            <div className="grid gap-3 sm:grid-cols-2 md:col-span-2 xl:col-span-3">
               <ActionButton
                 onClick={handleSaveDestination}
                 variant="primary"
@@ -936,12 +1115,12 @@ export default function DataAdminPanel({
                 className="w-full"
               >
                 <Save className="h-4 w-4" />
-                Zapisz miasto
+                {formIntent === "create" ? "Dodaj destynację" : "Zapisz zmiany"}
               </ActionButton>
               <ActionButton
                 onClick={deleteDestination}
                 variant="danger"
-                disabled={loading || !selectedDestination}
+                disabled={loading || !selectedDestination || formIntent === "create"}
                 className="w-full"
               >
                 <Trash2 className="h-4 w-4" />
@@ -950,30 +1129,51 @@ export default function DataAdminPanel({
             </div>
           </div>
         </SectionCard>
+        ) : null}
 
+        {editorMode === "place" ? (
         <SectionCard
-          title="Place"
-          subtitle="Dodawaj, edytuj i porządkuj miejscówki."
-          action={
-            <div className="flex w-full flex-col gap-2 xl:w-[280px]">
-              <ActionButton onClick={addPlace} disabled={loading || !selectedDestination}>
-                <Plus className="h-4 w-4" />
-                Dodaj miejscówkę
-              </ActionButton>
-            </div>
-          }
+          title="Miejscówka"
+          subtitle="Wybierz kraj i destynację, a następnie dodaj lub edytuj miejscówkę razem ze wszystkimi mediami."
         >
-          <div className="space-y-4">
-            <SearchableSelectInput
-              label="Wybrane miejsce"
-              value={selectedPlaceId}
-              onChange={setSelectedPlaceId}
-              options={(selectedDestination?.places || []).map((place) => ({
-                value: place.id,
-                label: place.name,
-              }))}
-              placeholder="Wyszukaj miejscowke po nazwie..."
-            />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-3 md:col-span-2 md:grid-cols-2 xl:col-span-3">
+              <SelectInput
+                label="Kraj"
+                value={selectedCountryId}
+                onChange={setSelectedCountryId}
+                options={countries.map((country) => ({
+                  value: country.id,
+                  label: country.countryName,
+                }))}
+              />
+              <SelectInput
+                label="Destynacja"
+                value={selectedDestinationId}
+                onChange={setSelectedDestinationId}
+                options={(selectedCountry?.destinations || []).map((destination) => ({
+                  value: destination.id,
+                  label: destination.name,
+                }))}
+              />
+            </div>
+            <div className="md:col-span-2 xl:col-span-3">
+              <SearchableSelectInput
+                label="Edytuj istniejącą miejscówkę"
+                value={formIntent === "edit" ? selectedPlaceId : ""}
+                onChange={(value) => {
+                  setFormIntent("edit");
+                  setSelectedPlaceId(value);
+                  const place = selectedDestination?.places.find((item) => item.id === value);
+                  setPlaceForm(toPlaceForm(place));
+                }}
+                options={(selectedDestination?.places || []).map((place) => ({
+                  value: place.id,
+                  label: place.name,
+                }))}
+                placeholder="Wyszukaj miejscówkę po nazwie..."
+              />
+            </div>
             <TextInput
               label="ID miejsca"
               value={placeForm.id}
@@ -992,7 +1192,6 @@ export default function DataAdminPanel({
               onChange={(value) => setPlaceForm((prev) => ({ ...prev, category: value }))}
               options={PLACE_CATEGORY_OPTIONS}
             />
-            <div className="grid gap-4 md:grid-cols-2">
             <TextInput
               label="Latitude"
               value={String(placeForm.latitude)}
@@ -1007,129 +1206,139 @@ export default function DataAdminPanel({
               placeholder="np. 19.9366"
               type="number"
             />
-            <TextInput
-              label="Start latitude"
-              value={String(placeForm.startLatitude)}
-              onChange={(value) =>
-                setPlaceForm((prev) => ({ ...prev, startLatitude: value }))
-              }
-              placeholder="np. 32.7354"
-              type="number"
-            />
-            <TextInput
-              label="Start longitude"
-              value={String(placeForm.startLongitude)}
-              onChange={(value) =>
-                setPlaceForm((prev) => ({ ...prev, startLongitude: value }))
-              }
-              placeholder="np. -16.8863"
-              type="number"
-            />
-            <TextInput
-              label="Koniec latitude"
-              value={String(placeForm.endLatitude)}
-              onChange={(value) =>
-                setPlaceForm((prev) => ({ ...prev, endLatitude: value }))
-              }
-              placeholder="np. 32.7415"
-              type="number"
-            />
-            <TextInput
-              label="Koniec longitude"
-              value={String(placeForm.endLongitude)}
-              onChange={(value) =>
-                setPlaceForm((prev) => ({ ...prev, endLongitude: value }))
-              }
-              placeholder="np. -16.8902"
-              type="number"
-            />
             <SelectInput
               label="Status"
               value={placeForm.status}
               onChange={(value) => setPlaceForm((prev) => ({ ...prev, status: value }))}
               options={[
-                { value: "visited", label: "visited" },
-                { value: "planned", label: "planned" },
+                { value: "visited", label: "Odwiedzone" },
+                { value: "planned", label: "Do odwiedzenia" },
               ]}
             />
             <TextInput
-              label="Subtitle"
+              label="Podtytuł"
               value={placeForm.subtitle}
               onChange={(value) => setPlaceForm((prev) => ({ ...prev, subtitle: value }))}
               placeholder="Krótki podtytuł"
             />
-            <div className="md:col-span-2">
-            <TextArea
-              label="Notka"
-              value={placeForm.note}
-              onChange={(value) => setPlaceForm((prev) => ({ ...prev, note: value }))}
-              placeholder="Krótka notka o miejscu"
-            />
-            </div>
-            <div className="md:col-span-2">
-            <TextArea
-              label="Opis"
-              value={placeForm.description}
-              onChange={(value) => setPlaceForm((prev) => ({ ...prev, description: value }))}
-              placeholder="Dłuższy opis miejsca"
-            />
-            </div>
-            <FileInput
-              label="Cover miejsca"
-              accept="image/*"
-              fileName={placeCoverFile?.name || ""}
-              onChange={setPlaceCoverFile}
-              helperText="Możesz od razu dodać nowy cover. Zostanie zapisany przy kliknięciu 'Zapisz miejscówkę'."
-            />
             <TextInput
-              label="Info"
-              value={placeForm.info}
-              onChange={(value) => setPlaceForm((prev) => ({ ...prev, info: value }))}
-              placeholder="np. Najlepiej rano"
-            />
-            <TextInput
-              label="Bilet"
-              value={placeForm.ticket}
-              onChange={(value) => setPlaceForm((prev) => ({ ...prev, ticket: value }))}
-              placeholder="np. 30 PLN"
-            />
-            <TextInput
-              label="Rezerwacja"
-              value={placeForm.reservation}
-              onChange={(value) => setPlaceForm((prev) => ({ ...prev, reservation: value }))}
-              placeholder="np. Wymagana online"
-            />
-            <TextInput
-              label="Paid"
-              value={placeForm.paid}
-              onChange={(value) => setPlaceForm((prev) => ({ ...prev, paid: value }))}
-              placeholder="np. Bezpłatne"
-            />
-            <TextInput
-              label="Rating"
+              label="Ocena"
               value={String(placeForm.rating)}
               onChange={(value) => setPlaceForm((prev) => ({ ...prev, rating: value }))}
               placeholder="np. 4.8"
               type="number"
             />
-            <TextInput
-              label="Dystans w 2 strony (km)"
-              value={String(placeForm.distanceKm)}
-              onChange={(value) => setPlaceForm((prev) => ({ ...prev, distanceKm: value }))}
-              placeholder="np. 11"
-              type="number"
+
+            <details className="rounded-xl border border-[#DCECF0] bg-[#F7FCFD] md:col-span-2 xl:col-span-3">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-[#007786]">
+                Trasa i parametry szlaku
+              </summary>
+              <div className="grid gap-3 border-t border-[#DCECF0] p-4 md:grid-cols-2 xl:grid-cols-3">
+                <TextInput
+                  label="Start latitude"
+                  value={String(placeForm.startLatitude)}
+                  onChange={(value) =>
+                    setPlaceForm((prev) => ({ ...prev, startLatitude: value }))
+                  }
+                  type="number"
+                />
+                <TextInput
+                  label="Start longitude"
+                  value={String(placeForm.startLongitude)}
+                  onChange={(value) =>
+                    setPlaceForm((prev) => ({ ...prev, startLongitude: value }))
+                  }
+                  type="number"
+                />
+                <TextInput
+                  label="Koniec latitude"
+                  value={String(placeForm.endLatitude)}
+                  onChange={(value) =>
+                    setPlaceForm((prev) => ({ ...prev, endLatitude: value }))
+                  }
+                  type="number"
+                />
+                <TextInput
+                  label="Koniec longitude"
+                  value={String(placeForm.endLongitude)}
+                  onChange={(value) =>
+                    setPlaceForm((prev) => ({ ...prev, endLongitude: value }))
+                  }
+                  type="number"
+                />
+                <TextInput
+                  label="Dystans w 2 strony (km)"
+                  value={String(placeForm.distanceKm)}
+                  onChange={(value) =>
+                    setPlaceForm((prev) => ({ ...prev, distanceKm: value }))
+                  }
+                  type="number"
+                />
+                <TextInput
+                  label="Czas w 2 strony (h)"
+                  value={String(placeForm.durationHours)}
+                  onChange={(value) =>
+                    setPlaceForm((prev) => ({ ...prev, durationHours: value }))
+                  }
+                  type="number"
+                />
+              </div>
+            </details>
+
+            <details className="rounded-xl border border-[#DCECF0] bg-[#F7FCFD] md:col-span-2 xl:col-span-3">
+              <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-[#007786]">
+                Opisy i informacje praktyczne
+              </summary>
+              <div className="grid gap-3 border-t border-[#DCECF0] p-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="md:col-span-2 xl:col-span-3">
+                  <TextArea
+                    label="Notka"
+                    value={placeForm.note}
+                    onChange={(value) => setPlaceForm((prev) => ({ ...prev, note: value }))}
+                    rows={2}
+                  />
+                </div>
+                <div className="md:col-span-2 xl:col-span-3">
+                  <TextArea
+                    label="Opis"
+                    value={placeForm.description}
+                    onChange={(value) =>
+                      setPlaceForm((prev) => ({ ...prev, description: value }))
+                    }
+                    rows={3}
+                  />
+                </div>
+                <TextInput
+                  label="Info"
+                  value={placeForm.info}
+                  onChange={(value) => setPlaceForm((prev) => ({ ...prev, info: value }))}
+                />
+                <TextInput
+                  label="Bilet"
+                  value={placeForm.ticket}
+                  onChange={(value) => setPlaceForm((prev) => ({ ...prev, ticket: value }))}
+                />
+                <TextInput
+                  label="Rezerwacja"
+                  value={placeForm.reservation}
+                  onChange={(value) =>
+                    setPlaceForm((prev) => ({ ...prev, reservation: value }))
+                  }
+                />
+                <TextInput
+                  label="Płatność"
+                  value={placeForm.paid}
+                  onChange={(value) => setPlaceForm((prev) => ({ ...prev, paid: value }))}
+                />
+              </div>
+            </details>
+            <MediaFields
+              media={placeMedia}
+              onChange={setPlaceMedia}
+              currentMedia={formIntent === "edit" ? selectedPlace : {}}
+              showVideos={false}
             />
-            <TextInput
-              label="Czas w 2 strony (h)"
-              value={String(placeForm.durationHours)}
-              onChange={(value) =>
-                setPlaceForm((prev) => ({ ...prev, durationHours: value }))
-              }
-              placeholder="np. 4.5"
-              type="number"
-            />
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-3 sm:grid-cols-2 md:col-span-2 xl:col-span-3">
               <ActionButton
                 onClick={handleSavePlace}
                 variant="primary"
@@ -1137,12 +1346,12 @@ export default function DataAdminPanel({
                 className="w-full"
               >
                 <Save className="h-4 w-4" />
-                Zapisz miejscówkę
+                {formIntent === "create" ? "Dodaj miejscówkę" : "Zapisz zmiany"}
               </ActionButton>
               <ActionButton
                 onClick={deletePlace}
                 variant="danger"
-                disabled={loading || !selectedPlace}
+                disabled={loading || !selectedPlace || formIntent === "create"}
                 className="w-full"
               >
                 <Trash2 className="h-4 w-4" />
@@ -1151,6 +1360,7 @@ export default function DataAdminPanel({
             </div>
           </div>
         </SectionCard>
+        ) : null}
       </div>
 
       {status && (

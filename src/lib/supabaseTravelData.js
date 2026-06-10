@@ -31,6 +31,10 @@ export function toCountryRow(country, index = 0) {
     year: country.year,
     region: country.region,
     summary: country.summary,
+    image: normalizeSupabaseMediaUrl(country.image || ""),
+    gallery: normalizeMediaArray(country.gallery, []),
+    video: country.video || "",
+    videos: ensureArray(country.videos, []),
     sort_order: index,
   };
 }
@@ -43,7 +47,10 @@ export function toDestinationRow(countryId, destination, index = 0) {
     area: destination.area,
     video: destination.video || "",
     summary: destination.summary || "",
+    image: normalizeSupabaseMediaUrl(destination.image || ""),
+    gallery: normalizeMediaArray(destination.gallery, []),
     itinerary: ensureArray(destination.itinerary, []),
+    videos: ensureArray(destination.videos, destination.video ? [destination.video] : []),
     sort_order: index,
   };
 }
@@ -149,6 +156,9 @@ export function mapDbToCountries(countryRows, destinationRows, placeRows) {
         name: destination.name,
         area: destination.area,
         video: destination.video,
+        image: normalizeSupabaseMediaUrl(destination.image),
+        gallery: normalizeMediaArray(destination.gallery, []),
+        videos: ensureArray(destination.videos, destination.video ? [destination.video] : []),
         summary: destination.summary,
         itinerary: ensureArray(destination.itinerary, []),
         places: (placesByDestination.get(destination.id) || []).map((place) => ({
@@ -167,6 +177,10 @@ export function mapDbToCountries(countryRows, destinationRows, placeRows) {
     year: country.year,
     region: country.region,
     summary: country.summary,
+    image: normalizeSupabaseMediaUrl(country.image),
+    gallery: normalizeMediaArray(country.gallery, []),
+    video: country.video || "",
+    videos: ensureArray(country.videos, country.video ? [country.video] : []),
     destinations: destinationsByCountry.get(country.id) || [],
   }));
 }

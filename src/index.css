@@ -1342,6 +1342,34 @@ body[data-theme="dark"] .planner-route-map-gray .leaflet-tile-pane {
     min-height: 0;
   }
 
+  .planner-layout.planner-editing {
+    overflow-y: auto;
+  }
+
+  .planner-layout.planner-editing .planner-main-view {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    height: auto;
+  }
+
+  .planner-layout.planner-editing .theme-planner-card {
+    border-color: #ddecf0 !important;
+    box-shadow: 0 14px 34px rgba(15, 58, 66, 0.06) !important;
+  }
+
+  .planner-layout.planner-editing input,
+  .planner-layout.planner-editing textarea {
+    border-color: #ddecf0 !important;
+    background: #fbfeff !important;
+    color: #111827 !important;
+  }
+
+  .planner-layout.planner-editing input:focus,
+  .planner-layout.planner-editing textarea:focus {
+    border-color: #008ea1 !important;
+  }
+
   .planner-layout .planner-preview-card {
     height: 100%;
     min-height: 0;

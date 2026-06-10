@@ -10,7 +10,6 @@ function getInitialProfile(session) {
     login: metadata.login || "",
     firstName: metadata.first_name || "",
     lastName: metadata.last_name || "",
-    navbarStyle: metadata.navbar_style || "capsule",
   };
 }
 
@@ -69,7 +68,6 @@ export default function UserSettingsPanel({
         firstName,
         lastName,
         role,
-        navbarStyle: profileForm.navbarStyle,
       });
 
       onUserUpdated?.(nextProfile);
@@ -135,28 +133,28 @@ export default function UserSettingsPanel({
 
   return (
     <div
-      className="theme-user-settings-overlay fixed inset-0 z-[1550] flex items-center justify-center bg-black/35 p-4"
+      className="theme-user-settings-overlay fixed inset-0 z-[1550] flex items-center justify-center bg-[#0B252C]/60 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="theme-user-settings-modal w-full max-w-4xl rounded-[2rem] border border-[#E6DED1] bg-[linear-gradient(180deg,#FBF8F2_0%,#F3ECE1_100%)] p-5 shadow-[0_28px_80px_rgba(34,31,25,0.18)] md:p-6"
+        className="theme-user-settings-modal max-h-[94dvh] w-full max-w-4xl overflow-y-auto rounded-[1.5rem] border border-white/70 bg-[#F7FCFD] p-5 shadow-[0_30px_100px_rgba(4,35,42,0.35)] md:p-6"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="text-[10px] uppercase tracking-[0.3em] text-[#8A7F6C]">
-              User settings
+            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#008EA1]">
+              Ustawienia użytkownika
             </p>
-            <h2 className="mt-2 text-3xl font-semibold text-[#1F1D1A]">
+            <h2 className="mt-2 text-3xl font-semibold text-[#132334]">
               Twoj profil
             </h2>
-            <p className="mt-2 text-sm leading-7 text-[#5E564B]">
+            <p className="mt-2 text-sm leading-7 text-[#647782]">
               Ustaw, jak mamy Cie witac w aplikacji i zaktualizuj haslo.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="theme-user-settings-button inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#D8CCBB] bg-white text-[#1F1D1A] transition hover:bg-[#F8F2E9]"
+            className="theme-user-settings-button inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#DCECF0] bg-white text-[#132334] transition hover:border-[#008EA1] hover:text-[#008EA1]"
             aria-label="Zamknij ustawienia uzytkownika"
           >
             <X className="h-5 w-5" />
@@ -164,16 +162,16 @@ export default function UserSettingsPanel({
         </div>
 
         <div className="grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-          <section className="theme-user-settings-card rounded-[1.6rem] border border-[#E6DED1] bg-white/82 p-5 shadow-[0_12px_34px_rgba(34,31,25,0.05)]">
+          <section className="theme-user-settings-card rounded-[1.25rem] border border-[#DCECF0] bg-white p-5 shadow-[0_14px_34px_rgba(15,58,66,0.06)]">
             <div className="flex items-center gap-3">
-              <span className="theme-user-settings-icon inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] text-[#5F6D45]">
+              <span className="theme-user-settings-icon inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#E6FAFC] text-[#008EA1]">
                 <UserRound className="h-5 w-5" />
               </span>
               <div>
-                <p className="text-sm font-medium text-[#1F1D1A]">
+                <p className="text-sm font-semibold text-[#132334]">
                   Dane profilu
                 </p>
-                <p className="text-sm text-[#6B6255]">
+                <p className="text-sm text-[#647782]">
                   Login, imie, nazwisko i podstawowe informacje.
                 </p>
               </div>
@@ -181,18 +179,18 @@ export default function UserSettingsPanel({
 
             <form onSubmit={handleProfileSave} className="mt-5 space-y-4">
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                <span className="mb-2 block text-sm font-medium text-[#52616D]">
                   Email
                 </span>
                 <input
                   value={email}
                   disabled
-                  className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#F4EFE7] px-4 py-3 text-sm text-[#7B7264]"
+                  className="theme-user-settings-field h-11 w-full rounded-lg border border-[#DCECF0] bg-[#F0F5F6] px-3 text-sm text-[#647782]"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                <span className="mb-2 block text-sm font-medium text-[#52616D]">
                   Login
                 </span>
                 <input
@@ -203,14 +201,14 @@ export default function UserSettingsPanel({
                       login: event.target.value,
                     }))
                   }
-                  className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                  className="theme-user-settings-field h-11 w-full rounded-lg border border-[#DCECF0] bg-white px-3 text-sm text-[#132334] outline-none transition focus:border-[#008EA1] focus:ring-4 focus:ring-[#008EA1]/10"
                   placeholder="np. adam-travels"
                 />
               </label>
 
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                  <span className="mb-2 block text-sm font-medium text-[#52616D]">
                     Imie
                   </span>
                   <input
@@ -221,13 +219,13 @@ export default function UserSettingsPanel({
                         firstName: event.target.value,
                       }))
                     }
-                    className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                    className="theme-user-settings-field h-11 w-full rounded-lg border border-[#DCECF0] bg-white px-3 text-sm text-[#132334] outline-none transition focus:border-[#008EA1] focus:ring-4 focus:ring-[#008EA1]/10"
                     placeholder="np. Adam"
                   />
                 </label>
 
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                  <span className="mb-2 block text-sm font-medium text-[#52616D]">
                     Nazwisko
                   </span>
                   <input
@@ -238,44 +236,24 @@ export default function UserSettingsPanel({
                         lastName: event.target.value,
                       }))
                     }
-                    className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                    className="theme-user-settings-field h-11 w-full rounded-lg border border-[#DCECF0] bg-white px-3 text-sm text-[#132334] outline-none transition focus:border-[#008EA1] focus:ring-4 focus:ring-[#008EA1]/10"
                     placeholder="np. Kowalski"
                   />
                 </label>
               </div>
 
-              <div className="theme-user-settings-note rounded-[1.2rem] border border-[#E7DDD0] bg-[#FBF8F2] px-4 py-3">
+              <div className="theme-user-settings-note rounded-xl border border-[#CFE7EB] bg-[#F7FCFD] px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-[#5F6D45]" />
-                  <p className="text-sm font-medium text-[#1F1D1A]">Rola</p>
+                  <Shield className="h-4 w-4 text-[#008EA1]" />
+                  <p className="text-sm font-semibold text-[#132334]">Rola</p>
                 </div>
-                <p className="mt-2 text-sm capitalize text-[#6B6255]">{role}</p>
+                <p className="mt-2 text-sm capitalize text-[#647782]">{role}</p>
               </div>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-[#4D463D]">
-                  Wyglad navbara
-                </span>
-                <select
-                  value={profileForm.navbarStyle}
-                  onChange={(event) =>
-                    setProfileForm((prev) => ({
-                      ...prev,
-                      navbarStyle: event.target.value,
-                    }))
-                  }
-                  className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
-                >
-                  <option value="capsule">Capsule</option>
-                  <option value="line">Line</option>
-                  <option value="old">Old</option>
-                </select>
-              </label>
 
               <button
                 type="submit"
                 disabled={profileLoading}
-                className="theme-user-settings-button inline-flex items-center gap-2 rounded-[1rem] border border-[#D8CCBB] bg-[#1F1D1A] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#2C2924] disabled:opacity-70"
+                className="theme-user-settings-button inline-flex h-11 items-center gap-2 rounded-lg border border-[#008EA1] bg-[#008EA1] px-4 text-sm font-semibold text-white transition hover:bg-[#007786] disabled:opacity-70"
               >
                 <Save className="h-4 w-4" />
                 {profileLoading ? "Zapisywanie..." : "Zapisz profil"}
@@ -283,16 +261,16 @@ export default function UserSettingsPanel({
             </form>
           </section>
 
-          <section className="theme-user-settings-card rounded-[1.6rem] border border-[#E6DED1] bg-white/82 p-5 shadow-[0_12px_34px_rgba(34,31,25,0.05)]">
+          <section className="theme-user-settings-card rounded-[1.25rem] border border-[#DCECF0] bg-white p-5 shadow-[0_14px_34px_rgba(15,58,66,0.06)]">
             <div className="flex items-center gap-3">
-              <span className="theme-user-settings-icon inline-flex h-11 w-11 items-center justify-center rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] text-[#5F6D45]">
+              <span className="theme-user-settings-icon inline-flex h-11 w-11 items-center justify-center rounded-xl bg-[#E6FAFC] text-[#008EA1]">
                 <KeyRound className="h-5 w-5" />
               </span>
               <div>
-                <p className="text-sm font-medium text-[#1F1D1A]">
+                <p className="text-sm font-semibold text-[#132334]">
                   Zmiana hasla
                 </p>
-                <p className="text-sm text-[#6B6255]">
+                <p className="text-sm text-[#647782]">
                   Ustaw nowe haslo do logowania przez Supabase Auth.
                 </p>
               </div>
@@ -300,7 +278,7 @@ export default function UserSettingsPanel({
 
             <form onSubmit={handlePasswordSave} className="mt-5 space-y-4">
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                <span className="mb-2 block text-sm font-medium text-[#52616D]">
                   Nowe haslo
                 </span>
                 <input
@@ -313,13 +291,13 @@ export default function UserSettingsPanel({
                       password: event.target.value,
                     }))
                   }
-                  className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                  className="theme-user-settings-field h-11 w-full rounded-lg border border-[#DCECF0] bg-white px-3 text-sm text-[#132334] outline-none transition focus:border-[#008EA1] focus:ring-4 focus:ring-[#008EA1]/10"
                   placeholder="Minimum 6 znakow"
                 />
               </label>
 
               <label className="block">
-                <span className="mb-2 block text-sm font-medium text-[#4D463D]">
+                <span className="mb-2 block text-sm font-medium text-[#52616D]">
                   Powtorz haslo
                 </span>
                 <input
@@ -332,7 +310,7 @@ export default function UserSettingsPanel({
                       confirmPassword: event.target.value,
                     }))
                   }
-                  className="theme-user-settings-field w-full rounded-[1rem] border border-[#E5DCCF] bg-[#FBF8F2] px-4 py-3 text-sm text-[#1F1D1A] outline-none transition focus:border-[#B9AE9A]"
+                  className="theme-user-settings-field h-11 w-full rounded-lg border border-[#DCECF0] bg-white px-3 text-sm text-[#132334] outline-none transition focus:border-[#008EA1] focus:ring-4 focus:ring-[#008EA1]/10"
                   placeholder="Wpisz ponownie nowe haslo"
                 />
               </label>
@@ -340,7 +318,7 @@ export default function UserSettingsPanel({
               <button
                 type="submit"
                 disabled={passwordLoading}
-                className="theme-user-settings-button inline-flex items-center gap-2 rounded-[1rem] border border-[#D8CCBB] bg-white px-4 py-3 text-sm font-medium text-[#1F1D1A] transition hover:bg-[#F8F2E9] disabled:opacity-70"
+                className="theme-user-settings-button inline-flex h-11 items-center gap-2 rounded-lg border border-[#B8D9DE] bg-white px-4 text-sm font-semibold text-[#007786] transition hover:border-[#008EA1] hover:bg-[#F3FCFD] disabled:opacity-70"
               >
                 <KeyRound className="h-4 w-4" />
                 {passwordLoading ? "Zmiana hasla..." : "Zmien haslo"}
