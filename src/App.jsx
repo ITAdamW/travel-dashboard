@@ -554,6 +554,8 @@ export default function App() {
               initialCountryId={selectedCountryId}
               initialDestinationId={selectedDestinationId}
               initialPlanId={selectedPlannerPlanId}
+              currentUserId={session?.user?.id}
+              currentUserProfile={currentUserProfile}
               onOpenRoute={(countryId, destinationId, planId) => {
                 setSelectedCountryId(countryId);
                 setSelectedDestinationId(destinationId);

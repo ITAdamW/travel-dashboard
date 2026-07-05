@@ -27,8 +27,10 @@ import {
   Plus,
   Route,
   Save,
+  Share2,
   Star,
   Trash2,
+  Users,
   Waves,
   X,
 } from "lucide-react";
@@ -36,8 +38,10 @@ import {
   deletePlannerPlan,
   fetchFavoritePlannerPlans,
   fetchPlannerPlans,
+  replacePlannerPlanShares,
   upsertPlannerPlan,
 } from "../lib/supabaseTravelData";
+import { fetchUserProfiles } from "../lib/userProfiles";
 import { listPlaceMedia, replacePlannerPlanCover } from "../lib/storageMedia";
 import {
   buildPlaceCoverCandidates,
@@ -205,6 +209,21 @@ function createEmptyPlan(destinationId, index = 0) {
   };
 }
 
+function getUserDisplayName(profile) {
+  return (
+    profile?.displayName ||
+    [profile?.firstName, profile?.lastName].filter(Boolean).join(" ").trim() ||
+    profile?.login ||
+    profile?.email ||
+    "inny uzytkownik"
+  );
+}
+
+function getPlanOwnerLabel(plan, currentUserId) {
+  if (!plan?.ownerUserId || plan.ownerUserId === currentUserId) return "Twoj plan";
+  return `Plan uzytkownika: ${getUserDisplayName(plan.ownerProfile)}`;
+}
+
 function getPlanCover(plan, destination) {
   return getPlanCoverCandidates(plan, destination)[0] || "";
 }
@@ -289,6 +308,7 @@ function PlannerRouteMap({
   onEditPlan,
   onExportPlan,
   canExport = true,
+  canEdit = true,
   planLabel = "",
 }) {
   const [activeStopKey, setActiveStopKey] = useState("");
@@ -431,7 +451,8 @@ function PlannerRouteMap({
             <button
               type="button"
               onClick={onEditPlan}
-              className="inline-flex items-center gap-2 rounded-[0.85rem] bg-white/95 px-4 py-2.5 text-sm font-bold text-[#52616D] shadow-[0_12px_28px_rgba(15,58,66,0.14)] backdrop-blur transition hover:bg-[#F3FBFC]"
+              disabled={!canEdit}
+              className="inline-flex items-center gap-2 rounded-[0.85rem] bg-white/95 px-4 py-2.5 text-sm font-bold text-[#52616D] shadow-[0_12px_28px_rgba(15,58,66,0.14)] backdrop-blur transition hover:bg-[#F3FBFC] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <PencilLine className="h-4 w-4" />
               Edytuj plan
@@ -1370,6 +1391,8 @@ export default function PlannerPanel({
   initialCountryId,
   initialDestinationId,
   initialPlanId,
+  currentUserId,
+  currentUserProfile,
   onOpenRoute,
 }) {
   const [selectedCountryId, setSelectedCountryId] = useState(initialCountryId || countries[0]?.id || "");
@@ -1394,6 +1417,10 @@ export default function PlannerPanel({
   );
   const [allPlannerPlanEntries, setAllPlannerPlanEntries] = useState([]);
   const [globalFavoritePlans, setGlobalFavoritePlans] = useState([]);
+  const [shareableUsers, setShareableUsers] = useState([]);
+  const [shareUserId, setShareUserId] = useState("");
+  const [shareWithUserGroup, setShareWithUserGroup] = useState(false);
+  const [shareDialogPlan, setShareDialogPlan] = useState(null);
   const [pendingGlobalPlanAction, setPendingGlobalPlanAction] = useState(null);
   const [pendingPlanCoverFile, setPendingPlanCoverFile] = useState(null);
   const [detailsPlace, setDetailsPlace] = useState(null);
@@ -1416,6 +1443,10 @@ export default function PlannerPanel({
 
   const selectedPlan =
     plans.find((plan) => plan.id === selectedPlanId) || plans[0] || null;
+  const isAdmin = currentUserProfile?.role === "admin";
+  const canManagePlan = (plan) =>
+    Boolean(plan && (isAdmin || !plan.ownerUserId || plan.ownerUserId === currentUserId));
+  const canEditSelectedPlan = canManagePlan(selectedPlan);
   const activeDetailsMedia =
     detailsPlaceMedia?.placeId === detailsPlace?.id ? detailsPlaceMedia : null;
   const detailsGalleryImages = useMemo(
@@ -1611,6 +1642,18 @@ export default function PlannerPanel({
     }
   };
 
+  const loadShareableUsers = async () => {
+    try {
+      const profiles = await fetchUserProfiles();
+      const users = profiles
+        .filter((profile) => profile.approved && profile.id !== currentUserId)
+        .sort((a, b) => getUserDisplayName(a).localeCompare(getUserDisplayName(b), "pl"));
+      setShareableUsers(users);
+    } catch {
+      setShareableUsers([]);
+    }
+  };
+
   useEffect(() => {
     if (!selectedDestination?.id) return;
     loadPlans(selectedDestination.id);
@@ -1618,6 +1661,10 @@ export default function PlannerPanel({
     loadAllPlannerPlans();
     setStatus("");
   }, [selectedDestination?.id, initialPlanId]);
+
+  useEffect(() => {
+    loadShareableUsers();
+  }, [currentUserId]);
 
   useEffect(() => {
     setActiveDayIndex(null);
@@ -1666,6 +1713,12 @@ export default function PlannerPanel({
     if (pendingGlobalPlanAction.mode === "preview") {
       setViewMode("preview");
     } else {
+      if (!canEditSelectedPlan) {
+        setStatus("Udostepniony plan jest tylko do odczytu.");
+        setPendingGlobalPlanAction(null);
+        setViewMode("preview");
+        return;
+      }
       setPlanPreviewOpen(false);
       setViewMode("edit");
     }
@@ -1692,7 +1745,27 @@ export default function PlannerPanel({
     selectedCountryId,
     selectedDestinationId,
     selectedPlan?.id,
+    canEditSelectedPlan,
   ]);
+
+  useEffect(() => {
+    if (viewMode === "edit" && selectedPlan && !canEditSelectedPlan) {
+      setStatus("Udostepniony plan jest tylko do odczytu.");
+      setViewMode("preview");
+    }
+  }, [canEditSelectedPlan, selectedPlan, viewMode]);
+
+  const setShareDraftFromPlan = (plan) => {
+    const userShare = plan?.shares?.find((share) => share.shareType === "user");
+    setShareUserId(userShare?.targetUserId || "");
+    setShareWithUserGroup(
+      Boolean(
+        plan?.shares?.some(
+          (share) => share.shareType === "group" && share.targetGroupRole === "user"
+        )
+      )
+    );
+  };
 
   useEffect(() => {
     const selectedPlanKey = `${selectedDestination?.id || ""}:${selectedPlanId || selectedPlan?.id || ""}`;
@@ -1703,6 +1776,8 @@ export default function PlannerPanel({
 
     if (!selectedPlan) {
       setDraftPlan(selectedDestination ? createEmptyPlan(selectedDestination.id) : null);
+      setShareUserId("");
+      setShareWithUserGroup(false);
       setPendingPlanCoverFile(null);
       return;
     }
@@ -1713,6 +1788,7 @@ export default function PlannerPanel({
       itinerary,
       daysCount: itinerary.length,
     });
+    setShareDraftFromPlan(selectedPlan);
     setPendingPlanCoverFile(null);
   }, [selectedPlanId, selectedPlan?.id, selectedDestination?.id]);
 
@@ -1747,14 +1823,23 @@ export default function PlannerPanel({
     if (!selectedDestination) return;
     const nextPlan = createEmptyPlan(selectedDestination.id, plans.length);
     nextPlan.isFavorite = false;
+    nextPlan.ownerUserId = currentUserId || "";
+    nextPlan.ownerProfile = currentUserProfile || null;
+    nextPlan.shares = [];
     setPlans((prev) => [...prev, nextPlan]);
     setSelectedPlanId(nextPlan.id);
     setDraftPlan(nextPlan);
+    setShareUserId("");
+    setShareWithUserGroup(false);
     setViewMode("edit");
   };
 
   const togglePlanFavorite = async (plan) => {
     if (!selectedDestination || !plan) return;
+    if (!(isAdmin || !plan.ownerUserId || plan.ownerUserId === currentUserId)) {
+      setStatus("Udostepniony plan jest tylko do odczytu.");
+      return;
+    }
     setSaving(true);
     setStatus("");
 
@@ -1764,6 +1849,7 @@ export default function PlannerPanel({
         ...plan,
         isFavorite: !plan.isFavorite,
         itinerary: normalizeItinerary(plan.itinerary),
+        ownerUserId: plan.ownerUserId || currentUserId || "",
       };
       await upsertPlannerPlan(
         selectedDestination.id,
@@ -1788,6 +1874,10 @@ export default function PlannerPanel({
 
   const toggleDirectoryPlanFavorite = async (entry) => {
     if (!entry) return;
+    if (!(isAdmin || !entry.ownerUserId || entry.ownerUserId === currentUserId)) {
+      setStatus("Udostepniony plan jest tylko do odczytu.");
+      return;
+    }
     setSaving(true);
     setStatus("");
 
@@ -1796,6 +1886,7 @@ export default function PlannerPanel({
         ...entry,
         isFavorite: !entry.isFavorite,
         itinerary: normalizeItinerary(entry.itinerary),
+        ownerUserId: entry.ownerUserId || currentUserId || "",
       };
       await upsertPlannerPlan(entry.destinationId, nextPlan, entry.planIndex || 0);
       await loadPlans(selectedDestination?.id);
@@ -1807,6 +1898,16 @@ export default function PlannerPanel({
     } finally {
       setSaving(false);
     }
+  };
+
+  const openShareDialog = (plan) => {
+    if (!canManagePlan(plan)) {
+      setStatus("Udostepniony plan jest tylko do odczytu. Nie mozna zmieniac jego udostepnien.");
+      return;
+    }
+
+    setShareDraftFromPlan(plan);
+    setShareDialogPlan(plan);
   };
 
   const updateDraft = (updater) => {
@@ -1964,6 +2065,11 @@ export default function PlannerPanel({
 
   const savePlan = async () => {
     if (!selectedDestination || !draftPlan) return;
+    if (!canEditSelectedPlan && selectedPlan?.id === draftPlan.id) {
+      setStatus("Udostepniony plan jest tylko do odczytu i nie mozna go zapisac.");
+      setViewMode("preview");
+      return;
+    }
     setSaving(true);
     setStatus("");
 
@@ -1971,6 +2077,7 @@ export default function PlannerPanel({
       const normalizedPlan = {
         ...draftPlan,
         itinerary: normalizeItinerary(draftPlan.itinerary),
+        ownerUserId: draftPlan.ownerUserId || selectedPlan?.ownerUserId || currentUserId || "",
       };
       normalizedPlan.daysCount = normalizedPlan.itinerary.length;
 
@@ -2002,6 +2109,10 @@ export default function PlannerPanel({
 
   const removePlan = async () => {
     if (!selectedDestination || !selectedPlan) return;
+    if (!canEditSelectedPlan) {
+      setStatus("Udostepniony plan jest tylko do odczytu i nie mozna go usunac.");
+      return;
+    }
     setSaving(true);
     setStatus("");
 
@@ -2026,7 +2137,50 @@ export default function PlannerPanel({
     }
   };
 
+  const savePlanSharing = async (targetPlan = selectedPlan) => {
+    if (!targetPlan) return;
+    if (!canManagePlan(targetPlan)) {
+      setStatus("Udostepniony plan jest tylko do odczytu. Nie mozna zmieniac jego udostepnien.");
+      return;
+    }
+
+    setSaving(true);
+    setStatus("");
+
+    try {
+      const nextShares = [
+        ...(shareUserId ? [{ shareType: "user", targetUserId: shareUserId }] : []),
+        ...(isAdmin && shareWithUserGroup
+          ? [{ shareType: "group", targetGroupRole: "user" }]
+          : []),
+      ];
+      await replacePlannerPlanShares(targetPlan.id, nextShares);
+      await loadPlans(selectedDestination?.id);
+      await loadGlobalFavoritePlans();
+      await loadAllPlannerPlans();
+      setShareDialogPlan(null);
+      setStatus("Udostepnianie planu zostalo zapisane.");
+    } catch (error) {
+      setStatus(error.message || "Nie udalo sie zapisac udostepniania planu.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const activePlanForPreview = selectedPlan || draftPlan;
+  const canEditActivePlan = Boolean(
+    activePlanForPreview &&
+      (isAdmin || !activePlanForPreview.ownerUserId || activePlanForPreview.ownerUserId === currentUserId)
+  );
+  const activePlanAccessLabel = activePlanForPreview
+    ? getPlanOwnerLabel(activePlanForPreview, currentUserId)
+    : "";
+  const activePlanSharedReadOnly =
+    Boolean(activePlanForPreview?.ownerUserId) &&
+    activePlanForPreview.ownerUserId !== currentUserId &&
+    !isAdmin;
+  const canShareSelectedPlan =
+    canEditSelectedPlan && Boolean(selectedPlan?.createdAt || selectedPlan?.updatedAt);
   const activePlanLabel = activePlanForPreview
     ? `${activePlanForPreview.name} · ${activePlanForPreview.daysCount || normalizeItinerary(activePlanForPreview.itinerary).length} dni`
     : "Brak wybranego planu";
@@ -2112,11 +2266,14 @@ export default function PlannerPanel({
             planLabel={activePlanLabel}
             onActiveDayChange={setActiveDayIndex}
             onCreatePlan={createPlan}
-            onEditPlan={() => setViewMode("edit")}
+            onEditPlan={() => {
+              if (canEditActivePlan) setViewMode("edit");
+            }}
             onExportPlan={() =>
               exportPlanToPdf(selectedDestination, selectedCountry, activePlanForPreview)
             }
             canExport
+            canEdit={canEditActivePlan}
           />
         </div>
       ) : null}
@@ -2253,7 +2410,7 @@ export default function PlannerPanel({
             plans.length
               ? plans.map((plan) => ({
                   value: plan.id,
-                  label: `${plan.name} · ${plan.daysCount} dni`,
+                  label: `${plan.name} · ${plan.daysCount} dni · ${getPlanOwnerLabel(plan, currentUserId)}`,
                 }))
               : [{ value: "", label: loadingPlans ? "Ladowanie..." : "Brak planow" }]
           }
@@ -2322,7 +2479,7 @@ export default function PlannerPanel({
                   plans.length
                     ? plans.map((plan) => ({
                         value: plan.id,
-                        label: `${plan.name} · ${plan.daysCount} dni`,
+                        label: `${plan.name} · ${plan.daysCount} dni · ${getPlanOwnerLabel(plan, currentUserId)}`,
                       }))
                     : [{ value: "", label: loadingPlans ? "Ladowanie..." : "Brak planow" }]
                 }
@@ -2388,6 +2545,8 @@ export default function PlannerPanel({
                               const isActive =
                                 plan.id === selectedPlanId &&
                                 plan.destinationId === selectedDestination?.id;
+                              const canEditPlan =
+                                isAdmin || !plan.ownerUserId || plan.ownerUserId === currentUserId;
                               return (
                                 <div
                                   key={`plan-row-${plan.destinationId}-${plan.id}`}
@@ -2422,6 +2581,11 @@ export default function PlannerPanel({
                                       <span className="mt-0.5 block text-xs text-[#61717D]">
                                         {plan.destinationName}
                                       </span>
+                                      {plan.ownerUserId && plan.ownerUserId !== currentUserId ? (
+                                        <span className="mt-1 block truncate text-[11px] font-semibold text-[#B06A2B]">
+                                          {getPlanOwnerLabel(plan, currentUserId)}
+                                        </span>
+                                      ) : null}
                                     </span>
                                     <span className="hidden rounded-full border border-[#DDEDF0] bg-white px-2.5 py-1 text-xs text-[#61717D] sm:inline-flex">
                                       {plan.daysCount} dni
@@ -2431,7 +2595,7 @@ export default function PlannerPanel({
                                   <button
                                     type="button"
                                     onClick={() => toggleDirectoryPlanFavorite(plan)}
-                                    disabled={saving}
+                                    disabled={saving || !canEditPlan}
                                     className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#7A8893] transition hover:text-[#E23B68] disabled:opacity-50"
                                     aria-label={plan.isFavorite ? "Usun z ulubionych" : "Dodaj do ulubionych"}
                                   >
@@ -2445,7 +2609,22 @@ export default function PlannerPanel({
 
                                   <button
                                     type="button"
+                                    onClick={() => openShareDialog(plan)}
+                                    disabled={saving || !canEditPlan}
+                                    className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#008EA1] transition hover:bg-[#EAFBFD] disabled:cursor-not-allowed disabled:opacity-50"
+                                    aria-label="Udostepnij plan"
+                                    title="Udostepnij plan"
+                                  >
+                                    <Share2 className="h-4 w-4" />
+                                  </button>
+
+                                  <button
+                                    type="button"
                                     onClick={() => {
+                                      if (!canEditPlan) {
+                                        setStatus("Udostepniony plan jest tylko do odczytu.");
+                                        return;
+                                      }
                                       setPendingGlobalPlanAction({
                                         mode: "edit",
                                         countryId: plan.countryId,
@@ -2454,7 +2633,8 @@ export default function PlannerPanel({
                                       });
                                       setPlanPreviewOpen(false);
                                     }}
-                                    className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#008EA1] transition hover:bg-[#EAFBFD]"
+                                    disabled={!canEditPlan}
+                                    className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#008EA1] transition hover:bg-[#EAFBFD] disabled:cursor-not-allowed disabled:opacity-50"
                                     aria-label="Edytuj plan"
                                   >
                                     <PencilLine className="h-4 w-4" />
@@ -2511,6 +2691,11 @@ export default function PlannerPanel({
                         <p className="mt-1 truncate text-sm text-[#61717D]">
                           {selectedCountry?.countryName} / {selectedDestination?.name}
                         </p>
+                        {activePlanAccessLabel ? (
+                          <p className="mt-1 truncate text-xs font-bold text-[#B06A2B]">
+                            {activePlanAccessLabel}
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-2">
@@ -2530,7 +2715,10 @@ export default function PlannerPanel({
                     <div className="planner-summary-actions mt-4 grid grid-cols-3 gap-2">
                         <button
                           type="button"
-                          onClick={() => setViewMode("edit")}
+                          onClick={() => {
+                            if (canEditActivePlan) setViewMode("edit");
+                          }}
+                          disabled={!canEditActivePlan}
                           className="inline-flex h-11 items-center justify-center rounded-xl border border-[#DDEDF0] bg-white text-[#008EA1]"
                           aria-label="Edytuj plan"
                           title="Edytuj plan"
@@ -2540,7 +2728,7 @@ export default function PlannerPanel({
                         <button
                           type="button"
                           onClick={() => togglePlanFavorite(activePlanForPreview)}
-                          disabled={saving}
+                          disabled={saving || !canEditActivePlan}
                           className="inline-flex h-11 items-center justify-center rounded-xl border border-[#DDEDF0] bg-white text-[#E23B68] disabled:opacity-50"
                           aria-label={activePlanForPreview.isFavorite ? "Usun z ulubionych" : "Dodaj do ulubionych"}
                           title={activePlanForPreview.isFavorite ? "Usun z ulubionych" : "Dodaj do ulubionych"}
@@ -2550,7 +2738,7 @@ export default function PlannerPanel({
                         <button
                           type="button"
                           onClick={removePlan}
-                          disabled={!selectedPlan || saving}
+                          disabled={!selectedPlan || saving || !canEditActivePlan}
                           className="inline-flex h-11 items-center justify-center rounded-xl border border-[#F0CED2] bg-[#FFF6F7] text-[#B4233A] disabled:opacity-50"
                           aria-label="Usun plan"
                           title="Usun plan"
@@ -2568,12 +2756,15 @@ export default function PlannerPanel({
                       planLabel={activePlanLabel}
                       onActiveDayChange={setActiveDayIndex}
                       onCreatePlan={createPlan}
-                      onEditPlan={() => setViewMode("edit")}
+                      onEditPlan={() => {
+                        if (canEditActivePlan) setViewMode("edit");
+                      }}
                       onExportPlan={() =>
                         activePlanForPreview &&
                         exportPlanToPdf(selectedDestination, selectedCountry, activePlanForPreview)
                       }
                       canExport={Boolean(activePlanForPreview)}
+                      canEdit={canEditActivePlan}
                     />
                   </div>
                   <div className="planner-preview-body grid h-[560px] min-h-0 gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_300px]">
@@ -2597,20 +2788,29 @@ export default function PlannerPanel({
                       <p className="mt-1 text-sm text-[#61717D]">
                         {selectedCountry?.countryName} · {selectedDestination?.name}
                       </p>
+                      {activePlanAccessLabel ? (
+                        <p className="mt-2 rounded-[0.8rem] border border-[#F1D8B8] bg-[#FFF8ED] px-3 py-2 text-xs font-bold text-[#9A5C20]">
+                          {activePlanAccessLabel}
+                          {activePlanSharedReadOnly ? " · tylko podglad" : ""}
+                        </p>
+                      ) : null}
                       <span className="mt-3 inline-flex rounded-full bg-[#EAFBFD] px-3 py-1 text-xs font-bold text-[#008EA1]">
                         Aktywny plan
                       </span>
                       <div className="mt-4 grid gap-2">
                         <button
-                          onClick={() => setViewMode("edit")}
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-[0.85rem] border border-[#DDEDF0] bg-white px-4 py-2.5 text-sm font-semibold text-[#008EA1] transition hover:bg-[#EAFBFD]"
+                          onClick={() => {
+                            if (canEditActivePlan) setViewMode("edit");
+                          }}
+                          disabled={!canEditActivePlan}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-[0.85rem] border border-[#DDEDF0] bg-white px-4 py-2.5 text-sm font-semibold text-[#008EA1] transition hover:bg-[#EAFBFD] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <PencilLine className="h-4 w-4" />
                           Edytuj plan
                         </button>
                         <button
                           onClick={() => togglePlanFavorite(activePlanForPreview)}
-                          disabled={saving}
+                          disabled={saving || !canEditActivePlan}
                           className="inline-flex w-full items-center justify-center gap-2 rounded-[0.85rem] border border-[#DDEDF0] bg-white px-4 py-2.5 text-sm font-semibold text-[#52616D] transition hover:bg-[#F3FBFC]"
                         >
                           <Heart className={cn("h-4 w-4", activePlanForPreview.isFavorite ? "fill-[#E23B68] text-[#E23B68]" : "")} />
@@ -2618,12 +2818,66 @@ export default function PlannerPanel({
                         </button>
                         <button
                           onClick={removePlan}
-                          disabled={!selectedPlan || saving}
+                          disabled={!selectedPlan || saving || !canEditActivePlan}
                           className="inline-flex w-full items-center justify-center gap-2 rounded-[0.85rem] border border-[#F0CED2] bg-[#FFF6F7] px-4 py-2.5 text-sm font-semibold text-[#B4233A] transition hover:bg-[#FFEDEF] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <Trash2 className="h-4 w-4" />
                           Usun plan
                         </button>
+                      </div>
+                      <div className="mt-5 border-t border-[#E4F1F3] pt-4">
+                        <div className="mb-3 flex items-center gap-2">
+                          <Share2 className="h-4 w-4 text-[#008EA1]" />
+                          <h6 className="text-sm font-bold text-[#111827]">Udostepnianie</h6>
+                        </div>
+                        <div className="grid gap-3">
+                          <label className="block">
+                            <span className="mb-1 block text-xs font-semibold text-[#61717D]">
+                              Wybrany uzytkownik
+                            </span>
+                            <select
+                              value={shareUserId}
+                              onChange={(event) => setShareUserId(event.target.value)}
+                              disabled={!canEditActivePlan || saving}
+                              className="h-10 w-full rounded-[0.75rem] border border-[#DDEDF0] bg-white px-3 text-xs text-[#111827] outline-none disabled:opacity-60"
+                            >
+                              <option value="">Nie udostepniaj pojedynczo</option>
+                              {shareableUsers.map((profile) => (
+                                <option key={profile.id} value={profile.id}>
+                                  {getUserDisplayName(profile)}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          {isAdmin ? (
+                            <label className="flex items-center gap-2 rounded-[0.8rem] border border-[#DDEDF0] bg-white px-3 py-2 text-xs font-semibold text-[#52616D]">
+                              <input
+                                type="checkbox"
+                                checked={shareWithUserGroup}
+                                onChange={(event) => setShareWithUserGroup(event.target.checked)}
+                                disabled={!canEditActivePlan || saving}
+                                className="h-4 w-4 accent-[#008EA1]"
+                              />
+                              <Users className="h-4 w-4 text-[#008EA1]" />
+                              Wszyscy z grupy user
+                            </label>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={savePlanSharing}
+                            disabled={!selectedPlan || !canEditActivePlan || saving}
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-[0.85rem] bg-[#008EA1] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#007485] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <Share2 className="h-4 w-4" />
+                            Zapisz udostepnianie
+                          </button>
+                          {!canEditActivePlan ? (
+                            <p className="text-xs leading-5 text-[#9A5C20]">
+                              Ten plan zostal Ci udostepniony. Mozesz go ogladac i eksportowac,
+                              ale nie edytowac ani usuwac.
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
                       <div className="mt-5 border-t border-[#E4F1F3] pt-4">
                         <h6 className="mb-3 text-sm font-bold text-[#111827]">Podsumowanie</h6>
@@ -2738,6 +2992,67 @@ export default function PlannerPanel({
                     </button>
                   </div>
                 )}
+
+                {draftPlan ? (
+                  <div className="mb-5 rounded-[1rem] border border-[#DDEDF0] bg-[#F8FCFD] p-4">
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase text-[#008EA1]">Udostepnianie planu</p>
+                        <p className="mt-1 text-sm text-[#61717D]">
+                          Udostepniony plan jest dla odbiorcy tylko do podgladu i eksportu.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => savePlanSharing(selectedPlan)}
+                        disabled={!canShareSelectedPlan || saving}
+                        className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] bg-[#008EA1] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#007485] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Share2 className="h-4 w-4" />
+                        Zapisz udostepnianie
+                      </button>
+                    </div>
+                    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
+                      <label className="block">
+                        <span className="mb-2 block text-sm font-semibold text-[#52616D]">
+                          Udostepnij wybranemu uzytkownikowi
+                        </span>
+                        <select
+                          value={shareUserId}
+                          onChange={(event) => setShareUserId(event.target.value)}
+                          disabled={!canShareSelectedPlan || saving}
+                          className="h-11 w-full rounded-[0.85rem] border border-[#DDEDF0] bg-white px-3 text-sm text-[#111827] outline-none focus:border-[#008EA1] disabled:opacity-60"
+                        >
+                          <option value="">Nie udostepniaj pojedynczo</option>
+                          {shareableUsers.map((profile) => (
+                            <option key={profile.id} value={profile.id}>
+                              {getUserDisplayName(profile)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      {isAdmin ? (
+                        <label className="mt-auto flex h-11 items-center gap-2 rounded-[0.85rem] border border-[#DDEDF0] bg-white px-3 text-sm font-semibold text-[#52616D]">
+                          <input
+                            type="checkbox"
+                            checked={shareWithUserGroup}
+                            onChange={(event) => setShareWithUserGroup(event.target.checked)}
+                            disabled={!canShareSelectedPlan || saving}
+                            className="h-4 w-4 accent-[#008EA1]"
+                          />
+                          <Users className="h-4 w-4 text-[#008EA1]" />
+                          Wszyscy z grupy user
+                        </label>
+                      ) : null}
+                    </div>
+                    {!canShareSelectedPlan ? (
+                      <p className="mt-3 text-xs leading-5 text-[#9A5C20]">
+                        Najpierw zapisz plan w Supabase, potem bedzie mozna go udostepnic.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
 
                 <div className="max-h-[980px] space-y-4 overflow-y-auto pr-1">
                   {normalizeItinerary(draftPlan?.itinerary || []).map((section, index, allDays) => (
@@ -3314,6 +3629,89 @@ export default function PlannerPanel({
           </div>,
           document.body
         )}
+
+      {shareDialogPlan && canUsePortal
+        ? createPortal(
+            <div className="fixed inset-0 z-[1580] flex items-center justify-center bg-[rgba(24,21,18,0.52)] p-4">
+              <div className="w-full max-w-[520px] rounded-[1.35rem] border border-[#DDEDF0] bg-white p-5 shadow-[0_28px_80px_rgba(0,0,0,0.22)]">
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase text-[#008EA1]">Udostepnij plan</p>
+                    <h4 className="mt-1 text-xl font-bold text-[#111827]">
+                      {shareDialogPlan.name}
+                    </h4>
+                    <p className="mt-1 text-sm text-[#61717D]">
+                      Odbiorca moze ogladac i eksportowac plan, bez edycji i usuwania.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShareDialogPlan(null)}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#DDEDF0] bg-white text-[#52616D] transition hover:bg-[#F3FBFC]"
+                    aria-label="Zamknij udostepnianie"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+
+                <div className="grid gap-4">
+                  <label className="block">
+                    <span className="mb-2 block text-sm font-semibold text-[#52616D]">
+                      Wybrany uzytkownik
+                    </span>
+                    <select
+                      value={shareUserId}
+                      onChange={(event) => setShareUserId(event.target.value)}
+                      disabled={saving}
+                      className="h-11 w-full rounded-[0.85rem] border border-[#DDEDF0] bg-white px-3 text-sm text-[#111827] outline-none focus:border-[#008EA1] disabled:opacity-60"
+                    >
+                      <option value="">Nie udostepniaj pojedynczo</option>
+                      {shareableUsers.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {getUserDisplayName(profile)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {isAdmin ? (
+                    <label className="flex min-h-11 items-center gap-2 rounded-[0.85rem] border border-[#DDEDF0] bg-[#F8FCFD] px-3 text-sm font-semibold text-[#52616D]">
+                      <input
+                        type="checkbox"
+                        checked={shareWithUserGroup}
+                        onChange={(event) => setShareWithUserGroup(event.target.checked)}
+                        disabled={saving}
+                        className="h-4 w-4 accent-[#008EA1]"
+                      />
+                      <Users className="h-4 w-4 text-[#008EA1]" />
+                      Wszyscy z grupy user
+                    </label>
+                  ) : null}
+
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShareDialogPlan(null)}
+                      className="inline-flex items-center justify-center rounded-[0.85rem] border border-[#DDEDF0] bg-white px-4 py-2.5 text-sm font-semibold text-[#52616D] transition hover:bg-[#F3FBFC]"
+                    >
+                      Anuluj
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => savePlanSharing(shareDialogPlan)}
+                      disabled={saving}
+                      className="inline-flex items-center justify-center gap-2 rounded-[0.85rem] bg-[#008EA1] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#007485] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Share2 className="h-4 w-4" />
+                      {saving ? "Zapisywanie..." : "Zapisz udostepnianie"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
 
       {status && (
         <div className="pointer-events-none fixed bottom-6 right-6 z-[1450] w-[min(360px,calc(100vw-2rem))] rounded-[1.2rem] border border-[#D5E2C8] bg-[#F4FAEE] px-4 py-3 text-sm text-[#4F6A2F] shadow-[0_18px_40px_rgba(36,32,26,0.10)] backdrop-blur">

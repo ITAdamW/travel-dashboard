@@ -23,6 +23,10 @@ function isMissingColumnError(error, columnName) {
   return combined.includes(String(columnName).toLowerCase());
 }
 
+function isMissingTableError(error, tableName) {
+  return error?.code === "42P01" || isMissingColumnError(error, tableName);
+}
+
 export function toCountryRow(country, index = 0) {
   return {
     id: country.id,
@@ -277,6 +281,7 @@ export function toPlannerPlanRow(destinationId, plan, index = 0) {
   return {
     id: plan.id,
     destination_id: destinationId,
+    owner_user_id: plan.ownerUserId || plan.owner_user_id || undefined,
     name: plan.name,
     days_count: Number(plan.daysCount ?? plan.itinerary?.length ?? 1),
     is_favorite: Boolean(plan.isFavorite ?? plan.is_favorite ?? false),
@@ -285,6 +290,103 @@ export function toPlannerPlanRow(destinationId, plan, index = 0) {
     notes: plan.notes || "",
     sort_order: index,
   };
+}
+
+function getProfileDisplayName(profile) {
+  return (
+    [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim() ||
+    profile?.login ||
+    profile?.email ||
+    "inny uzytkownik"
+  );
+}
+
+function normalizePlannerShare(share) {
+  return {
+    id: share.id,
+    planId: share.plan_id,
+    shareType: share.share_type,
+    targetUserId: share.target_user_id || "",
+    targetGroupRole: share.target_group_role || "",
+    createdBy: share.created_by || "",
+    createdAt: share.created_at || null,
+  };
+}
+
+async function fetchPlannerPlanShares(planIds) {
+  if (!supabase || !planIds.length) return new Map();
+
+  const { data, error } = await supabase
+    .from("planner_plan_shares")
+    .select("*")
+    .in("plan_id", planIds);
+
+  if (error && isMissingTableError(error, "planner_plan_shares")) {
+    return new Map();
+  }
+  if (error) throw error;
+
+  const sharesByPlanId = new Map();
+  for (const share of data || []) {
+    const normalized = normalizePlannerShare(share);
+    sharesByPlanId.set(normalized.planId, [
+      ...(sharesByPlanId.get(normalized.planId) || []),
+      normalized,
+    ]);
+  }
+
+  return sharesByPlanId;
+}
+
+async function fetchPlannerPlanOwners(ownerIds) {
+  if (!supabase || !ownerIds.length) return new Map();
+
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select("id,email,login,first_name,last_name,role")
+    .in("id", ownerIds);
+
+  if (error) return new Map();
+
+  return new Map(
+    (data || []).map((profile) => [
+      profile.id,
+      {
+        id: profile.id,
+        email: profile.email || "",
+        login: profile.login || "",
+        firstName: profile.first_name || "",
+        lastName: profile.last_name || "",
+        role: profile.role || "user",
+        displayName: getProfileDisplayName(profile),
+      },
+    ])
+  );
+}
+
+async function mapPlannerPlanRows(rows) {
+  const planIds = rows.map((plan) => plan.id).filter(Boolean);
+  const ownerIds = [...new Set(rows.map((plan) => plan.owner_user_id).filter(Boolean))];
+  const [sharesByPlanId, ownersById] = await Promise.all([
+    fetchPlannerPlanShares(planIds),
+    fetchPlannerPlanOwners(ownerIds),
+  ]);
+
+  return rows.map((plan) => ({
+    id: plan.id,
+    destinationId: plan.destination_id,
+    ownerUserId: plan.owner_user_id || "",
+    ownerProfile: ownersById.get(plan.owner_user_id) || null,
+    name: plan.name,
+    daysCount: plan.days_count,
+    isFavorite: Boolean(plan.is_favorite),
+    coverImage: normalizeSupabaseMediaUrl(plan.cover_image),
+    notes: plan.notes || "",
+    itinerary: ensureArray(plan.itinerary, []),
+    shares: sharesByPlanId.get(plan.id) || [],
+    createdAt: plan.created_at || null,
+    updatedAt: plan.updated_at || null,
+  }));
 }
 
 export async function fetchPlannerPlans(destinationId) {
@@ -298,16 +400,7 @@ export async function fetchPlannerPlans(destinationId) {
 
   if (error) throw error;
 
-  return (data || []).map((plan) => ({
-    id: plan.id,
-    destinationId: plan.destination_id,
-    name: plan.name,
-    daysCount: plan.days_count,
-    isFavorite: Boolean(plan.is_favorite),
-    coverImage: normalizeSupabaseMediaUrl(plan.cover_image),
-    notes: plan.notes || "",
-    itinerary: ensureArray(plan.itinerary, []),
-  }));
+  return mapPlannerPlanRows(data || []);
 }
 
 export async function fetchFavoritePlannerPlans() {
@@ -321,16 +414,7 @@ export async function fetchFavoritePlannerPlans() {
 
   if (error) throw error;
 
-  return (data || []).map((plan) => ({
-    id: plan.id,
-    destinationId: plan.destination_id,
-    name: plan.name,
-    daysCount: plan.days_count,
-    isFavorite: Boolean(plan.is_favorite),
-    coverImage: normalizeSupabaseMediaUrl(plan.cover_image),
-    notes: plan.notes || "",
-    itinerary: ensureArray(plan.itinerary, []),
-  }));
+  return mapPlannerPlanRows(data || []);
 }
 
 export async function upsertPlannerPlan(destinationId, plan, index = 0) {
@@ -339,8 +423,14 @@ export async function upsertPlannerPlan(destinationId, plan, index = 0) {
     .from("planner_plans")
     .upsert(fullRow);
 
-  if (error && isMissingColumnError(error, "cover_image")) {
-    const { cover_image, ...legacyRow } = fullRow;
+  if (
+    error &&
+    (isMissingColumnError(error, "cover_image") ||
+      isMissingColumnError(error, "owner_user_id"))
+  ) {
+    const legacyRow = { ...fullRow };
+    delete legacyRow.cover_image;
+    delete legacyRow.owner_user_id;
     ({ error } = await supabase.from("planner_plans").upsert(legacyRow));
   }
 
@@ -350,6 +440,41 @@ export async function upsertPlannerPlan(destinationId, plan, index = 0) {
 export async function deletePlannerPlan(planId) {
   const { error } = await supabase.from("planner_plans").delete().eq("id", planId);
   if (error) throw error;
+}
+
+export async function replacePlannerPlanShares(planId, shares) {
+  if (!supabase || !planId) return [];
+
+  const { error: deleteError } = await supabase
+    .from("planner_plan_shares")
+    .delete()
+    .eq("plan_id", planId);
+
+  if (deleteError) throw deleteError;
+
+  const rows = ensureArray(shares, [])
+    .map((share) => ({
+      plan_id: planId,
+      share_type: share.shareType,
+      target_user_id: share.shareType === "user" ? share.targetUserId : null,
+      target_group_role: share.shareType === "group" ? share.targetGroupRole : null,
+    }))
+    .filter((share) =>
+      share.share_type === "user"
+        ? Boolean(share.target_user_id)
+        : Boolean(share.target_group_role)
+    );
+
+  if (!rows.length) return [];
+
+  const { data, error } = await supabase
+    .from("planner_plan_shares")
+    .insert(rows)
+    .select("*");
+
+  if (error) throw error;
+
+  return (data || []).map(normalizePlannerShare);
 }
 
 export async function updatePlaceRoutePath(placeId, routePath) {
